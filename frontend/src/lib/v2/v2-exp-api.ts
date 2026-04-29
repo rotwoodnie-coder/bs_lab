@@ -31,7 +31,7 @@ export type PublishCourseTaskInput = {
   requirement?: string | null;
 };
 
-export type V2DictItem = { id: string; name: string; sortOrder?: number | null; comments?: string | null };
+export type V2DictItem = { id: string; name: string; sortOrder?: number | null; comments?: string | null; status?: string | null };
 export type V2DictGradeItem = { id: string; name: string; levelId?: string | null; sortOrder?: number | null; comments?: string | null };
 
 export interface V2ExpLibraryGradeRow {

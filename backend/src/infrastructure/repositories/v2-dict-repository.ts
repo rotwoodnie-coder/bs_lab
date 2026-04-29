@@ -55,7 +55,14 @@ export async function getGradeSubjects(): Promise<DictItem[]> {
 }
 
 export async function getMaterialTypes(): Promise<DictItem[]> {
-  return querySimpleDict("data_material_type", "type_id", "type_name");
+  const pool = getMysqlPool();
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT type_id AS id, type_name AS name, comments,
+            sort_order AS sortOrder, status AS status
+     FROM data_material_type WHERE COALESCE(status, 'y') = 'y'
+     ORDER BY sort_order ASC, type_id ASC`,
+  );
+  return rows as DictItem[];
 }
 
 export async function getMaterialProps(): Promise<DictItem[]> {
