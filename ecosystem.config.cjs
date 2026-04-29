@@ -33,6 +33,7 @@ module.exports = {
       cwd: "./frontend",
       script: "node_modules/.bin/next",
       args: "start -p 4200",
+      exec_interpreter: "none",
       env: {
         NODE_ENV: "production",
       },
