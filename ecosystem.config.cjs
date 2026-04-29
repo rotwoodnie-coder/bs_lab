@@ -19,9 +19,8 @@ module.exports = {
     {
       name: "bs-lab-backend",
       cwd: "./backend",
-      script: "src/http/server.ts",
-      interpreter: "node",
-      interpreterArgs: "--experimental-strip-types",
+      script: "node_modules/.bin/tsx",
+      args: "src/http/server.ts",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
