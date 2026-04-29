@@ -1,8 +1,7 @@
 /**
  * PM2 生态系统配置
  *
- * 全部通过 pnpm workspace 驱动，确保路径解析和依赖管理与开发环境一致。
- * 使用 exec_interpreter: "none" 让 PM2 走 shell 执行（pnpm/tsx/next 均为 shell/Node 脚本）。
+ * 全部指向真实 JS 入口文件，避免 .bin/ 下的 shell 脚本被 Node 执行报错。
  *
  * ## 首次启动
  *   cd /opt/bs-lab && sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
@@ -19,11 +18,10 @@ module.exports = {
   apps: [
     {
       name: "bs-lab-backend",
-      // 在 ./backend 目录下用 pnpm exec tsx 启动 TypeScript 服务器
       cwd: "./backend",
       script: "pnpm",
       args: "exec tsx src/http/server.ts",
-      exec_interpreter: "none",
+      interpreter: "none",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
@@ -34,11 +32,11 @@ module.exports = {
     },
     {
       name: "bs-lab-frontend",
-      // 在 ./frontend 目录下用 next start 启动生产模式
       cwd: "./frontend",
-      script: "node_modules/.bin/next",
+      // next 的 JS 入口（不走 .bin/next shell 脚本）
+      script: "node_modules/next/dist/bin/next.js",
       args: "start -p 4200",
-      exec_interpreter: "none",
+      interpreter: "node",
       env: {
         NODE_ENV: "production",
       },
