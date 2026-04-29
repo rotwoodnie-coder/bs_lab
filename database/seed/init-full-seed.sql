@@ -35,9 +35,9 @@ INSERT IGNORE INTO `data_role` (`role_id`, `role_name`, `comments`, `status`, `s
 -- 3. 学段 data_school_level
 -- ============================================================
 INSERT IGNORE INTO `data_school_level` (`level_id`, `level_name`, `comments`, `status`, `sort_order`) VALUES
-('Level_Primary',   '小学', '小学学段', 'y', 1),
-('Level_Junior',    '初中', '初中学段', 'y', 2),
-('Level_Senior',    '高中', '高中学段', 'y', 3);
+('STAGE_PRIMARY',   '小学', '小学学段', 'y', 1),
+('STAGE_JUNIOR',    '初中', '初中学段', 'y', 2),
+('STAGE_SENIOR',    '高中', '高中学段', 'y', 3);
 
 -- ============================================================
 -- 4. 学科 data_school_subject
@@ -52,48 +52,48 @@ INSERT IGNORE INTO `data_school_subject` (`subject_id`, `subject_name`, `comment
 -- 5. 年级 data_school_grade（关联学段）
 -- ============================================================
 INSERT IGNORE INTO `data_school_grade` (`grade_id`, `grade_name`, `comments`, `status`, `sort_order`, `school_level_id`) VALUES
-('Grade_P1',  '一年级', '小学一年级', 'y', 1,   'Level_Primary'),
-('Grade_P2',  '二年级', '小学二年级', 'y', 2,   'Level_Primary'),
-('Grade_P3',  '三年级', '小学三年级', 'y', 3,   'Level_Primary'),
-('Grade_P4',  '四年级', '小学四年级', 'y', 4,   'Level_Primary'),
-('Grade_P5',  '五年级', '小学五年级', 'y', 5,   'Level_Primary'),
-('Grade_P6',  '六年级', '小学六年级', 'y', 6,   'Level_Primary'),
-('Grade_J1',  '初一',   '初中一年级（初一/七年级）', 'y', 7,  'Level_Junior'),
-('Grade_J2',  '初二',   '初中二年级（初二/八年级）', 'y', 8,  'Level_Junior'),
-('Grade_J3',  '初三',   '初中三年级（初三/九年级）', 'y', 9,  'Level_Junior'),
-('Grade_S1',  '高一',   '高中一年级',        'y', 10, 'Level_Senior'),
-('Grade_S2',  '高二',   '高中二年级',        'y', 11, 'Level_Senior'),
-('Grade_S3',  '高三',   '高中三年级',        'y', 12, 'Level_Senior');
+('GRADE_1',  '一年级', '小学一年级', 'y', 1,   'STAGE_PRIMARY'),
+('GRADE_2',  '二年级', '小学二年级', 'y', 2,   'STAGE_PRIMARY'),
+('GRADE_3',  '三年级', '小学三年级', 'y', 3,   'STAGE_PRIMARY'),
+('GRADE_4',  '四年级', '小学四年级', 'y', 4,   'STAGE_PRIMARY'),
+('GRADE_5',  '五年级', '小学五年级', 'y', 5,   'STAGE_PRIMARY'),
+('GRADE_6',  '六年级', '小学六年级', 'y', 6,   'STAGE_PRIMARY'),
+('GRADE_7',  '初一',   '初中一年级（初一/七年级）', 'y', 7,  'STAGE_JUNIOR'),
+('GRADE_8',  '初二',   '初中二年级（初二/八年级）', 'y', 8,  'STAGE_JUNIOR'),
+('GRADE_9',  '初三',   '初中三年级（初三/九年级）', 'y', 9,  'STAGE_JUNIOR'),
+('GRADE_10', '高一',   '高中一年级',        'y', 10, 'STAGE_SENIOR'),
+('GRADE_11', '高二',   '高中二年级',        'y', 11, 'STAGE_SENIOR'),
+('GRADE_12', '高三',   '高中三年级',        'y', 12, 'STAGE_SENIOR');
 
 -- ============================================================
 -- 6. 年级-学科关联 data_school_grade_subject
 -- ============================================================
 INSERT IGNORE INTO `data_school_grade_subject` (`seq_id`, `subject_id`, `grade_id`) VALUES
 -- 小学：科学（3-6 年级开设科学课）
-('sg_ps3_sc', 'Subj_Science', 'Grade_P3'),
-('sg_ps4_sc', 'Subj_Science', 'Grade_P4'),
-('sg_ps5_sc', 'Subj_Science', 'Grade_P5'),
-('sg_ps6_sc', 'Subj_Science', 'Grade_P6'),
--- 初中：物理/化学/生物
-('sg_j1_ph', 'Subj_Physics',  'Grade_J1'),
-('sg_j1_ch', 'Subj_Chemistry','Grade_J1'),
-('sg_j1_bi', 'Subj_Biology',  'Grade_J1'),
-('sg_j2_ph', 'Subj_Physics',  'Grade_J2'),
-('sg_j2_ch', 'Subj_Chemistry','Grade_J2'),
-('sg_j2_bi', 'Subj_Biology',  'Grade_J2'),
-('sg_j3_ph', 'Subj_Physics',  'Grade_J3'),
-('sg_j3_ch', 'Subj_Chemistry','Grade_J3'),
-('sg_j3_bi', 'Subj_Biology',  'Grade_J3'),
--- 高中：物理/化学/生物
-('sg_s1_ph', 'Subj_Physics',  'Grade_S1'),
-('sg_s1_ch', 'Subj_Chemistry','Grade_S1'),
-('sg_s1_bi', 'Subj_Biology',  'Grade_S1'),
-('sg_s2_ph', 'Subj_Physics',  'Grade_S2'),
-('sg_s2_ch', 'Subj_Chemistry','Grade_S2'),
-('sg_s2_bi', 'Subj_Biology',  'Grade_S2'),
-('sg_s3_ph', 'Subj_Physics',  'Grade_S3'),
-('sg_s3_ch', 'Subj_Chemistry','Grade_S3'),
-('sg_s3_bi', 'Subj_Biology',  'Grade_S3');
+('sg_3_sc',  'Subj_Science',  'GRADE_3'),
+('sg_4_sc',  'Subj_Science',  'GRADE_4'),
+('sg_5_sc',  'Subj_Science',  'GRADE_5'),
+('sg_6_sc',  'Subj_Science',  'GRADE_6'),
+-- 初中：物理/化学/生物（初一至初三）
+('sg_7_ph',  'Subj_Physics',  'GRADE_7'),
+('sg_7_ch',  'Subj_Chemistry','GRADE_7'),
+('sg_7_bi',  'Subj_Biology',  'GRADE_7'),
+('sg_8_ph',  'Subj_Physics',  'GRADE_8'),
+('sg_8_ch',  'Subj_Chemistry','GRADE_8'),
+('sg_8_bi',  'Subj_Biology',  'GRADE_8'),
+('sg_9_ph',  'Subj_Physics',  'GRADE_9'),
+('sg_9_ch',  'Subj_Chemistry','GRADE_9'),
+('sg_9_bi',  'Subj_Biology',  'GRADE_9'),
+-- 高中：物理/化学/生物（高一至高三）
+('sg_10_ph', 'Subj_Physics',  'GRADE_10'),
+('sg_10_ch', 'Subj_Chemistry','GRADE_10'),
+('sg_10_bi', 'Subj_Biology',  'GRADE_10'),
+('sg_11_ph', 'Subj_Physics',  'GRADE_11'),
+('sg_11_ch', 'Subj_Chemistry','GRADE_11'),
+('sg_11_bi', 'Subj_Biology',  'GRADE_11'),
+('sg_12_ph', 'Subj_Physics',  'GRADE_12'),
+('sg_12_ch', 'Subj_Chemistry','GRADE_12'),
+('sg_12_bi', 'Subj_Biology',  'GRADE_12');
 
 -- ============================================================
 -- 7. 实验难度 data_exp_difficulty
@@ -214,5 +214,18 @@ INSERT IGNORE INTO `sys_user` (`user_id`, `user_name`, `user_org_id`, `user_role
 -- ============================================================
 INSERT IGNORE INTO `sys_user_role` (`seq_id`, `user_id`, `role_id`, `org_id`, `create_time`) VALUES
 ('sur_admin_001', 'u_admin', 'Role_Sys_Admin', 'Org_Root', NOW());
+
+-- ============================================================
+-- 22. 学科映射到角色 data_role（参见 migration 0026）
+-- 教师授课关系 sys_user_role.role_id 存储学科 ID，必须同时存在于 data_role
+-- ============================================================
+INSERT IGNORE INTO `data_role` (`role_id`, `role_name`, `comments`, `status`, `sort_order`)
+SELECT
+  `subject_id`          AS `role_id`,
+  `subject_name`        AS `role_name`,
+  '自动同步：学科映射为任课教师角色' AS `comments`,
+  COALESCE(NULLIF(`status`, ''), 'y') AS `status`,
+  `sort_order`          AS `sort_order`
+FROM `data_school_subject`;
 
 SET FOREIGN_KEY_CHECKS = 1;
