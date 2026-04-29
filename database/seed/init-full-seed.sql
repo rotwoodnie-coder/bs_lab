@@ -52,22 +52,24 @@ INSERT IGNORE INTO `data_school_subject` (`subject_id`, `subject_name`, `comment
 -- 5. 年级 data_school_grade（关联学段）
 -- ============================================================
 INSERT IGNORE INTO `data_school_grade` (`grade_id`, `grade_name`, `comments`, `status`, `sort_order`, `school_level_id`) VALUES
-('Grade_P3',  '三年级', '小学三年级', 'y', 1, 'Level_Primary'),
-('Grade_P4',  '四年级', '小学四年级', 'y', 2, 'Level_Primary'),
-('Grade_P5',  '五年级', '小学五年级', 'y', 3, 'Level_Primary'),
-('Grade_P6',  '六年级', '小学六年级', 'y', 4, 'Level_Primary'),
-('Grade_J1',  '七年级', '初中七年级（初一）', 'y', 5, 'Level_Junior'),
-('Grade_J2',  '八年级', '初中八年级（初二）', 'y', 6, 'Level_Junior'),
-('Grade_J3',  '九年级', '初中九年级（初三）', 'y', 7, 'Level_Junior'),
-('Grade_S1',  '高一',   '高中一年级',        'y', 8, 'Level_Senior'),
-('Grade_S2',  '高二',   '高中二年级',        'y', 9, 'Level_Senior'),
-('Grade_S3',  '高三',   '高中三年级',        'y', 10, 'Level_Senior');
+('Grade_P1',  '一年级', '小学一年级', 'y', 1,   'Level_Primary'),
+('Grade_P2',  '二年级', '小学二年级', 'y', 2,   'Level_Primary'),
+('Grade_P3',  '三年级', '小学三年级', 'y', 3,   'Level_Primary'),
+('Grade_P4',  '四年级', '小学四年级', 'y', 4,   'Level_Primary'),
+('Grade_P5',  '五年级', '小学五年级', 'y', 5,   'Level_Primary'),
+('Grade_P6',  '六年级', '小学六年级', 'y', 6,   'Level_Primary'),
+('Grade_J1',  '初一',   '初中一年级（初一/七年级）', 'y', 7,  'Level_Junior'),
+('Grade_J2',  '初二',   '初中二年级（初二/八年级）', 'y', 8,  'Level_Junior'),
+('Grade_J3',  '初三',   '初中三年级（初三/九年级）', 'y', 9,  'Level_Junior'),
+('Grade_S1',  '高一',   '高中一年级',        'y', 10, 'Level_Senior'),
+('Grade_S2',  '高二',   '高中二年级',        'y', 11, 'Level_Senior'),
+('Grade_S3',  '高三',   '高中三年级',        'y', 12, 'Level_Senior');
 
 -- ============================================================
 -- 6. 年级-学科关联 data_school_grade_subject
 -- ============================================================
 INSERT IGNORE INTO `data_school_grade_subject` (`seq_id`, `subject_id`, `grade_id`) VALUES
--- 小学：科学
+-- 小学：科学（3-6 年级开设科学课）
 ('sg_ps3_sc', 'Subj_Science', 'Grade_P3'),
 ('sg_ps4_sc', 'Subj_Science', 'Grade_P4'),
 ('sg_ps5_sc', 'Subj_Science', 'Grade_P5'),
