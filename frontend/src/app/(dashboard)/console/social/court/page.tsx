@@ -236,7 +236,7 @@ export default function CommunityCourtPage() {
           <DialogHeader>
             <DialogTitle>仲裁裁定</DialogTitle>
             <DialogDescription>
-              {openItem ? `${openItem.workTitle}（${openItem.studentName}）` : ""}
+              {openItem ? `${(openItem as any).title || (openItem as any).workTitle || "未命名作业"}（${"学生"}）` : ""}
             </DialogDescription>
           </DialogHeader>
           <RadioGroup
