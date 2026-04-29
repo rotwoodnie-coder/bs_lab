@@ -107,7 +107,7 @@ import type {
 } from "@/types/experiment";
 
 function v2OrgTreeToPickerRoots(items: any[]): OrgNode[] {
-  const schoolTypeSet = new Set([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
+  const schoolTypeSet = new Set<string>([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
   const mapNode = (n: any): OrgNode[] => {
     const typeId: string | null | undefined = n?.orgTypeId ?? null;
     const children: any[] = Array.isArray(n?.children) ? n.children : [];

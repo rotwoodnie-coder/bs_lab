@@ -44,7 +44,7 @@ function schoolTypeIcon(orgTypeId: string | null) {
   return <Building2 className="size-4 text-muted-foreground" />;
 }
 
-const selectableIds = new Set([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
+const selectableIds = new Set<string>([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
 
 interface Props {
   actor: CoreApiActor;

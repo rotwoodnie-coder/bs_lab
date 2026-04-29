@@ -79,9 +79,9 @@ export function OrgCurrentNodeForm({
     setDirty(false);
   }, [selectedOrg]);
 
-  const schoolLikeTypeIds = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
-  const gradeLikeTypeIds = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level];
-  const classLikeTypeIds = [V2_ORG_TYPE_IDS.class];
+  const schoolLikeTypeIds: string[] = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+  const gradeLikeTypeIds: string[] = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level];
+  const classLikeTypeIds: string[] = [V2_ORG_TYPE_IDS.class];
 
   const buildPayload = (): UpdateV2SysOrgInput | null => {
     if (!orgName.trim()) return null;

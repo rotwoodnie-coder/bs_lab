@@ -43,10 +43,10 @@ export function resolveSchoolOrgIdFromTree(
   return topSchool?.orgId ?? null;
 }
 
-const schoolLikeOrgIds = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+const schoolLikeOrgIds: string[] = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
 
 function isSchoolLikeNode(org: V2SysOrgItem | undefined): boolean {
-  return org != null && schoolLikeOrgIds.includes(org.orgTypeId as typeof V2_ORG_TYPE_IDS[keyof typeof V2_ORG_TYPE_IDS]);
+  return org != null && schoolLikeOrgIds.includes(org.orgTypeId ?? "");
 }
 
 /**

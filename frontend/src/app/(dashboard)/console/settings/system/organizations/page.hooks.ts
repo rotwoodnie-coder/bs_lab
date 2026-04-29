@@ -253,11 +253,11 @@ export function useOrganizations(): UseOrganizationsReturn {
         // 分离班级和年级：班级在前
         const classDeleteIds = diff.deletes.filter((d) => {
           const n = descendants.find((c) => c.orgId === d.orgId);
-          return n && isClassNode(n, resolvedClassTypeId);
+          return n && isClassNode(n);
         });
         const gradeDeleteIds = diff.deletes.filter((d) => {
           const n = descendants.find((c) => c.orgId === d.orgId);
-          return n && isGradeNode(n, resolvedGradeTypeId);
+          return n && isGradeNode(n);
         });
         const orderedDeletes = [...classDeleteIds, ...gradeDeleteIds];
         for (const row of orderedDeletes) {
@@ -346,7 +346,7 @@ export function useOrganizations(): UseOrganizationsReturn {
           const parentGrade = gradeNodeMap.get(row.gradeId);
           if (!parentGrade) continue;
           const existingSameName = descendants.some(
-            (c) => isClassNode(c, resolvedClassTypeId) && c.parentOrgId === parentGrade.orgId && c.orgName === row.orgName,
+            (c) => isClassNode(c) && c.parentOrgId === parentGrade.orgId && c.orgName === row.orgName,
           );
           if (existingSameName) continue;
           await createV2SysOrg(actor, {

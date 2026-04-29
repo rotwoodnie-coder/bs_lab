@@ -1,7 +1,7 @@
 import { V2_ORG_TYPE_IDS } from "@/lib/v2/v2-org-type-constants";
 
-const schoolLikeIds = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
-const gradeOrClassIds = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level, V2_ORG_TYPE_IDS.class];
+const schoolLikeIds: string[] = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+const gradeOrClassIds: string[] = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level, V2_ORG_TYPE_IDS.class];
 
 export function orgTypeBadgeVariant(orgTypeId: string | null): "default" | "secondary" | "outline" {
   if (!orgTypeId) return "outline";
@@ -11,8 +11,8 @@ export function orgTypeBadgeVariant(orgTypeId: string | null): "default" | "seco
   return "outline";
 }
 
-const schoolIconIds = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
-const classIconIds = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level, V2_ORG_TYPE_IDS.class];
+const schoolIconIds: string[] = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+const classIconIds: string[] = [V2_ORG_TYPE_IDS.grade, V2_ORG_TYPE_IDS.level, V2_ORG_TYPE_IDS.class];
 
 export function orgTypeIconName(orgTypeId: string | null): "district" | "school" | "class" | "other" {
   if (!orgTypeId) return "other";

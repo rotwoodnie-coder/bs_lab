@@ -7,7 +7,7 @@ export function formatExpireDate(date: string | null): string {
   return formatZhDate(date);
 }
 
-export function roleLabel(id: RoleId) {
+export function roleLabel(id: string) {
   return USER_ROLE_OPTIONS.find((r) => r.id === id)?.label ?? id;
 }
 

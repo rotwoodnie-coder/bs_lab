@@ -48,7 +48,7 @@ function collectByType(root: V2SysOrgItem, typeId: string): OrgLite[] {
   return out;
 }
 
-const schoolLikeOrgTypeIds = new Set([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
+const schoolLikeOrgTypeIds = new Set<string>([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
 
 /**
  * 列出组织树中**顶层学校**节点。
