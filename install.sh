@@ -175,14 +175,11 @@ run_migrations() {
 
   cd "$dir"
 
-  # DDL baseline
-  [[ -f "bs_exp_data.sql" ]] && {
-    log_info "Running DDL baseline..."
-    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "bs_exp_data.sql" 2>/dev/null || \
-      log_warn "Baseline may have existing tables (ok)"
-  }
+  # 注意：bs_exp_data.sql 包含 DROP TABLE IF EXISTS，仅用于新建空库！
+  # 已有数据的数据库不应执行该文件，否则会清空所有表和数据。
+  # 增量迁移文件（[0-9]*.sql）可以安全执行（ALTER TABLE / CREATE TABLE IF NOT EXISTS）
 
-  # Incremental migrations
+  # Incremental migrations only — DDL baseline skipped for data safety
   for f in $(ls [0-9]*.sql 2>/dev/null | sort); do
     log_info "Migration: $f"
     mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$f" 2>/dev/null || \
