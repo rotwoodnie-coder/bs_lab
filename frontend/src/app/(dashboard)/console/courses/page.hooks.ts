@@ -84,7 +84,7 @@ export function useCoursesPage() {
       if (!stepperForm.coursebookName.trim()) return;
       setSubmitting(true);
       try {
-        const res = await createEduTextbookApi(actor, { coursebookName: stepperForm.coursebookName.trim(), coursebookVersion: stepperForm.coursebookVersion || undefined, comments: stepperForm.comments || undefined, status: "n" });
+        const res = await createEduTextbookApi(actor, { coursebook_name: stepperForm.coursebookName.trim(), coursebook_version: stepperForm.coursebookVersion || undefined, comments: stepperForm.comments || undefined, status: "n" });
         setNewCourseId(res.newId);
         setStepperStep(2);
         await load(keyword);
