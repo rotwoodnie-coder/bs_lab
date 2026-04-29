@@ -126,7 +126,7 @@ export function useCoursesPage() {
     if (!editTarget || !editForm.coursebookName.trim()) return;
     setBusyId(editTarget.coursebookId);
     try {
-      await updateEduTextbookApi(actor, editTarget.coursebookId, { coursebookName: editForm.coursebookName.trim(), coursebookVersion: editForm.coursebookVersion || null, comments: editForm.comments || null, status: editForm.status });
+      await updateEduTextbookApi(actor, editTarget.coursebookId, { coursebook_name: editForm.coursebookName.trim(), coursebook_version: editForm.coursebookVersion || null, comments: editForm.comments || null, status: editForm.status });
       showToast("ok", "课程信息已更新");
       setEditOpen(false);
       await load(keyword);
