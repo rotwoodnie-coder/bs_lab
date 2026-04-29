@@ -1,6 +1,6 @@
 ---
 description: bsv0 目录仅作 UI 交互参考（只读禁用）
-alwaysApply: true
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # bsv0 目录：仅 UI 交互参考（强制）

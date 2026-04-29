@@ -1,6 +1,6 @@
 ---
 description: 复用优先：同构页面与交互必须共享实现
-alwaysApply: true
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # 复用优先（页面/交互）

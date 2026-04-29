@@ -82,6 +82,12 @@ export function useConsoleAssessmentQuestionsScreen() {
     void fetchV2QuestionCapacities(actor).then(setQuestionCapacities).catch(() => {});
   }, [actor, hydrated]);
 
+  const refreshDictData = React.useCallback(() => {
+    void fetchV2QuestionTypes(actor).then(setQuestionTypes).catch(() => {});
+    void fetchV2DifficultyTypes(actor).then(setDifficultyTypes).catch(() => {});
+    void fetchV2QuestionCapacities(actor).then(setQuestionCapacities).catch(() => {});
+  }, [actor]);
+
   const [items, setItems] = React.useState<V2QuestionItem[]>([]);
   const [total, setTotal] = React.useState(0);
   const [loading, setLoading] = React.useState(false);
@@ -229,6 +235,7 @@ export function useConsoleAssessmentQuestionsScreen() {
     questionTypes,
     difficultyTypes,
     questionCapacities,
+    refreshDictData,
     items,
     total,
     loading,

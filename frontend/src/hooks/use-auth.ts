@@ -368,3 +368,14 @@ export function useAuth(): {
 
   return { user, loading, error, refresh: load };
 }
+
+/**
+ * 判断当前用户是否拥有指定角色之一（Role_* 或 Subj_*）。
+ * 先检查主身份 user.role，再检查 userRoleBindings 扩展绑定。
+ * 用于菜单/按钮可见性守卫。
+ */
+export function hasAnyRole(user: AuthUser, ...roleIds: string[]): boolean {
+  const main = user.role ?? user.roleId ?? "";
+  if (roleIds.includes(main)) return true;
+  return user.userRoleBindings.some((b) => roleIds.includes(b.roleId));
+}

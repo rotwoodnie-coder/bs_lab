@@ -1,6 +1,7 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket, PoolConnection } from "mysql2/promise";
 import { allocateUniqueMysqlVarchar32Id } from "../ids/identifiable-varchar32.ts";
 import { getMysqlPool } from "../mysql/mysql-client.ts";
+import { recalculateSubjectTags } from "../../services/SubjectTagService.ts";
 
 export type SubjectGroupStatus = "Y" | "N";
 export type SubjectGroupType = "research_group" | "subject_group";
@@ -151,30 +152,80 @@ export async function listSubjectGroupsByMember(userId: string): Promise<Subject
   });
 }
 
-async function ensureNoDuplicateMember(pool: ReturnType<typeof getMysqlPool>, groupId: string, userId: string): Promise<void> {
-  const [rows] = await pool.query<RowDataPacket[]>(
+async function ensureNoDuplicateMember(conn: PoolConnection, groupId: string, userId: string): Promise<void> {
+  const [rows] = await conn.query<RowDataPacket[]>(
     `SELECT seq_id AS seqId FROM subject_group_member WHERE group_id = ? AND user_id = ? LIMIT 1`,
     [groupId, userId],
   );
   if (rows.length > 0) throw new Error("SUBJECT_GROUP_MEMBER_EXISTS");
 }
 
+/**
+ * 添加课题组成员（事务保护）。
+ * 主写入与标签重算在同一个事务中，防止"长短脚"。
+ */
 export async function addSubjectGroupMember(groupId: string, userId: string, actorId?: string): Promise<SubjectGroupMemberRecord> {
   const pool = getMysqlPool();
-  await ensureNoDuplicateMember(pool, groupId, userId);
-  const seqId = await allocateUniqueMysqlVarchar32Id(pool, { table: "subject_group_member", column: "seq_id", label: `${groupId}_${userId}` });
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO subject_group_member
-      (seq_id, group_id, user_id, status, create_user_id, create_time)
-     VALUES (?, ?, ?, 'Y', ?, NOW())`,
-    [seqId, groupId, userId, actorId ?? null],
-  );
-  return { seqId, groupId, userId, status: "Y", createUserId: actorId ?? null, createTime: new Date().toISOString() };
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await ensureNoDuplicateMember(conn, groupId, userId);
+    const seqId = await allocateUniqueMysqlVarchar32Id(conn, { table: "subject_group_member", column: "seq_id", label: `${groupId}_${userId}` });
+    await conn.query<ResultSetHeader>(
+      `INSERT INTO subject_group_member
+        (seq_id, group_id, user_id, status, create_user_id, create_time)
+       VALUES (?, ?, ?, 'Y', ?, NOW())`,
+      [seqId, groupId, userId, actorId ?? null],
+    );
+
+    // 标签冗余：重新计算该用户所有 Subj_* 标签（课题组维度）
+    await recalculateSubjectTags(conn, userId);
+
+    await conn.commit();
+    return { seqId, groupId, userId, status: "Y", createUserId: actorId ?? null, createTime: new Date().toISOString() };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
+/**
+ * 移除课题组成员（事务保护）。
+ * 删除与标签重算在同一个事务中，防止"长短脚"。
+ */
 export async function removeSubjectGroupMember(seqId: string): Promise<void> {
   const pool = getMysqlPool();
-  await pool.query(`DELETE FROM subject_group_member WHERE seq_id = ?`, [seqId]);
+
+  // 先查 userId（删除后无法追溯），在事务外只读查询，安全
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT user_id FROM subject_group_member WHERE seq_id = ? LIMIT 1`,
+    [seqId],
+  );
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(`DELETE FROM subject_group_member WHERE seq_id = ?`, [seqId]);
+
+    if (rows.length > 0) {
+      const userId = String((rows[0] as RowDataPacket).user_id ?? "");
+      if (userId) {
+        // 标签冗余：重新计算标签（存在性校验自动处理移除）
+        await recalculateSubjectTags(conn, userId);
+      }
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function transferSubjectGroupOwner(groupId: string, newOwnerId: string, actorId?: string): Promise<SubjectGroupRecord> {

@@ -1,6 +1,6 @@
 ---
 description: 管理页 UI 交互母版（标准实验目录 + 教学框架管理）
-alwaysApply: true
+globs: frontend/src/app/(dashboard)/console/**/*.{ts,tsx}
 ---
 
 # 管理页 UI 交互母版与统一化

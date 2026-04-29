@@ -477,7 +477,24 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       }
       const finalPermissions = resolvePermissionCodes(currentRoleCode);
       // token 内 roleId 统一存 Role_*（用于权限计算与路由守卫）
-      const tokens = createV2SessionTokens({ userId, orgId: currentOrgId, roleId: currentRoleCode });
+
+      // 收集全量角色并集（Role_* + Subj_*），用于 Token 入射的 roles[]
+      const [allRoleRows] = await pool.query<RowDataPacket[]>(
+        `SELECT DISTINCT role_id FROM sys_user_role WHERE user_id = ?`,
+        [userId],
+      );
+      const allRoleIds = allRoleRows
+        .map((r) => String((r as RowDataPacket).role_id ?? ""))
+        .filter(Boolean);
+      // 确保主角色在内
+      if (currentRoleCode && !allRoleIds.includes(currentRoleCode)) {
+        allRoleIds.push(currentRoleCode);
+      }
+
+      const tokens = createV2SessionTokens(
+        { userId, orgId: currentOrgId, roleId: currentRoleCode },
+        allRoleIds,
+      );
       const setCookies = buildAuthSetCookieHeaders(tokens);
 
       const headers = new Headers();
@@ -724,7 +741,10 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       if (!nextOrgId) return fail("无法识别组织", 422);
 
       // 复用当前 sid，避免刷新 token 记忆表失效导致短期登出
-      const tokens = createV2SessionTokens({ userId: actor.userId, orgId: nextOrgId, roleId: nextRoleCode, sid: actor.sid });
+      const tokens = createV2SessionTokens(
+        { userId: actor.userId, orgId: nextOrgId, roleId: nextRoleCode, sid: actor.sid },
+        actor.roles,
+      );
       const headers = new Headers();
       buildAuthSetCookieHeaders(tokens).forEach((c) => headers.append("set-cookie", c));
 

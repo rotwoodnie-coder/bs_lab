@@ -9,7 +9,7 @@ import type { ExperimentPickerDialog } from "../ExperimentPickerDialog";
 // This component has been deprecated. The "关联实验" functionality
 // has been extracted into ExperimentPickerDialog and is triggered from EditorBasicSection.
 export function EditorSubjectSection(_props: {
-  pickerTable: Parameters<typeof ExperimentPickerDialog>[0]["pickerTable"];
+  curriculumTable: Parameters<typeof ExperimentPickerDialog>[0]["curriculumTable"];
   pickerRowsLength: number;
   pickerSelectedStandardId: string;
   pickerUseCustomExp: boolean;

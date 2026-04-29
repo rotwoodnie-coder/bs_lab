@@ -152,6 +152,7 @@ export interface SysMsgRecord {
   receiverUserId: string;
   senderUserId: string | null;
   msgTypeId: string | null;
+  bizType: string | null;
   msgContent: string;
   readTag: V2ReadTag;
   sendTime: string | null;
@@ -162,6 +163,7 @@ export interface SendSysMsgInput {
   receiverUserId: string;
   senderUserId?: string;
   msgTypeId?: string;
+  bizType?: string;
   msgContent: string;
 }
 
@@ -170,6 +172,7 @@ export type SysMsgListQuery = {
   readTag?: V2ReadTag;
   page?: number;
   pageSize?: number;
+  msgTypeId?: string;
 };
 
 // ─── 系统日志 sys_log ────────────────────────────────────

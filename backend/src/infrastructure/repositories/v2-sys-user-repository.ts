@@ -43,6 +43,27 @@ export function coerceAuditorIdForMysql32(id: string | null | undefined): string
   return createHash("sha256").update(s).digest("hex").slice(0, 32);
 }
 
+/**
+ * 前端可能传 "YYYY-MM-DD HH:MM"（缺 ":ss"），而 MySQL DATETIME 要求完整格式；
+ * 空字符串视为不设有效期（存 NULL）。
+ * 长期有效锚点：2099-12-31 23:59:59，超过该值自动收敛。
+ */
+const ETERNAL_ANCHOR = "2099-12-31 23:59:59";
+
+function normalizeExpireDate(v: string | null | undefined): string | null {
+  if (v == null) return null;
+  let raw = String(v).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(raw)) raw = `${raw}:00`;
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) raw = `${raw} 00:00:00`;
+  // 边界收敛：超过长期锚点则截断
+  if (raw > ETERNAL_ANCHOR) return ETERNAL_ANCHOR;
+  // 锁定长期锚点：前端 "2099-12-31 23:59:00" 或 "2099-12-31" 都归一到精确锚点，
+  // 避免未来精准匹配 = ETERNAL_ANCHOR 时漏掉数据
+  if (raw === "2099-12-31 23:59:00" || raw === "2099-12-31 00:00:00") return ETERNAL_ANCHOR;
+  return raw;
+}
+
 function rowToSysUser(row: RowDataPacket): SysUserSafeRecord {
   return {
     userId: String(row.user_id),
@@ -169,7 +190,7 @@ export async function createSysUser(
       userId, input.userName, input.loginName, pwd,
       input.userOrgId ?? null, input.userRoleId ?? null,
       input.userNickName ?? null, input.userPhone ?? null, input.userEmail ?? null,
-      input.expireDate ?? null, input.prefTitleId ?? null,
+      normalizeExpireDate(input.expireDate), input.prefTitleId ?? null,
       input.status ?? "y", input.comments ?? null,
       coerceAuditorIdForMysql32(actorId), coerceAuditorIdForMysql32(actorId),
     ],
@@ -229,7 +250,10 @@ export async function updateSysUser(
   if (input.userNickName !== undefined) { sets.push("user_nick_name = ?"); params.push(input.userNickName); }
   if (input.userPhone !== undefined) { sets.push("user_phone = ?"); params.push(input.userPhone); }
   if (input.userEmail !== undefined) { sets.push("user_email = ?"); params.push(input.userEmail); }
-  if (input.expireDate !== undefined) { sets.push("expire_date = ?"); params.push(input.expireDate); }
+  if (input.expireDate !== undefined) {
+    sets.push("expire_date = ?");
+    params.push(normalizeExpireDate(input.expireDate));
+  }
   if (input.prefTitleId !== undefined) { sets.push("pref_title_id = ?"); params.push(input.prefTitleId); }
   if (input.comments !== undefined) { sets.push("comments = ?"); params.push(input.comments); }
   if (input.status !== undefined) { sets.push("status = ?"); params.push(input.status); }

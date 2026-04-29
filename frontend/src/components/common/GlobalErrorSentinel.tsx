@@ -187,7 +187,9 @@ export function GlobalErrorSentinel({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  React.useEffect(() => installAutoNetworkErrorCapture(actor), [actor]);
+  React.useEffect(() => {
+    if (actor) installAutoNetworkErrorCapture(actor);
+  }, [actor]);
 
   const onIssue = React.useCallback(async (payload: IssuePayload) => {
     if (sessionReportedHashSet.has(payload.sessionHash)) return;

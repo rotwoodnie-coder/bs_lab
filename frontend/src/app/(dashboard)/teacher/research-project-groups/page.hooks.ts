@@ -18,8 +18,8 @@ export type ResearchGroupOrgFilter = "all" | "y" | "n";
 export function useTeacherResearchProjectGroups() {
   const { user } = useAuth();
   const actor = React.useMemo<CoreApiActor>(
-    () => ({ role: "", orgId: user.orgId, userId: user.userId, userName: user.userName }),
-    [user.orgId, user.userId, user.userName],
+    () => ({ role: user.role, orgId: user.orgId, userId: user.userId, userName: user.userName }),
+    [user.role, user.orgId, user.userId, user.userName],
   );
 
   const [filter, setFilter] = React.useState<ResearchGroupOrgFilter>("all");

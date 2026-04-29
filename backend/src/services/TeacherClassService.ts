@@ -1,6 +1,11 @@
 /**
  * 教师授课班级关系：`Teacher_Class` 专用表（teacher_id + class_org_id + subject_id 三元组唯一）。
- * 不再经过 `sys_user_role` + `data_role` 的间接映射。
+ * 标签冗余：双源头自动打标 recalculateSubjectTags 保持 sys_user_role 中 Subj_* 标签活性。
+ *
+ * 标签来源：
+ *   A. Teacher_Class（授课维度）
+ *   B. subject_group_member → subject_group（课题组维度）
+ *   UNION 并集，确保"存在性证明"：只要还有任一来源，标签就保留。
  */
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 
@@ -11,6 +16,7 @@ import {
   assertUserExists,
 } from "../domain/v2-sys/teaching-user-role-bind.ts";
 import { allocateUniqueMysqlVarchar32Id } from "../infrastructure/ids/identifiable-varchar32.ts";
+import { recalculateSubjectTags } from "./SubjectTagService.ts";
 
 export type TeacherRelationInput = {
   classOrgId: string;
@@ -23,7 +29,8 @@ export type BindTeacherClassRoleInput = {
   subjectId: string;
 };
 
-/** 单条写入 Teacher_Class（幂等：同一 teacher/class/subject 已存在则跳过） */
+/** 单条写入 Teacher_Class（幂等：同一 teacher/class/subject 已存在则跳过）
+ *  尾部自动触发标签重算，同步 Subj_* 到 sys_user_role。 */
 export async function bindTeacherClassRole(conn: PoolConnection, input: BindTeacherClassRoleInput): Promise<void> {
   await assertUserExists(conn, input.userId);
   await assertOrgIsActiveClass(conn, input.orgId, V2_ORG_TYPE_IDS.class);
@@ -45,9 +52,13 @@ export async function bindTeacherClassRole(conn: PoolConnection, input: BindTeac
      VALUES (?, ?, ?, ?, 'y', NOW())`,
     [seqId, input.userId, input.orgId, input.subjectId],
   );
+
+  // 标签冗余：同步 Subj_* 到 sys_user_role（授课维度）
+  await recalculateSubjectTags(conn, input.userId);
 }
 
-/** 整包替换教师的全部授课关系（删除 + 批量插入） */
+/** 整包替换教师的全部授课关系（删除 + 批量插入）
+ *  尾部自动触发标签重算，保持 sys_user_role 中 Subj_* 与授课关系一致。 */
 export async function syncTeacherRelations(
   conn: PoolConnection,
   teacherId: string,
@@ -78,4 +89,7 @@ export async function syncTeacherRelations(
       [seqId, teacherId, rel.classOrgId, rel.subjectId],
     );
   }
+
+  // 标签冗余：重新计算该教师所有 Subj_* 标签（授课维度）
+  await recalculateSubjectTags(conn, teacherId);
 }

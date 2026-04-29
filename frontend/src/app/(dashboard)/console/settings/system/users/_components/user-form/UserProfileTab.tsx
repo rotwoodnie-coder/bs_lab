@@ -1,8 +1,7 @@
-import type { DateRange } from "react-day-picker";
-
 import {
   Avatar,
   AvatarFallback,
+  Button,
   Input,
   Label,
   Select,
@@ -16,6 +15,7 @@ import {
 
 import { initials } from "@/lib/console/users/format";
 import { formatZhDate } from "@/lib/datetime/format-zh";
+import { getDatePresets } from "@/lib/v2/date-preset-helper";
 
 export function UserProfileTab(props: {
   editingId: string | null;
@@ -111,6 +111,25 @@ export function UserProfileTab(props: {
               onChange={(e) => props.onDraftExpireDateChange(e.target.value)}
               disabled={props.savePending}
             />
+
+            {/* 快捷操作带 */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-xs text-muted-foreground mr-1">快捷：</span>
+              {getDatePresets().map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs"
+                  disabled={props.savePending}
+                  onClick={() => props.onDraftExpireDateChange(preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+
             <p className="text-xs text-muted-foreground">
               当前选择：{props.draftExpireDate ? formatZhDate(props.draftExpireDate) : "未设置"}
             </p>

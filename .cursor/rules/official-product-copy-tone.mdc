@@ -1,6 +1,6 @@
 ---
 description: 正式产品文案语气约束（仅必要说明，其它按正式平台）
-alwaysApply: true
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # 正式产品定位：文案写作规范

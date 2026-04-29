@@ -13,6 +13,7 @@ import {
   softDeleteFile,
   findActiveFileByOwnerAndContentSha,
   resolveDataFileTypeIdByTeacherMaterialKind,
+  teacherMaterialKindToDataFileTypeId,
 } from "../../infrastructure/repositories/v2-file-repository.ts";
 import {
   finalizeDataFileThumbnail,
@@ -131,8 +132,10 @@ const fileQuerySchema = z.object({
 const updateFileSchema = z.object({
   fileName: z.string().optional(),
   logoUrl: z.union([z.string(), z.null()]).optional(),
-  fileTypeId: z.string().optional(),
+  /** 禁止直接传入 fileTypeId；由 teacherMaterialKind 经静态映射解析 */
   status: z.string().optional(),
+  /** 业务意图 → 由后端 `FILE_KIND_MAP` 静态解析为 FT_ 物理 ID */
+  teacherMaterialKind: z.string().optional(),
 });
 
 const ensureThumbSchema = z.object({
@@ -182,10 +185,10 @@ export async function routeV2File(req: Request): Promise<Response> {
       await putObject(storageKey, buffer, file.type || "application/octet-stream");
 
       const fileUrl = storageKey;
-      const explicitFileTypeId = (formData.get("fileTypeId") as string | null)?.trim() || undefined;
       const teacherKindRaw = (formData.get("teacherMaterialKind") as string | null)?.trim().toLowerCase() || "";
-      const fileTypeFromKind = teacherKindRaw ? await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw) : null;
-      const fileTypeId = explicitFileTypeId || fileTypeFromKind || undefined;
+      const fileTypeId = teacherKindRaw
+        ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
+        : undefined;
 
       let record;
       try {
@@ -292,7 +295,16 @@ export async function routeV2File(req: Request): Promise<Response> {
       if (req.method === "PUT" || req.method === "PATCH") {
         const body = await req.json();
         const input = updateFileSchema.parse(body);
-        const record = await updateFileRecord(fileId, input);
+        // 契约收口：只接受 teacherMaterialKind（业务意图），由静态映射转为 fileTypeId
+        const patch: Record<string, unknown> = {};
+        if (input.fileName !== undefined) patch.fileName = input.fileName;
+        if (input.logoUrl !== undefined) patch.logoUrl = input.logoUrl;
+        if (input.status !== undefined) patch.status = input.status;
+        if (input.teacherMaterialKind !== undefined) {
+          const ft = teacherMaterialKindToDataFileTypeId(input.teacherMaterialKind);
+          if (ft) patch.fileTypeId = ft;
+        }
+        const record = await updateFileRecord(fileId, patch);
         return ok(materializeRecordFileUrls(record));
       }
 

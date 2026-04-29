@@ -93,7 +93,7 @@ export function ExperimentalMaterialFormDialog(props: {
     const nextErrors = {
       name: !nameOk,
       materialType: !materialTypeOk,
-      categories: !categoriesOk,
+      materialPropId: !categoriesOk,
       usage: !usageOk,
       numValue: !numValueOk,
       unitId: !unitIdOk,

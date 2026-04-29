@@ -1,0 +1,115 @@
+---
+description: 元数据/字典表不可由业务代码篡改（data_* 基线保护）
+globs: backend/src/**/*.{ts,tsx}
+---
+
+# 元数据不可篡改规则（Hard Constraint）
+
+## 0. 适用范围
+
+本规则保护以下类型的表在业务代码中不被写入（INSERT / UPDATE / DELETE）：
+
+- 所有 `data_*` 前缀的字典/基线表（如 `data_role`、`data_file_type`、`data_school_level`、`data_school_subject`、`data_school_grade` 等）
+- 需要严格管控的配置表（如 `sys_config`、`dict_*` 等经评审确定的其他表）
+
+---
+
+## 1. `data_role` 宪法级保护
+
+**`data_role`（角色列表字典表）由产品/数据迁移管理，业务代码绝对不可写入。**
+
+### 1.1 Repository 层必须阻断
+
+对应的 Repository 必须提供守卫实现：
+
+```typescript
+// ❌ 禁止：Repository 层实际执行写入
+export async function createRole(input: CreateRoleInput, actorId?: string): Promise<RoleRecord> {
+  const pool = getMysqlPool();
+  const [result] = await pool.query<ResultSetHeader>("INSERT INTO data_role ...", [input, ...]);
+  // ...
+}
+
+// ✅ 正确：Repository 层显式阻断
+export async function createRole(_input: CreateRoleInput, _actorId?: string): Promise<RoleRecord> {
+  throw new Error("data_role is read-only");
+}
+```
+
+### 1.2 Service 层不得绕过
+
+即使 Service 层拿到了数据库连接，也禁止直接编写针对 `data_role` 的 INSERT/UPDATE SQL。**唯一允许的修改途径**：通过已评审的 `database/migrations/00NN_*.sql` 迁移脚本。
+
+### 1.3 前端按钮不可暴露
+
+管理页面中不得提供 "新增角色"、"编辑角色"、"删除角色" 等对 `data_role` 的写入操作入口。新增/修改角色走数据迁移流程。
+
+---
+
+## 2. 其他 `data_*` 基准表保护
+
+### 2.1 默认只读，例外需评审
+
+- 所有 `data_*` 的字典/基准表，除非在代码或文档中**显式标注为可写**（如 `data_school_grade` 在教学框架管理界面可做 CRUD），否则默认视为只读。
+- 对 `data_*` 表的写入必须有明确的业务需求 + 产品评审。
+
+### 2.2 标注机制
+
+- 如果某个 `data_*` 表允许业务代码写入，在该表的 Repository 文件头部注释中注明"可写"及允许的写入范围。
+- 如果没有注释标注，则默认为只读，Repository 应实现守卫。
+
+---
+
+## 3. 迁移脚本才是元数据变更通道
+
+所有元数据/字典的变更（新增角色、调整学科分类、变更组织类型等）必须通过 `database/migrations/00NN_*.sql` 编号迁移脚本执行，并经过 PR 评审。
+
+**禁止**以下行为：
+
+- 在 Service 层写 seed/初始化 SQL
+- 在 API 路由里嵌入 DDL
+- 在数据库运维工具中直接在 `bs_exp_data` 上执行未经评审的 DML 修改字典
+
+---
+
+## 4. `data_file_type` 宪法级保护（FT_ 前缀标准化）
+
+**`data_file_type` 已完成 FT_ 前缀标准化，严禁任何产生随机或哈希 ID 的代码路径。**
+
+### 4.1 只读声明
+
+- `data_file_type` 已从 `ADMIN_DICT_TABLES` 白名单移除，通用字典 API 不再允许对其做增删改。
+- 前端文件类型字典页已标记为 `readOnly: true`。
+- 任何业务代码（Repository / Service / Route Handler）**不得**对该表执行 INSERT、UPDATE 或 DELETE 操作。
+- 唯一修改入口：已评审的 `database/migrations/00NN_*.sql` 迁移脚本。
+
+### 4.2 静态映射约束
+
+- 后端 `FILE_KIND_MAP`（`v2-file-repository.ts`）以 `as const` 方式定义 `kind → FT_` 映射，是 `data_file_type` type_id 的唯一运行时来源。
+- 上传接口已删除 `explicitFileTypeId` 参数，只接受业务意图（`teacherMaterialKind`），不接受物理 ID。
+- 严禁在 `FILE_KIND_MAP` 之外新增 `data_file_type.type_id` 的生成逻辑。
+
+### 4.3 9 类宪法级编码
+
+```
+FT_Video       — 视频
+FT_Image       — 图片
+FT_Audio       — 音频
+FT_Document    — 文档
+FT_Ppt         — PPT
+FT_Pdf         — 课件（PDF）
+FT_Spreadsheet — 表格
+FT_Package     — 压缩包
+FT_Other       — 其他（兜底）
+```
+
+---
+
+## 自检清单
+
+- [ ] 本次改动是否涉及对 `data_*` 表的写入操作？
+- [ ] 如果是 `data_role`，是否已确认迁移流程而非业务代码？
+- [ ] 如果是 `data_file_type`，是否确认修改仅通过迁移脚本，且 type_id 属于 9 类 FT_ 范围？
+- [ ] 如果是对其他 `data_*` 表的写入，是否经产品评审并标注为"可写"？
+- [ ] 前端是否暴露了对基线数据的写入按钮/入口？
+- [ ] 迁移脚本是否经过评审且含回滚方案？

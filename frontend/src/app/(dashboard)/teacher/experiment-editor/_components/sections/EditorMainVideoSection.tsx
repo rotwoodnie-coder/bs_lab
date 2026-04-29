@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-import { RichMediaEditor, type RichMediaEmbed } from "@bs-lab/ui";
+import { RichMediaEditor, type RichMediaEmbed, type RichMediaUploadContext } from "@bs-lab/ui";
 
 import { MediaAssetPickerDialog } from "@/components/business/media/MediaAssetPickerDialog";
 import type { ApiActor } from "@/lib/new-core-api";
@@ -60,10 +60,10 @@ export function EditorMainVideoSection(props: Props) {
   );
 
   const uploadMainVideo = React.useCallback(
-    async (_kind: "image" | "video", file: File, ctx?: { onProgress?: (pct: number) => void }) => {
+    async (_kind: "image" | "video", file: File, ctx?: RichMediaUploadContext) => {
       const result = await uploadMediaFileToPlatform(mediaActor, file, { kind: "video", title: file.name }, {
         ui: "silent",
-        onProgress: ctx?.onProgress,
+        onProgress: (e) => ctx?.onProgress?.(e),
       });
       const thumbUrl = mediaRegistryStreamUrl(result.registryId, "view", mediaActor, { variant: "thumb_sm" });
       ocrSectionRef.current?.triggerOcr(thumbUrl);

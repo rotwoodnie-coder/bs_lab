@@ -59,15 +59,10 @@ export function WorkDetailDialog({
       setIsFavorited(work.isFavorited || false)
       setLikeCount(work.likeCount || 0)
       setFavoriteCount(work.favoriteCount || 0)
-      setComments(mockComments.filter(c => c.workId === work.id))
       setIsPlayingVideo(false)
       setShowSharePanel(false)
       setLinkCopied(false)
-      // 检查是否已关注该作者
-      const isAlreadyFollowing = mockFollowRelations.some(
-        r => r.followerId === user.id && r.followingId === work.studentId
-      )
-      setIsFollowing(isAlreadyFollowing)
+      setIsFollowing(false)
     }
   }, [work, user.id])
 

@@ -43,6 +43,8 @@ export async function listSysRoles(query: SysRoleListQuery): Promise<SysRoleReco
     params.push(like, like);
   }
   if (query.status) { where.push("status = ?"); params.push(query.status); }
+  // 宪法级保护：Subj_* 学科影子角色不参与权限矩阵展示
+  where.push("role_id NOT LIKE 'Subj_%'");
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM data_role WHERE ${where.join(" AND ")} ORDER BY sort_order ASC`,
     params,

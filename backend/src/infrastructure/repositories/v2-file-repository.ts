@@ -2,7 +2,6 @@
  * V2 文件资源 MySQL 仓库
  * 对应表：data_file
  */
-import { createHash } from "node:crypto";
 import type { Pool, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { resolveVarchar32PrimaryKey } from "../ids/identifiable-varchar32.ts";
 import { getMysqlPool } from "../mysql/mysql-client.ts";
@@ -21,98 +20,32 @@ const FILE_SELECT_FROM = `FROM data_file df
 /** 排除逻辑删除占位；NULL 安全（避免 `NULL != 'deleted'` 误过滤整表） */
 const WHERE_NOT_LOGICAL_DELETED = "NOT (df.status <=> 'deleted')";
 
-/** 与 migrations/0039、`comments` 约定 `teacher_kind:*` 一致 */
-const TEACHER_MATERIAL_KINDS_FOR_FILE_TYPE = new Set([
-  "word",
-  "ppt",
-  "pdf",
-  "image",
-  "video",
-  "audio",
-  "spreadsheet",
-]);
-
 /**
- * 兼容自 `sys_media_assets` 等导入的 `data_file_type`：`type_name` 常为 VIDEO / IMAGE / DOC / PPT（与 0039 的「视频」「图片」等中文名并存）。
- * 键为 `teacherMaterialKind`，值为参与 `LOWER(type_name)` 比对的别名列表。
+ * 宪法级：kind → FT_ 静态映射表。
+ * 替代 MD5 生成逻辑，所有 ID 均为 FT_ 前缀的可读语义编码。
+ * 严禁在此映射之外产生新的 data_file_type ID。
  */
-const KIND_TO_LOWER_TYPE_NAME_ALIASES: Record<string, readonly string[]> = {
-  word: ["word", "doc"],
-  ppt: ["ppt"],
-  pdf: ["pdf"],
-  image: ["image"],
-  video: ["video"],
-  audio: ["audio"],
-  spreadsheet: ["spreadsheet", "excel", "xls", "csv"],
-};
+export const FILE_KIND_MAP = {
+  word: "FT_Document",
+  ppt: "FT_Ppt",
+  pdf: "FT_Pdf",
+  image: "FT_Image",
+  video: "FT_Video",
+  audio: "FT_Audio",
+  spreadsheet: "FT_Spreadsheet",
+} as const;
 
-/**
- * 兼容 `comments` 中含 `sys_media_assets.media_type=XXX` 等导入描述（仅代码侧 LIKE，不改表）。
- * 小写化后与 `LOWER(comments) LIKE '%media_type=xxx%'` 匹配。
- */
-const KIND_TO_SYS_MEDIA_TYPE_TOKENS: Record<string, readonly string[]> = {
-  word: ["doc", "word"],
-  ppt: ["ppt"],
-  pdf: ["pdf"],
-  image: ["image"],
-  video: ["video"],
-  audio: ["audio"],
-  spreadsheet: ["xls", "xlsx", "excel", "csv", "spreadsheet"],
-};
+export type FileKind = keyof typeof FILE_KIND_MAP;
 
-/** 与 0039 中 `MD5(CONCAT('v2tmk:', kind))` 前 32 位十六进制一致（Node 与 MySQL 均为小写 hex） */
-export function teacherMaterialKindToDataFileTypeId(kind: string): string {
-  return createHash("md5").update(`v2tmk:${kind.trim().toLowerCase()}`).digest("hex").slice(0, 32);
+/** 由 kind 直接返回宪法级 FT_ type_id，无需查库 */
+export function teacherMaterialKindToDataFileTypeId(kind: string): string | null {
+  const k = kind.trim().toLowerCase() as FileKind;
+  return FILE_KIND_MAP[k] ?? null;
 }
 
-/**
- * 将教师素材 `kind` 解析为 `data_file_type.type_id`（库内需存在对应行，见 0039）。
- * 解析顺序（均可独立存在，不改表结构）：
- * 1. 0039 确定性 `type_id`；2. `comments` 精确 `teacher_kind:*`；3. `comments` 含 `media_type=` 的导入行；
- * 4. `type_name` 别名（VIDEO/DOC/…）。
- */
-export async function resolveDataFileTypeIdByTeacherMaterialKind(kind: string): Promise<string | null> {
-  const k = kind.trim().toLowerCase();
-  if (!k || !TEACHER_MATERIAL_KINDS_FOR_FILE_TYPE.has(k)) return null;
-  const deterministicId = teacherMaterialKindToDataFileTypeId(k);
-  const pool = getMysqlPool();
-  const active = "NOT (LOWER(IFNULL(status,'')) = 'n')";
-  const [byId] = await pool.query<RowDataPacket[]>(
-    `SELECT type_id FROM data_file_type WHERE type_id = ? AND ${active} LIMIT 1`,
-    [deterministicId],
-  );
-  if (byId.length) return String((byId[0] as RowDataPacket).type_id);
-  const tag = `teacher_kind:${k}`;
-  const [byComment] = await pool.query<RowDataPacket[]>(
-    `SELECT type_id FROM data_file_type WHERE comments <=> ? AND ${active} LIMIT 1`,
-    [tag],
-  );
-  if (byComment.length) return String((byComment[0] as RowDataPacket).type_id);
-  const importTokens = KIND_TO_SYS_MEDIA_TYPE_TOKENS[k];
-  if (importTokens?.length) {
-    for (const tok of importTokens) {
-      const likePat = `%media_type=${tok.toLowerCase()}%`;
-      const [byImportComment] = await pool.query<RowDataPacket[]>(
-        `SELECT type_id FROM data_file_type WHERE ${active}
-           AND LOWER(IFNULL(comments,'')) LIKE ?
-         ORDER BY sort_order ASC, type_id ASC LIMIT 1`,
-        [likePat],
-      );
-      if (byImportComment.length) return String((byImportComment[0] as RowDataPacket).type_id);
-    }
-  }
-  const nameAliases = KIND_TO_LOWER_TYPE_NAME_ALIASES[k];
-  if (nameAliases?.length) {
-    const ph = nameAliases.map(() => "?").join(",");
-    const [byTypeName] = await pool.query<RowDataPacket[]>(
-      `SELECT type_id FROM data_file_type WHERE ${active}
-         AND LOWER(TRIM(IFNULL(type_name,''))) IN (${ph})
-       ORDER BY sort_order ASC, type_id ASC LIMIT 1`,
-      [...nameAliases],
-    );
-    if (byTypeName.length) return String((byTypeName[0] as RowDataPacket).type_id);
-  }
-  return null;
+/** 将 teacherMaterialKind 解析为 data_file_type.type_id（纯静态映射） */
+export function resolveDataFileTypeIdByTeacherMaterialKind(kind: string): Promise<string | null> {
+  return Promise.resolve(teacherMaterialKindToDataFileTypeId(kind));
 }
 
 async function resolveFkSafeFileTypeId(

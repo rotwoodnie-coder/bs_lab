@@ -16,7 +16,10 @@ export type V2ExpFileType = V2DictItem;
 export type V2ExpOrgType = V2DictItem;
 export type V2ExpPrefTitle = V2DictItem;
 export function fetchV2Difficulties(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2DifficultyTypes(actor); }
-export function fetchV2FileTypes(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2MaterialTypes(actor); }
+/** `/v2/dict/file-types` — 真正的 `data_file_type` 字典，与静态映射 `FILE_KIND_MAP` 一致 */
+export function fetchV2FileTypes(actor: CoreApiActor): Promise<V2DictItem[]> {
+  return createV2ApiService(actor).get<V2DictItem[]>("/v2/dict/file-types");
+}
 export function fetchV2OrgTypes(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2SchoolLevels(actor); }
 export function fetchV2PrefTitles(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2QuestionCapacities(actor); }
 export function fetchV2Roles(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2QuestionTypes(actor); }

@@ -7,6 +7,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@bs-lab/ui";
 import { ArrowLeft, ClipboardList, FlaskConical, AlertTriangle, ShieldAlert, Beaker } from "@bs-lab/ui/icons";
 
 import { fetchV2ExpDetail, type V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
+import type { CoreApiActor } from "@/lib/core-api-shared";
+import { UserRole } from "@/types/auth";
 import { splitPrincipleStored } from "@/app/(dashboard)/teacher/experiment-editor/utils/exp-editor-text-fences";
 import { formatZhDateTime } from "@/lib/datetime/format-zh";
 
@@ -23,7 +25,7 @@ export default function TeacherExperimentPreviewPage() {
       setLoading(false);
       return;
     }
-    const actor = createV2ApiService({ userId: "", role: "" });
+    const actor: CoreApiActor = { userId: "", role: UserRole.TEACHER, userName: "", orgId: "" };
     let cancelled = false;
     setLoading(true);
     setError(null);

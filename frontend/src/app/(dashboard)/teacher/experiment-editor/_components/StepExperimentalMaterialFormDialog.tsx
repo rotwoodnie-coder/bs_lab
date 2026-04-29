@@ -15,7 +15,7 @@ import { createExperimentalMaterialApi } from "@/lib/experimental-materials-api"
 import { buildMaterialsApiActor } from "@/lib/materials-api-actor";
 
 import type { ExperimentalMaterialFormState } from "../../../experimental-materials/page.types";
-import { createEmptyMaterialForm, MATERIAL_CATEGORY_OPTIONS, MATERIAL_SAFETY_TAG_OPTIONS, MATERIAL_TYPE_OPTIONS } from "../../../experimental-materials/page.constants";
+import { createEmptyMaterialForm, MATERIAL_SAFETY_TAG_OPTIONS, MATERIAL_TYPE_OPTIONS } from "../../../experimental-materials/page.constants";
 
 import type { ExperimentMaterialDraft } from "../types";
 import { useDemoRole } from "@/components/layout/demo-role-context";
@@ -26,6 +26,7 @@ function materialTypeIdFromLabel(label: string | undefined): ExperimentalMateria
 }
 
 function safetyTagIdsFromHazardLabels(hazardFlags: string[]): ExperimentalMaterialFormState["safetyTags"] {
+  // 安全标签来自 hazardFlags 的 label 匹配
   const hits = hazardFlags
     .map((label) => MATERIAL_SAFETY_TAG_OPTIONS.find((x) => x.label === label)?.id)
     .filter((id): id is ExperimentalMaterialFormState["safetyTags"][number] => Boolean(id));
@@ -34,13 +35,11 @@ function safetyTagIdsFromHazardLabels(hazardFlags: string[]): ExperimentalMateri
 
 function mapDraftToForm(draft: ExperimentMaterialDraft | null): ExperimentalMaterialFormState {
   const base = createEmptyMaterialForm();
-  const defaultCategories = MATERIAL_CATEGORY_OPTIONS.length > 0 ? [MATERIAL_CATEGORY_OPTIONS[0].id] : [];
 
   if (!draft) {
     return {
       ...base,
       materialType: "general",
-      categories: defaultCategories,
       suggestedAmount: "",
     };
   }
@@ -50,19 +49,17 @@ function mapDraftToForm(draft: ExperimentMaterialDraft | null): ExperimentalMate
     name: draft.nameLab ?? "",
     photoUrl: draft.thumbnailUrl || draft.imageUrl || "",
     materialType: materialTypeIdFromLabel(draft.materialType),
-    categories: defaultCategories,
     usage: (draft.notes ?? "").trim() || (draft.safetyReminder ?? "").trim(),
     suggestedAmount: (draft.quantity ?? "1").trim(),
     homeAlternative: draft.nameHomeSubstitute ?? "",
     safetyTags: safetyTagIdsFromHazardLabels(draft.hazardFlags ?? []),
-    safetyNote: (draft.safetyReminder ?? "").trim(),
-    remark: (draft.notes ?? "").trim(),
+    comments: (draft.safetyReminder ?? "").trim(),
   };
 }
 
 function mapFormToDraft(form: ExperimentalMaterialFormState): Omit<ExperimentMaterialDraft, "id"> {
   const hazardFlags = getExperimentalMaterialSafetyLabels(form.safetyTags);
-  const safetyReminder = form.safetyNote.trim() || hazardFlags.join("、");
+  const safetyReminder = form.comments?.trim() || hazardFlags.join("、");
 
   return {
     thumbnailUrl: form.photoUrl,
@@ -72,7 +69,7 @@ function mapFormToDraft(form: ExperimentalMaterialFormState): Omit<ExperimentMat
     nameHomeSubstitute: form.homeAlternative.trim(),
     hazardFlags,
     safetyReminder,
-    notes: form.remark.trim(),
+    notes: form.comments?.trim(),
   };
 }
 
@@ -107,9 +104,7 @@ export function StepExperimentalMaterialFormDialog(props: {
         usage: form.usage.trim(),
         suggestedAmount: form.suggestedAmount.trim(),
         homeAlternative: form.homeAlternative.trim(),
-        safetyNote: form.safetyNote.trim(),
-        remark: form.remark.trim(),
-        categories: form.categories,
+        categories: form.materialPropId ? [form.materialPropId] : [],
         safetyTags: form.safetyTags,
         coverRegistryId: parseCoverRegistryIdFromPhotoUrl(form.photoUrl) ?? undefined,
         status: form.status,

@@ -112,25 +112,20 @@ INSERT IGNORE INTO `data_difficulty_type` (`type_id`, `type_name`, `comments`, `
 ('DT_Hard',   '困难', '题库难度困难', 'y', 3);
 
 -- ============================================================
--- 9. 文件类型 data_file_type
---    注意：教师素材上传使用确定性 MD5 type_id（参见 v2-file-repository.ts）
---    teacherMaterialKindToDataFileTypeId(kind) = MD5(CONCAT('v2tmk:', kind))
---    必须保证 teacher_kind:{kind} 精确匹配 comments 列
+-- 9. 文件类型 data_file_type（宪法级，不可修改）
+--    9 类 FT_ 前缀可读 ID，与后端静态映射表 FILE_KIND_MAP 一致。
+--    teacherMaterialKind → FT_ 映射由后端代码保证，不依赖运行时查询。
 -- ============================================================
 INSERT IGNORE INTO `data_file_type` (`type_id`, `type_name`, `comments`, `status`, `sort_order`, `logo_class`) VALUES
--- 传统可读 ID（通用字典用途）
-('FT_Video',   '视频',     '视频文件', 'y', 1, 'video'),
-('FT_Pdf',     '课件',     'PDF课件',  'y', 2, 'pdf'),
-('FT_Image',   '图片',     '图片文件', 'y', 3, 'image'),
-('FT_Package', '压缩包',   '压缩文件', 'y', 4, 'package'),
--- 确定性 MD5 ID（教师素材上传必须，v2tmk 前缀）
-('527c22cdb46b9962e152c15e7a0c74b4', '视频',   'teacher_kind:video',  'y', 5, 'video'),
-('54199d1c6812a5d7011824f43f0bd578', '课件',   'teacher_kind:pdf',    'y', 6, 'pdf'),
-('54452efd7631ef546aa2c0e0021c5918', '图片',   'teacher_kind:image',  'y', 7, 'image'),
-('0ac58d2226d2addd84eb2e888deb9f2b', '文档',   'teacher_kind:word',   'y', 8, 'word'),
-('1d9bb0986f59017eb86edbd8cbfdec74', 'PPT',    'teacher_kind:ppt',    'y', 9, 'ppt'),
-('588de0c5fa3d33a90f9ea7ec16936894', '音频',   'teacher_kind:audio',  'y', 10, 'audio'),
-('2743dbf0f77666c3447630ccf3d8cf8d', '表格',   'teacher_kind:spreadsheet', 'y', 11, 'spreadsheet');
+('FT_Video',       '视频',   '视频文件',                'y', 1,  'video'),
+('FT_Image',       '图片',   '图片文件',                'y', 2,  'image'),
+('FT_Audio',       '音频',   '音频文件',                'y', 3,  'audio'),
+('FT_Document',    '文档',   '文档文件',                'y', 4,  'word'),
+('FT_Ppt',         'PPT',    'PPT 文件',                'y', 5,  'ppt'),
+('FT_Pdf',         '课件',   'PDF 课件',                'y', 6,  'pdf'),
+('FT_Spreadsheet', '表格',   '表格文件',                'y', 7,  'spreadsheet'),
+('FT_Package',     '压缩包', '压缩/归档文件',           'y', 8,  'package'),
+('FT_Other',       '其他',   '未分类/兜底文件类型',     'y', 9,  'other');
 
 -- ============================================================
 -- 10. 题型 data_question_type
@@ -152,11 +147,13 @@ INSERT IGNORE INTO `data_material_type` (`type_id`, `type_name`, `comments`, `st
 
 -- ============================================================
 -- 12. 消息分类 data_msg_type
+--     系统通知、任务提醒、作业反馈、社交互动四类
 -- ============================================================
 INSERT IGNORE INTO `data_msg_type` (`type_id`, `type_name`, `comments`, `status`, `sort_order`) VALUES
-('MT_Sys',     '系统消息', '系统通知', 'y', 1),
-('MT_Exp',     '实验消息', '实验相关通知', 'y', 2),
-('MT_Review',  '审核消息', '内容审核通知', 'y', 3);
+('Msg_Sys',       '系统消息',   '系统通知/公告',      'y', 1),
+('Msg_Task',      '任务消息',   '实验任务/待办提醒',  'y', 2),
+('Msg_Homework',  '作业消息',   '作业布置/批改通知',  'y', 3),
+('Msg_Socialize', '社交消息',   '评论/点赞/互动',     'y', 4);
 
 -- ============================================================
 -- 13. 评分等级 data_rating_scale
@@ -168,12 +165,15 @@ INSERT IGNORE INTO `data_rating_scale` (`scale_id`, `scale_name`, `comments`, `s
 ('RS_D', 'D（不合格）','不合格', 'y', 4);
 
 -- ============================================================
--- 14. 职称 data_pref_title
+-- 14. 职称 data_pref_title（纯技术等级，不混入岗位身份）
+--     参照国家中小学教师职称标准：
+--       二级教师（初级）、一级教师（中级）、高级教师（副高）、正高级教师（正高）
 -- ============================================================
 INSERT IGNORE INTO `data_pref_title` (`title_id`, `title_name`, `comments`, `status`, `sort_order`) VALUES
-('T_Teacher',   '教师',     '普通教师', 'y', 1),
-('T_Senior',    '高级教师', '高级教师', 'y', 2),
-('T_Researcher','教研员',   '教研员',   'y', 3);
+('T_Grade2',    '二级教师',    '初级职称', 'y', 1),
+('T_Grade1',    '一级教师',    '中级职称', 'y', 2),
+('T_Senior',    '高级教师',    '副高级职称', 'y', 3),
+('T_Professor', '正高级教师', '正高级职称', 'y', 4);
 
 -- ============================================================
 -- 15. 题目能力侧重点 data_question_capacity
@@ -194,10 +194,10 @@ INSERT IGNORE INTO `data_material_prop` (`prop_id`, `prop_name`, `comments`, `st
 -- ============================================================
 -- 17. 素材安全标识 data_material_security
 -- ============================================================
-INSERT IGNORE INTO `data_material_security` (`security_id`, `security_name`, `comments`, `status`, `sort_order`) VALUES
-('MS_Safe',     '安全',   '安全', 'y', 1),
-('MS_Caution',  '注意',   '需注意', 'y', 2),
-('MS_Danger',   '危险',   '危险', 'y', 3);
+INSERT IGNORE INTO `data_material_security` (`security_id`, `security_name`, `comments`, `status`, `sort_order`, `security_level`) VALUES
+('MS_Safe',     '安全',   '安全', 'y', 1, 3),
+('MS_Caution',  '注意',   '需注意', 'y', 2, 2),
+('MS_Danger',   '危险',   '危险', 'y', 3, 1);
 
 -- ============================================================
 -- 18. 素材单位 data_material_unit
@@ -228,14 +228,16 @@ INSERT IGNORE INTO `sys_user_role` (`seq_id`, `user_id`, `role_id`, `org_id`, `c
 ('sur_admin_001', 'u_admin', 'Role_Sys_Admin', 'Org_Root', NOW());
 
 -- ============================================================
--- 22. 学科映射到角色 data_role（参见 migration 0026）
--- 教师授课关系 sys_user_role.role_id 存储学科 ID，必须同时存在于 data_role
+-- 22. 学科标签预填 data_role（宪法级种子）
+-- Subj_* 作为影子角色预填在 data_role 中，满足 FK 约束。
+-- 后续新增学科由触发器 trg_data_school_subject_ai 自动同步，
+-- 业务代码（ensureRoleInDataRole）对 Subj_* 前缀做强拦截。
 -- ============================================================
 INSERT IGNORE INTO `data_role` (`role_id`, `role_name`, `comments`, `status`, `sort_order`)
 SELECT
   `subject_id`          AS `role_id`,
   `subject_name`        AS `role_name`,
-  '自动同步：学科映射为任课教师角色' AS `comments`,
+  '学科标签（宪法级预填）' AS `comments`,
   COALESCE(NULLIF(`status`, ''), 'y') AS `status`,
   `sort_order`          AS `sort_order`
 FROM `data_school_subject`;

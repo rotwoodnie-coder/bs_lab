@@ -265,7 +265,7 @@ export function useTeacherMaterialsPage() {
   );
 
   const createDialogInitialKind = React.useMemo((): TeacherMaterialKind | undefined => {
-    return kindFilter === "all" ? undefined : kindFilter;
+    return kindFilter === "all" ? undefined : (kindFilter as TeacherMaterialKind);
   }, [kindFilter]);
 
   const onVideoPosterPersisted = React.useCallback((fileId: string, displayHref: string) => {

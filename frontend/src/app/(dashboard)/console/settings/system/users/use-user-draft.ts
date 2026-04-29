@@ -10,6 +10,7 @@ import {
   updateConsoleUser,
 } from "@/lib/console/users/console-users.adapter";
 import { fetchV2SysOrgTree } from "@/lib/v2/v2-sys-api";
+import { addYears, toMysqlDatetime } from "@/lib/v2/date-preset-helper";
 import type { ConsoleUserUpsertBody, RoleId, UserRecord } from "@/lib/console/users/types";
 import type { V2SysOrgItem } from "@/lib/v2/v2-sys-api";
 
@@ -93,7 +94,7 @@ export function useUserDraft(args: { loadList: () => Promise<void>; selectedOrgI
     setEditingId(null);
     setDraftUsername("");
     setDraftPassword("");
-    setDraftExpireDate("");
+    setDraftExpireDate(addYears(new Date(), 5));
     setDraftRealName("");
     setDraftNickname("");
     setDraftPhone("");
@@ -148,7 +149,7 @@ export function useUserDraft(args: { loadList: () => Promise<void>; selectedOrgI
     return {
       username: draftUsername.trim(),
       passwordPlain: draftPassword.trim() || undefined,
-      expireDate: draftExpireDate.trim() ? draftExpireDate.trim().replace("T", " ") : "",
+      expireDate: draftExpireDate.trim() ? toMysqlDatetime(draftExpireDate.trim()) : "",
       realName: draftRealName.trim(),
       nickname: draftNickname.trim(),
       phone: draftPhone.trim(),

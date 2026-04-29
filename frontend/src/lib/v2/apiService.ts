@@ -1,4 +1,4 @@
-import { buildApiUrl, buildCoreApiJsonHeaders, buildCoreApiReadHeaders, type CoreApiActor } from "@/lib/core-api-shared";
+import { buildApiUrl, buildCoreApiJsonHeaders, buildCoreApiReadHeaders, getMediaSubjectKey, roleToHeader, type CoreApiActor } from "@/lib/core-api-shared";
 
 const FEEDBACK_THROTTLE_MS = 60_000;
 const feedbackThrottleMap = new Map<string, number>();

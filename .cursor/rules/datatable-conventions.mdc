@@ -1,6 +1,6 @@
 ---
 description: DataTable 列约定（序号列、禁止内部编码展示列）
-alwaysApply: true
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # DataTable 列约定

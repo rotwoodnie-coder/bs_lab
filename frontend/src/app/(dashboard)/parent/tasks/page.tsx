@@ -92,7 +92,7 @@ function ParentTasksPageInner() {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">老师下发的实验作业</CardTitle>
             <CardDescription className="text-xs">
-              已绑定：{firstBindingDisplay.displayName}
+              已绑定：{firstBindingDisplay!.displayName}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

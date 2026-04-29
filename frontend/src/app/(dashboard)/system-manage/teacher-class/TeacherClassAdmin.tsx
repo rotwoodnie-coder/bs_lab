@@ -16,13 +16,14 @@ export function TeacherClassAdmin() {
 
   // 选中教师切换时加载其可教学科 & 年级-学科映射
   React.useEffect(() => {
-    if (!base.selectedTeacherId) return;
-    if (base.selectedTeacherId !== prevTeacherIdRef.current) {
-      prevTeacherIdRef.current = base.selectedTeacherId;
-      void config.loadTeacherSubjects(base.selectedTeacherId);
+    if (!base.selectedTeacher) return;
+    const teacherId = base.selectedTeacher.userId;
+    if (teacherId !== prevTeacherIdRef.current) {
+      prevTeacherIdRef.current = teacherId;
+      void config.loadTeacherSubjects(teacherId);
       void config.loadGradeSubjectMap();
     }
-  }, [base.selectedTeacherId, config]);
+  }, [base.selectedTeacher, config]);
 
   return (
     <div className="flex w-full max-w-none flex-col gap-5">
@@ -66,7 +67,7 @@ export function TeacherClassAdmin() {
         configTeacherSubjectsLoading={config.configTeacherSubjectsLoading}
         gradeSubjectMap={config.gradeSubjectMap}
         conflictSet={config.conflictSet}
-        onReloadConflicts={(gradeId) => config.reloadConflicts(base.selectedTeacherId ?? "", gradeId)}
+        onReloadConflicts={(gradeId) => config.reloadConflicts(base.selectedTeacher?.userId ?? "", gradeId)}
       />
     </div>
   );

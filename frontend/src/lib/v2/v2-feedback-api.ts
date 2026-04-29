@@ -143,7 +143,7 @@ export function reportNetworkErrorAsFeedback(actor: CoreApiActor, err: unknown, 
     errorType: message,
     errorStack: stack,
   });
-  return v2Post("/v2/sys/feedback", actor, autoFeedback).catch(() => null);
+  return v2Post<FeedbackItem>("/v2/sys/feedback", actor, autoFeedback).catch(() => null);
 }
 
 /** 安装全局网络错误捕获（避免重复安装） */

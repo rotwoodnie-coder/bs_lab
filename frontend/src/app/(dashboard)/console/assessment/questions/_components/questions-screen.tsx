@@ -44,6 +44,7 @@ export function QuestionsScreen({ screen }: { screen: ConsoleAssessmentQuestions
     questionTypes,
     difficultyTypes,
     questionCapacities,
+    refreshDictData,
     loading,
     refresh,
     serverPagination,
@@ -64,13 +65,15 @@ export function QuestionsScreen({ screen }: { screen: ConsoleAssessmentQuestions
     setSheetMode("create");
     setEditRow(null);
     setSheetOpen(true);
-  }, []);
+    refreshDictData();
+  }, [refreshDictData]);
 
   const openEdit = React.useCallback((row: V2QuestionItem) => {
     setSheetMode("edit");
     setEditRow(row);
     setSheetOpen(true);
-  }, []);
+    refreshDictData();
+  }, [refreshDictData]);
 
   const runDelete = async () => {
     if (!deleteTarget) return;

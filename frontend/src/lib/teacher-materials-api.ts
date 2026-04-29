@@ -22,7 +22,10 @@ import {
 } from "@/lib/v2/v2-file-api";
 import { inferTeacherMaterialKindFromExtension } from "@/lib/media/extension-groups";
 
-export type TeacherMaterialKind = string;
+import type { FileKind } from "./v2/file-kind-constants";
+
+/** 教师素材 kind — 与后端 `FILE_KIND_MAP` key 100% 同步 */
+export type TeacherMaterialKind = FileKind;
 
 /** 教师素材库列表行来源：`data_file` 为素材库文件；`material_msg` 为实验材料表（兼容旧数据） */
 export type TeacherMaterialRowSource = "material_msg" | "data_file";
@@ -406,7 +409,7 @@ const LEGACY_TEACHER_MATERIAL_KIND_ALIASES: Record<string, TeacherMaterialKind> 
 export function normalizeTeacherMaterialKind(raw: string | null | undefined): TeacherMaterialKind {
   const t = (raw ?? "").trim().toLowerCase();
   if (!t) return "word";
-  if (KNOWN_TEACHER_MATERIAL_KINDS.has(t)) return t;
+  if (KNOWN_TEACHER_MATERIAL_KINDS.has(t)) return t as TeacherMaterialKind;
   const mapped = LEGACY_TEACHER_MATERIAL_KIND_ALIASES[t];
   if (mapped) return mapped;
   return "word";
@@ -657,7 +660,7 @@ export async function updateTeacherMaterialApi(
     mainPicUrl: payload.materialMainPicUrl?.trim() ? payload.materialMainPicUrl.trim() : null,
     expPurpose: payload.expPurpose?.trim() ? payload.expPurpose.trim() : null,
     additionalComments: payload.additionalComments?.trim() ? payload.additionalComments.trim() : null,
-    materialNum: payload.materialNum,
+    materialNum: payload.materialNum != null ? String(payload.materialNum) : null,
   };
   const row = await patchV2Material(actor, materialId, patch);
   return v2RowToTeacherItem(row);

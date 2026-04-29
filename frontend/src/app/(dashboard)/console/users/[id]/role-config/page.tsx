@@ -174,14 +174,6 @@ export default function UserRoleConfigPage() {
         提示：若用户登录角色异常，请检查其主档角色并尝试一键重置。
       </div>
 
-      <Card
-        actions={
-          <Button variant="destructive" className="gap-2" onClick={() => void resetTeacherPureState()} disabled={saving || !hasTeacher}>
-            <RefreshCw className="size-4" /> 危险操作：一键重置为教师纯净态
-          </Button>
-        }
-      />
-
       <Card>
         <CardHeader>
           <CardTitle>{user?.userName ?? "用户"}</CardTitle>
@@ -289,7 +281,7 @@ export default function UserRoleConfigPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void commitRemoval()}>确认移除</AlertDialogAction>
+            <AlertDialogAction onClick={() => { if (pendingRemoval) removeRole(pendingRemoval); }}>确认移除</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

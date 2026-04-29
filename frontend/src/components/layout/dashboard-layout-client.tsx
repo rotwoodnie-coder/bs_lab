@@ -197,10 +197,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     if (!roleHydrated) return;
     if (role === UserRole.SUPER_ADMIN) return;
     if (pathOnly.startsWith("/console/operations/")) {
-      if (role !== "Role_Sys_Admin") {
-        router.replace(getManagementDeniedRedirectPath(role));
-        return;
-      }
+      router.replace(getManagementDeniedRedirectPath(role));
+    return;
     }
     if (role === UserRole.STUDENT) {
       if (!isPathAccessibleByStudent(pathOnly)) {

@@ -1,6 +1,6 @@
 ---
-description: 视觉宪法 1.0——布局容器、按钮规范、富文本、组织架构三级下钻（宝山放大镜全局强制）
-alwaysApply: true
+description: 视觉宪法 1.0——布局容器、按钮规范、富文本、组织架构三级下钻
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # 视觉宪法 1.0（全局强制）

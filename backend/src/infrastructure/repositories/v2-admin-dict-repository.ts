@@ -14,7 +14,6 @@ export const ADMIN_DICT_TABLES = [
   "data_material_type",
   "data_material_prop",
   "data_material_unit",
-  "data_file_type",
   "data_org_type",
   "data_role",
   "data_pref_title",

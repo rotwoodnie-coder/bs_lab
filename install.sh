@@ -173,20 +173,41 @@ run_migrations() {
   local dir="$DEPLOY_DIR/database/migrations"
   [[ ! -d "$dir" ]] && return
 
+  # 1) 检查核心表是否存在，决定是否执行 DDL 基线
+  local has_tables
+  has_tables=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" \
+    "$DB_NAME" -N -e \
+    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME IN ('data_role','sys_user')" 2>/dev/null)
+  has_tables=${has_tables:-0}
+
+  if [[ "$has_tables" -lt 2 ]]; then
+    log_warn "核心表缺失（data_role/sys_user），执行全量 DDL 建库..."
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$dir/bs_exp_data.sql" || \
+      { log_error "bs_exp_data.sql 执行失败，数据库初始化终止"; exit 1; }
+    log_ok "DDL 基线执行完成，所有表已创建"
+  else
+    log_info "核心表已存在，跳过 DDL 基线"
+  fi
+
+  # 2) 始终执行种子数据初始化（INSERT IGNORE，幂等安全）
+  local seed_file="$DEPLOY_DIR/database/seed/init-full-seed.sql"
+  if [[ -f "$seed_file" ]]; then
+    log_info "执行种子数据初始化..."
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$seed_file" || \
+      log_warn "种子数据部分失败（可能已有数据），继续执行迁移..."
+  else
+    log_warn "种子文件不存在：$seed_file"
+  fi
+
+  # 3) 增量迁移
   cd "$dir"
-
-  # 注意：bs_exp_data.sql 包含 DROP TABLE IF EXISTS，仅用于新建空库！
-  # 已有数据的数据库不应执行该文件，否则会清空所有表和数据。
-  # 增量迁移文件（[0-9]*.sql）可以安全执行（ALTER TABLE / CREATE TABLE IF NOT EXISTS）
-
-  # Incremental migrations only — DDL baseline skipped for data safety
   for f in $(ls [0-9]*.sql 2>/dev/null | sort); do
-    log_info "Migration: $f"
+    log_info "增量迁移: $f"
     mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$f" 2>/dev/null || \
-      log_warn "$f failed, continuing"
+      log_warn "$f 执行失败，继续..."
   done
 
-  log_ok "Migrations done"
+  log_ok "迁移全部完成"
 }
 
 build_frontend() {
@@ -532,6 +553,22 @@ pnpm install --frozen-lockfile 2>&1
 # Migrations
 source "$DIR/.env.local"
 if command -v mysql &>/dev/null && [[ -n "${DB_HOST:-}" ]]; then
+  # 检查核心表是否存在
+  HAS_TABLES=$(mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASSWORD" \
+    "${DB_NAME:-bs_exp_data}" -N -e \
+    "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='${DB_NAME:-bs_exp_data}' AND TABLE_NAME IN ('data_role','sys_user')" 2>/dev/null)
+  HAS_TABLES=${HAS_TABLES:-0}
+  if [[ "$HAS_TABLES" -lt 2 ]]; then
+    echo "[WARN] 核心表缺失，执行 DDL 基线..."
+    mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASSWORD" \
+      "${DB_NAME:-bs_exp_data}" < "$DIR/database/migrations/bs_exp_data.sql" 2>/dev/null || true
+  fi
+  # 种子数据（INSERT IGNORE，幂等安全）
+  if [[ -f "$DIR/database/seed/init-full-seed.sql" ]]; then
+    mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASSWORD" \
+      "${DB_NAME:-bs_exp_data}" < "$DIR/database/seed/init-full-seed.sql" 2>/dev/null || true
+  fi
+  # 增量迁移
   for f in $(ls "$DIR/database/migrations"/[0-9]*.sql 2>/dev/null | sort); do
     mysql -h "$DB_HOST" -P "${DB_PORT:-3306}" -u "$DB_USER" -p"$DB_PASSWORD" "${DB_NAME:-bs_exp_data}" < "$f" 2>/dev/null || true
   done

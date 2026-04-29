@@ -53,6 +53,8 @@ export type V2SessionActor = {
   userId: string;
   orgId: string | null;
   roleId: string | null;
+  /** 全量角色并集（Role_* + Subj_*），来自 sys_user_role。旧 Token 可能不含此字段，回退为 [roleId]。 */
+  roles: string[];
   sid: string;
 };
 
@@ -61,6 +63,7 @@ type V2AccessPayload = {
   sub: string;
   org_id: string | null;
   role_id: string | null;
+  roles: string[];
   sid: string;
   iat: number;
   exp: number;
@@ -71,6 +74,7 @@ type V2RefreshPayload = {
   sub: string;
   org_id: string | null;
   role_id: string | null;
+  roles: string[];
   sid: string;
   iat: number;
   exp: number;
@@ -79,17 +83,23 @@ type V2RefreshPayload = {
 
 export type V2SessionTokens = { accessToken: string; refreshToken: string; sid: string };
 
-export function createV2SessionTokens(actor: Omit<V2SessionActor, "sid"> & { sid?: string }): V2SessionTokens {
+export function createV2SessionTokens(
+  actor: Omit<V2SessionActor, "sid"> & { sid?: string },
+  roles?: string[],
+): V2SessionTokens {
   const sid = actor.sid ?? randomUUID().replace(/-/g, "");
   const nowSec = Math.floor(Date.now() / 1000);
   const accessExpSec = nowSec + 15 * 60;
   const refreshExpSec = nowSec + 30 * 24 * 60 * 60;
+
+  const allRoles = roles?.filter(Boolean) as string[] ?? [actor.roleId].filter(Boolean) as string[];
 
   const accessPayload: V2AccessPayload = {
     typ: "access",
     sub: actor.userId,
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
+    roles: allRoles,
     sid,
     iat: nowSec,
     exp: accessExpSec,
@@ -100,6 +110,7 @@ export function createV2SessionTokens(actor: Omit<V2SessionActor, "sid"> & { sid
     sub: actor.userId,
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
+    roles: allRoles,
     sid,
     iat: nowSec,
     exp: refreshExpSec,
@@ -150,6 +161,7 @@ export function verifyV2AccessToken(token: string): V2SessionActor | null {
     userId: p.sub,
     orgId: typeof p.org_id === "string" ? p.org_id : null,
     roleId: typeof p.role_id === "string" ? p.role_id : null,
+    roles: Array.isArray(p.roles) ? p.roles.filter((r): r is string => typeof r === "string") : [typeof p.role_id === "string" ? p.role_id : ""].filter(Boolean),
     sid: p.sid,
   };
 }
@@ -168,6 +180,7 @@ export function verifyV2RefreshToken(token: string): V2SessionActor | null {
     userId: p.sub,
     orgId: typeof p.org_id === "string" ? p.org_id : null,
     roleId: typeof p.role_id === "string" ? p.role_id : null,
+    roles: Array.isArray(p.roles) ? p.roles.filter((r): r is string => typeof r === "string") : [typeof p.role_id === "string" ? p.role_id : ""].filter(Boolean),
     sid: p.sid,
   };
 }
@@ -187,6 +200,7 @@ export function rotateV2RefreshTokens(oldRefreshToken: string): V2SessionTokens 
     sub: actor.userId,
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
+    roles: actor.roles,
     sid: actor.sid,
     iat: nowSec,
     exp: accessExpSec,
@@ -197,6 +211,7 @@ export function rotateV2RefreshTokens(oldRefreshToken: string): V2SessionTokens 
     sub: actor.userId,
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
+    roles: actor.roles,
     sid: actor.sid,
     iat: nowSec,
     exp: refreshExpSec,

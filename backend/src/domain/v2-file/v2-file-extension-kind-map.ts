@@ -11,9 +11,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FILE_KIND_MAP } from "../../infrastructure/repositories/v2-file-repository.ts";
 
-/** 与 `v2-file-repository` 中 `resolveDataFileTypeIdByTeacherMaterialKind` 支持的 kind 一致 */
-const ALLOWED_KINDS = new Set(["word", "ppt", "pdf", "image", "video", "audio", "spreadsheet"]);
+/** 与 `v2-file-repository` 中 `FILE_KIND_MAP` 的 key 集合一致 */
+const ALLOWED_KINDS = new Set(Object.keys(FILE_KIND_MAP));
 
 type ExtensionGroupsJson = Record<string, string[]>;
 

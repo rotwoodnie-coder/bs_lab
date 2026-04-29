@@ -170,7 +170,8 @@ export function fetchV2FilePresignedUrl(
 export type V2FilePatchBody = {
   fileName?: string;
   logoUrl?: string | null;
-  fileTypeId?: string | null;
+  /** 业务意图 → 后端静态映射解析为 FT_ 物理 ID */
+  teacherMaterialKind?: string;
   status?: string;
 };
 

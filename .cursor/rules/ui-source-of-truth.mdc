@@ -1,6 +1,6 @@
 ---
 description: UI组件真源与引用强约束
-alwaysApply: true
+globs: frontend/src/**/*.{ts,tsx}
 ---
 
 # UI 组件库最高优先级架构准则
@@ -21,6 +21,11 @@ alwaysApply: true
 12. **多媒体组件标准化（硬性）**：视频、图片、附件等多媒体能力必须通过项目标准库（`@bs-lab/ui` 或项目既有标准组件）接入，禁止在业务页面直接手写原生多媒体标签（如 `<video>`、`<audio>`、`<img>`、`<input type="file">`）作为最终实现。
 13. **视频命名原子化（硬性）**：凡新增或重构的视频管理相关组件、hook、store、工具函数，命名必须以 `VideoManager` 或 `StandardVideo` 为前缀，确保全站语义一致。
 
+14. **交互控件选型约定（默认）**：
+    - **单选**：优先使用 `RadioGroup` / `RadioGroupItem`。
+    - **多选**：使用 `Checkbox`（列表/树等场景可组合布局）。
+    - **下拉框**：使用 `Select`；多选下拉时用 `Select` + `Checkbox` 组合实现，不引入其它组件库。
+
 ## 执行清单（每次 UI 任务都要检查）
 
 - 变更文件是否位于 `packages/ui/src/components/ui`。
@@ -33,3 +38,5 @@ alwaysApply: true
 - 是否遵循 DataTable 强制规则（统一样式、统一交互、滚动时表头吸顶）。
 - 多媒体实现是否来自项目标准库，而非业务页原生媒体标签直写。
 - 视频相关命名是否统一为 `VideoManager*` / `StandardVideo*`。
+- 页面内所有 UI 组件 import 是否均来自 `@bs-lab/ui`（或其官方子路径），无相对路径直连？
+- 交互控件是否遵循选型约定（RadioGroup / Checkbox / Select）？

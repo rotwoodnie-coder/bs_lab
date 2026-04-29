@@ -5,6 +5,7 @@ import { getExperimentAssignmentBlockReason } from "./assignment";
 import { normalizeSession, readUnifiedStore, writeUnifiedStore } from "../unified-mock-store.core";
 import { ensureUnifiedStoreSeeded } from "../unified-mock-store.seed";
 import type { LabGroupMock, UnifiedTaskMock } from "../unified-mock-store.types";
+import type { TeacherMockAssignment } from "@/data/teacher-mock";
 import { INITIAL_MOCK_ACADEMIC_YEAR } from "@/lib/academic-context";
 import { newTaskId } from "./ids";
 import { getMockStudentUser } from "../user/users";

@@ -96,6 +96,7 @@ const patchOrgSchema = z.object({
 const sendMsgSchema = z.object({
   receiverUserId: z.string().min(1),
   msgTypeId: z.string().optional(),
+  bizType: z.string().optional(),
   msgContent: z.string().min(1),
 });
 
@@ -233,12 +234,15 @@ export async function routeV2Sys(req: Request): Promise<Response> {
       const receiverUserId = url.searchParams.get("receiverUserId");
       if (!receiverUserId) return fail("缺少 receiverUserId", 400);
       const readTag = url.searchParams.get("readTag");
+      const msgTypeId = url.searchParams.get("msgTypeId");
       const where = ["receiver_user_id = ?"];
       const params: unknown[] = [receiverUserId];
       if (readTag === "0" || readTag === "1") { where.push("read_tag = ?"); params.push(readTag); }
+      if (msgTypeId) { where.push("msg_type_id = ?"); params.push(msgTypeId); }
       const [rows] = await pool.query<RowDataPacket[]>(
         `SELECT msg_id AS msgId, receiver_user_id AS receiverUserId,
                 sender_user_id AS senderUserId, msg_type_id AS msgTypeId,
+                biz_type AS bizType,
                 msg_content AS msgContent, read_tag AS readTag,
                 send_time AS sendTime, read_time AS readTime
          FROM sys_msg WHERE ${where.join(" AND ")}
@@ -257,9 +261,9 @@ export async function routeV2Sys(req: Request): Promise<Response> {
         label: body.msgContent.slice(0, 120),
       });
       await pool.query(
-        `INSERT INTO sys_msg (msg_id, receiver_user_id, sender_user_id, msg_type_id, msg_content, read_tag, send_time)
-         VALUES (?, ?, ?, ?, ?, '0', NOW())`,
-        [msgId, body.receiverUserId, actorId ?? null, body.msgTypeId ?? null, body.msgContent],
+        `INSERT INTO sys_msg (msg_id, receiver_user_id, sender_user_id, msg_type_id, biz_type, msg_content, read_tag, send_time)
+         VALUES (?, ?, ?, ?, ?, ?, '0', NOW())`,
+        [msgId, body.receiverUserId, actorId ?? null, body.msgTypeId ?? null, body.bizType ?? null, body.msgContent],
       );
       return ok({ msgId });
     }

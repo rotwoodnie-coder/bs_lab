@@ -35,7 +35,7 @@ export const MATERIAL_CONFIG_OPTIONS: readonly AdminDictTableOption[] = [
   { table: "data_material_prop", title: "材料属性" },
   { table: "data_material_security", title: "材料安全性" },
   { table: "data_exp_difficulty", title: "实验难度" },
-  { table: "data_file_type", title: "文件类型" },
+  { table: "data_file_type", title: "文件类型", readOnly: true },
   { table: "data_material_unit", title: "材料计量单位" },
 ] as const;
 

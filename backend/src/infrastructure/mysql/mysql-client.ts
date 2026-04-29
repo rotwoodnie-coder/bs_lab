@@ -71,6 +71,9 @@ export function getMysqlPool(): mysql.Pool {
     namedPlaceholders: true,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10000,
+    /* mysql2 默认将 DATETIME 返回为 Date 对象，String() 会输出 "Tue Dec 30 2036..." 这种非标准格式
+       导致前端回传后 MySQL 无法解析。dateStrings: true 让 mysql2 直接返回 "YYYY-MM-DD HH:MM:SS" 字符串。 */
+    dateStrings: true,
   });
   return pool;
 }
@@ -109,6 +112,7 @@ export function getLegacyMysqlPool(): mysql.Pool {
     queueLimit: 0,
     charset: "utf8mb4",
     namedPlaceholders: true,
+    dateStrings: true,
   });
   return legacyPool;
 }
