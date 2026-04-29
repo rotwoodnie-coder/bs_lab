@@ -69,6 +69,8 @@ export function getMysqlPool(): mysql.Pool {
     queueLimit: 0,
     charset: "utf8mb4",
     namedPlaceholders: true,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
   });
   return pool;
 }
