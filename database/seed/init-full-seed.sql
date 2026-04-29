@@ -113,12 +113,24 @@ INSERT IGNORE INTO `data_difficulty_type` (`type_id`, `type_name`, `comments`, `
 
 -- ============================================================
 -- 9. 文件类型 data_file_type
+--    注意：教师素材上传使用确定性 MD5 type_id（参见 v2-file-repository.ts）
+--    teacherMaterialKindToDataFileTypeId(kind) = MD5(CONCAT('v2tmk:', kind))
+--    必须保证 teacher_kind:{kind} 精确匹配 comments 列
 -- ============================================================
 INSERT IGNORE INTO `data_file_type` (`type_id`, `type_name`, `comments`, `status`, `sort_order`, `logo_class`) VALUES
+-- 传统可读 ID（通用字典用途）
 ('FT_Video',   '视频',     '视频文件', 'y', 1, 'video'),
 ('FT_Pdf',     '课件',     'PDF课件',  'y', 2, 'pdf'),
 ('FT_Image',   '图片',     '图片文件', 'y', 3, 'image'),
-('FT_Package', '压缩包',   '压缩文件', 'y', 4, 'package');
+('FT_Package', '压缩包',   '压缩文件', 'y', 4, 'package'),
+-- 确定性 MD5 ID（教师素材上传必须，v2tmk 前缀）
+('527c22cdb46b9962e152c15e7a0c74b4', '视频',   'teacher_kind:video',  'y', 5, 'video'),
+('54199d1c6812a5d7011824f43f0bd578', '课件',   'teacher_kind:pdf',    'y', 6, 'pdf'),
+('54452efd7631ef546aa2c0e0021c5918', '图片',   'teacher_kind:image',  'y', 7, 'image'),
+('0ac58d2226d2addd84eb2e888deb9f2b', '文档',   'teacher_kind:word',   'y', 8, 'word'),
+('1d9bb0986f59017eb86edbd8cbfdec74', 'PPT',    'teacher_kind:ppt',    'y', 9, 'ppt'),
+('588de0c5fa3d33a90f9ea7ec16936894', '音频',   'teacher_kind:audio',  'y', 10, 'audio'),
+('2743dbf0f77666c3447630ccf3d8cf8d', '表格',   'teacher_kind:spreadsheet', 'y', 11, 'spreadsheet');
 
 -- ============================================================
 -- 10. 题型 data_question_type
@@ -227,5 +239,40 @@ SELECT
   COALESCE(NULLIF(`status`, ''), 'y') AS `status`,
   `sort_order`          AS `sort_order`
 FROM `data_school_subject`;
+
+-- ============================================================
+-- 23. 积分称号规则 scale_title
+--     每个角色配置 3 个等级（入门 → 进阶 → 高阶）
+--     score_num = 达标积分下限，ORDER BY score_num ASC 决定等级顺序
+-- ============================================================
+INSERT IGNORE INTO `scale_title` (`seq_id`, `role_id`, `title_name`, `icon`, `score_num`) VALUES
+-- 系统管理员
+('st_admin_l1', 'Role_Sys_Admin',      '初级管理员',   NULL, 0),
+('st_admin_l2', 'Role_Sys_Admin',      '资深管理员',   NULL, 200),
+('st_admin_l3', 'Role_Sys_Admin',      '首席管理员',   NULL, 1000),
+-- 区管理员
+('st_dist_l1',  'Role_District_Admin', '初级区管',     NULL, 0),
+('st_dist_l2',  'Role_District_Admin', '资深区管',     NULL, 150),
+('st_dist_l3',  'Role_District_Admin', '卓越区管',     NULL, 800),
+-- 校管理员
+('st_sch_l1',   'Role_School_Admin',   '初级校管',     NULL, 0),
+('st_sch_l2',   'Role_School_Admin',   '资深校管',     NULL, 100),
+('st_sch_l3',   'Role_School_Admin',   '卓越校管',     NULL, 500),
+-- 教研员
+('st_res_l1',   'Role_Researcher',     '初级教研员',   NULL, 0),
+('st_res_l2',   'Role_Researcher',     '骨干教研员',   NULL, 200),
+('st_res_l3',   'Role_Researcher',     '首席教研员',   NULL, 1000),
+-- 教师
+('st_tch_l1',   'Role_Teacher',        '新锐教师',     NULL, 0),
+('st_tch_l2',   'Role_Teacher',        '骨干教师',     NULL, 100),
+('st_tch_l3',   'Role_Teacher',        '名师',         NULL, 500),
+-- 学生
+('st_stu_l1',   'Role_Student',        '小学徒',       NULL, 0),
+('st_stu_l2',   'Role_Student',        '小能手',       NULL, 50),
+('st_stu_l3',   'Role_Student',        '小达人',       NULL, 200),
+-- 家长
+('st_par_l1',   'Role_Parent',         '关注家长',     NULL, 0),
+('st_par_l2',   'Role_Parent',         '热心家长',     NULL, 100),
+('st_par_l3',   'Role_Parent',         '模范家长',     NULL, 500);
 
 SET FOREIGN_KEY_CHECKS = 1;
