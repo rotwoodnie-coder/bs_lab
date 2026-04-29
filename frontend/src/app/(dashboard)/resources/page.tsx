@@ -91,6 +91,66 @@ export default function ResourcesCenterPage() {
 
   const searchLocked = !effective.searchAndFilter;
 
+  const renderResourceCard = (item: ResourceItem) => {
+    const canPreview = effective.preview;
+    const inner = (
+      <Card
+        className={cn(
+          "h-full overflow-hidden border-border shadow-xs",
+          canPreview && "transition-shadow hover:shadow-md",
+        )}
+      >
+        <div
+          className={cn(
+            "relative h-36 bg-gradient-to-br sm:h-40",
+            item.coverClassName,
+          )}
+        >
+          <Badge className="absolute top-3 right-3" variant="secondary">
+            {item.fileBadge}
+          </Badge>
+        </div>
+        <CardHeader className="pb-2">
+          <CardTitle className="line-clamp-2 text-base leading-snug">{item.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="pb-2">
+          <p className="text-xs text-muted-foreground">
+            {item.stage} · {item.subject}
+          </p>
+        </CardContent>
+        <CardFooter className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1 tabular-nums">
+            <Download className="size-3.5 shrink-0" aria-hidden />
+            {(item.downloads ?? 0).toLocaleString()}
+          </span>
+          <span className="flex items-center gap-1 tabular-nums">
+            <Eye className="size-3.5 shrink-0" aria-hidden />
+            {(item.views ?? 0).toLocaleString()}
+          </span>
+        </CardFooter>
+      </Card>
+    );
+
+    if (!canPreview) {
+      return (
+        <div key={item.id} className="rounded-xl opacity-90">
+          {inner}
+        </div>
+      );
+    }
+
+    return (
+      <button
+        key={item.id}
+        type="button"
+        className="block w-full rounded-xl text-left outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={() => setPreview(item)}
+      >
+        {inner}
+      </button>
+    );
+  };
+
   if (!effective.moduleEnabled) {
     return (
       <div className="space-y-4">
@@ -288,66 +348,9 @@ export default function ResourcesCenterPage() {
         <p className="text-center text-sm text-muted-foreground">没有符合筛选条件的资源。</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((item) => {
-          const canPreview = effective.preview;
-          const inner = (
-            <Card
-              className={cn(
-                "h-full overflow-hidden border-border shadow-xs",
-                canPreview && "transition-shadow hover:shadow-md",
-              )}
-            >
-              <div
-                className={cn(
-                  "relative h-36 bg-gradient-to-br sm:h-40",
-                  item.coverClassName,
-                )}
-              >
-                <Badge className="absolute top-3 right-3" variant="secondary">
-                  {item.fileBadge}
-                </Badge>
-              </div>
-              <CardHeader className="pb-2">
-                <CardTitle className="line-clamp-2 text-base leading-snug">{item.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="pb-2">
-                <p className="text-xs text-muted-foreground">
-                  {item.stage} · {item.subject}
-                </p>
-              </CardContent>
-              <CardFooter className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1 tabular-nums">
-                  <Download className="size-3.5 shrink-0" aria-hidden />
-                  {(item.downloads ?? 0).toLocaleString()}
-                </span>
-                <span className="flex items-center gap-1 tabular-nums">
-                  <Eye className="size-3.5 shrink-0" aria-hidden />
-                  {(item.views ?? 0).toLocaleString()}
-                </span>
-              </CardFooter>
-            </Card>
-          );
-
-          if (!canPreview) {
-            return (
-              <div key={item.id} className="rounded-xl opacity-90">
-                {inner}
-              </div>
-            );
-          }
-
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className="block w-full rounded-xl text-left outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => setPreview(item)}
-            >
-              {inner}
-            </button>
-          );
-        })}
-      </div>
+          {filtered.map(renderResourceCard)}
+        </div>
+      )}
 
       {preview && effective.preview ? (
         <ResourcePreview

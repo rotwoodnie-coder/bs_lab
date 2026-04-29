@@ -14,7 +14,7 @@ async function parse<T>(res: Response): Promise<T> {
   }
 
   if (!res.ok) {
-    const msg = json?.error?.message ?? raw.trim() || `请求失败（HTTP ${res.status}）`;
+    const msg = (json?.error?.message ?? raw.trim()) || `请求失败（HTTP ${res.status}）`;
     throw new Error(msg === "服务内部错误" ? "家长实验室数据暂时不可用，请稍后重试" : msg);
   }
   if (json && json.success === false) {

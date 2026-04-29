@@ -242,16 +242,6 @@ export function FeedbackManageScreen() {
     [total, bugCount, todoCount, doneCount, governance.totalAutoTriaged],
   );
 
-  const recentTriagedIds = React.useMemo(
-    () => data.filter((item) => item.status === "AUTO_TRIAGED").slice(0, 3).map((item) => item.feedbackId),
-    [data],
-  );
-
-  const hotFingerprintText = React.useMemo(
-    () => (governance.topFingerprints.length > 0 ? governance.topFingerprints.map((i) => `${i.issueFingerprint}(${i.count})`).join("; ") : "[无活跃指纹]"),
-    [governance.topFingerprints],
-  );
-
   return (
     <>
       <ManagementPageFrame

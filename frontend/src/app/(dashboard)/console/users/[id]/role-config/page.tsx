@@ -174,7 +174,7 @@ export default function UserRoleConfigPage() {
         提示：若用户登录角色异常，请检查其主档角色并尝试一键重置。
       </div>
 
-      <Card>
+      <Card
         actions={
           <Button variant="destructive" className="gap-2" onClick={() => void resetTeacherPureState()} disabled={saving || !hasTeacher}>
             <RefreshCw className="size-4" /> 危险操作：一键重置为教师纯净态
