@@ -1,11 +1,12 @@
 /**
  * PM2 生态系统配置
  *
- * ## 首次启动（先手动 build 前端）
- *   cd /opt/bs-lab && sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
+ * ## 首次启动
+ *   cd /opt/bs-lab && sudo git pull && cd frontend && sudo rm -rf .next && sudo pnpm build && cd ..
+ *   sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
  *
  * ## 更新代码后重启
- *   cd /opt/bs-lab && git pull && cd frontend && rm -rf .next && pnpm build && cd ..
+ *   cd /opt/bs-lab && sudo git pull && cd frontend && sudo rm -rf .next && sudo pnpm build && cd ..
  *   sudo pm2 restart all
  *
  * ## 查看状态
@@ -17,8 +18,8 @@ module.exports = {
     {
       name: "bs-lab-backend",
       cwd: "./backend",
-      script: "src/http/server.ts",
-      interpreter: "tsx",
+      script: "npx",
+      args: "tsx src/http/server.ts",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
