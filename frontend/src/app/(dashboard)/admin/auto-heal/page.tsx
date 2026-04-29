@@ -149,17 +149,18 @@ export default function AdminAutoHealPage() {
       <PageHeader
         title="自动修复"
         description="系统自动捕获前端错误并上报为反馈，结合审计脚本生成修复建议。"
-      >
-        <Button
-          size="sm"
-          className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90"
-          disabled={refreshing}
-          onClick={handleRefresh}
-        >
-          <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "刷新中…" : "刷新"}
-        </Button>
-      </PageHeader>
+        actions={
+          <Button
+            size="sm"
+            className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+            disabled={refreshing}
+            onClick={handleRefresh}
+          >
+            <RefreshCw className={`size-3.5 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "刷新中…" : "刷新"}
+          </Button>
+        }
+      />
 
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">

@@ -1,0 +1,49 @@
+---
+description: 在 Windows/PowerShell 环境下执行 git commit 时，禁止使用 heredoc（<<），必须使用内联 -m 加换行符
+alwaysApply: true
+---
+
+# PowerShell Git Commit 规则
+
+本项目运行在 **Windows + PowerShell** 环境下。PowerShell 不支持 Bash 风格的 heredoc 语法。
+
+## 强制要求
+
+### 1. 禁止使用 heredoc
+
+```powershell
+# ❌ 错误 — PowerShell 不支持
+git commit -m "$(cat <<'EOF'
+message here
+EOF
+)"
+
+# ✅ 正确 — 使用内联 -m，多行用 \n 或 PowerShell 换行符
+git commit -m "第一行
+
+- 第二行
+- 第三行"
+```
+
+### 2. 多行 commit message
+
+直接将多行内容写在 `-m` 的引号内，允许的语法：
+
+```powershell
+git commit -m "fix: 标题
+
+- 详细说明第一行
+- 详细说明第二行"
+```
+
+### 3. 单行简短 message
+
+```powershell
+git commit -m "fix: 简短描述"
+```
+
+## 提交前检查
+
+- 确保不使用 `<<'EOF'` 或 `cat <<` 等 heredoc 语法
+- 所有 git commit 命令使用 `git commit -m "..."` 格式
+- 多行时在引号内直接换行
