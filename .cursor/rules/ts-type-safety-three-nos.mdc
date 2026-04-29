@@ -1,0 +1,50 @@
+---
+description: TypeScript 类型安全三不原则
+alwaysApply: true
+---
+
+# TypeScript 类型安全三不原则
+
+## 原则一：不让 TS 猜
+
+定义常量数组后，如果后续要用 `.includes(string)` 或 `.has(string)` 校验 `string` 变量，必须显式标注类型，防止 TS 推导为窄字面量联合类型导致不兼容。
+
+```typescript
+// 错误 — TS 推导为 ("Org_School" | "Org_School_Campus")[]
+const schoolLikeIds = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+
+// 正确 — 显式标注 string[]
+const schoolLikeIds: string[] = [V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus];
+
+// 或使用 Set<string>
+const schoolLikeIds = new Set<string>([V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
+```
+
+## 原则二：不绕过 tsc
+
+本地推送前必须运行一次 TypeScript 类型检查：
+
+```bash
+pnpm tsc --noEmit
+```
+
+不得跳过类型检查直接提交。构建失败时必须修复所有类型错误后再推送。
+
+## 原则三：参数放宽 + 内部兜底
+
+函数参数需要接收外部 `string` 时，用 `string` 而非窄字面量联合类型，内部做兜底：
+
+```typescript
+// 错误 — 参数用窄类型，调用方被迫断言
+export function roleLabel(id: RoleId) { ... }
+
+// 正确 — 参数放宽为 string，内部兜底
+export function roleLabel(id: string) {
+  return USER_ROLE_OPTIONS.find((r) => r.id === id)?.label ?? id;
+}
+```
+
+兜底模式：
+- 函数参数用 `string`，内部 `.find()` + `??` 兜底
+- API 返回值对可空字段用 `??` 提供默认值
+- `.find()` / `.includes()` 用 `??` 兜底而非假设永远能找到
