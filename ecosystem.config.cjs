@@ -1,7 +1,8 @@
 /**
  * PM2 生态系统配置
  *
- * 全部指向真实 JS 入口文件，避免 .bin/ 下的 shell 脚本被 Node 执行报错。
+ * 前后端统一用 interpreter: "none" + script: "pnpm"，走 shell 执行，
+ * 避免 .bin/ 下的 shell 脚本被 Node 当作 JS 执行报 SyntaxError。
  *
  * ## 首次启动
  *   cd /opt/bs-lab && sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
@@ -33,10 +34,9 @@ module.exports = {
     {
       name: "bs-lab-frontend",
       cwd: "./frontend",
-      // next 的 JS 入口（不走 .bin/next shell 脚本）
-      script: "node_modules/next/dist/bin/next.js",
-      args: "start -p 4200",
-      interpreter: "node",
+      script: "pnpm",
+      args: "run start",
+      interpreter: "none",
       env: {
         NODE_ENV: "production",
       },
