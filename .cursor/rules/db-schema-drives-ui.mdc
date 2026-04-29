@@ -1,0 +1,34 @@
+---
+description: 前端 UI 以数据库与 V2 API 契约为准改造，禁止为迁就旧界面去改库或造平行假模型
+alwaysApply: true
+---
+
+# 数据库 / API 契约驱动前端 UI（硬性）
+
+在 **V2 及当前目标库 `bs_exp_data`** 场景下，**权威顺序**为：**`database/baseline/README.md` →「当前快照」表**（当前 **`database/migrations/bs_exp_data.sql`** 为 **`bs_exp_data` 全库 DDL 基线**，与新人空库建表共用）→ **已合并的编号增量迁移**（`0024_*.sql`、`00NN_*.sql` 等；**勿**将 `bs_exp_data.sql` 当每日自动全量迁移执行）→ 其余 `baseline/` 历史快照 → 后端仓库与 HTTP 契约 → 前端展示与表单。
+
+### 与 baseline 目录的裁决（避免双真源打架）
+
+1. **非 `bs_exp_data` 的异名 schema 整库导出**：除非 `database/baseline/README.md` 明确标为「当前生效」，否则 **不得** 替代 **`database/migrations/bs_exp_data.sql`**；**`material_msg` / `data_file` 等以 `bs_exp_data.sql`（及之后对其表的 ALTER 编号迁移）为准**。与 **`0024_v2_full_schema_init.sql`** 冲突时以 README 裁定与较新的 `bs_exp_data.sql` 为准。
+2. **baseline 内仅含 `INSERT`、无 `CREATE` 的单表文件**：列集合以 INSERT 列名为线索，**列类型、索引、FK** 仍以 **对应版本 migration** 为准。
+3. **baseline/README 与 migration 冲突时**：按 README 流程 **产品裁定 → 补迁移或更新导出**；同一变更须带齐 repository / zod / 前端类型。
+
+## 原则
+
+1. **前端向数据库与接口对齐**：列表列、表单字段、枚举取值、是否可空、一对多与多对一关系，均以库表与已发布 API 为准做 UI 改造。
+2. **禁止反向迁就**：不得为了让旧页面「少改」而要求 **无迁移、无评审地** 改库加列、改枚举、改约束去适配遗留 UI。**已评审且入库的 `database/migrations/*.sql`** 对目标库做的 schema 变更属于正规演进，不属本条禁止范围；变更后须同步后端契约与前端。
+3. **展示层可做映射，语义层不可造假**：允许在 **适配层 / 字典**（如 `v2-dict-*`、`v2-*-adapter`）把 `y/n/t`、UUID 等转成文案或树节点；禁止在业务页长期用 **mock 结构** 冒充与库不一致的实体（例如用组织名称当 `org_id`、多角色 UI 对应单 `user_role_id` 却不提示等）。
+4. **标签与分组**：下拉、筛选、表头文案优先来自 **`/v2/dict/*` 或接口返回的 display 字段**；库中仅存码值的，UI 必须明确是「码 + 字典解释」，而不是自创一套与库脱节的枚举。
+5. **新建/编辑表单**：字段顺序与必填性以 **创建/更新 DTO 与表约束** 为准；库侧只读或不可变的字段（如唯一键、审计字段）在 UI 上应只读或隐藏，而不是改库放宽约束。
+
+## 自检清单（涉及业务页或主数据页时）
+
+- 该页展示的实体是否与 **当前迁移/目标库** 中的表一一对应，无额外「专用」主字段。
+- 表单提交体是否可直接或经薄适配对应到 **后端 zod/schema 与表字段**，无需库侧妥协。
+- 枚举与状态是否与 **`data_*` / 列注释** 一致；中文文案是否仅作展示，**持久化仍以库内码值为准**。
+- 是否仍存在「前端一种模型、库中另一种模型」的双轨；若有，是否已排期删除前端假模型。
+- 控制台 **教学维度**（`/api/edu/dimensions`）：前端聚合模型为 `SchoolDimensionSnapshot`，字段与 `data_school_level` / `data_school_grade` / `data_school_subject` / `data_school_grade_subject` 列语义对齐（如 `levelId`、`linkKey`、`lineActive`）；勿再引入与库脱节的 `stages` / `stageSubjects` 等旧名作为主类型。
+
+## 与 `no-legacy-db-for-formal-dev.mdc` 的关系
+
+数据源必须来自 **目标开发库 / V2**；本规则解决的是 **同一目标库上「谁迁就谁」**：**UI 迁就库与契约**，而非库迁就 UI。

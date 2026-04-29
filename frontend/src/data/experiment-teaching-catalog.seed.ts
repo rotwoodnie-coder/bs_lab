@@ -1,0 +1,16 @@
+export {
+  EXPERIMENT_CATALOG_SUBJECTS,
+  CATALOG_SUGGESTED_GRADE_OPTIONS,
+  CATALOG_ACTIVITY_TYPE_OPTIONS,
+  PRIMARY_SCIENCE_SEED_ROW_COUNT,
+  rowCatalogKey,
+  type CatalogPhaseGradeKey,
+  CATALOG_SEGMENT_COUNT,
+  CATALOG_PHASE_GRADE_KEYS_ORDERED,
+  CATALOG_KEY_TO_SEGMENT_IDS,
+  loadCatalogSegmentByIndex,
+  loadAllExperimentCatalogSeedRows,
+  createCatalogRowsLoaderForPhaseGradeKey,
+  CATALOG_LAZY_LOADERS,
+  type CatalogSeedRow,
+} from "./experiment-teaching-catalog.seed/index";

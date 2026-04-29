@@ -1,0 +1,130 @@
+"use client";
+
+import type { ApiActor } from "@/lib/new-core-api";
+import { defaultMaterialTitleFromFileName } from "@/lib/default-material-title";
+import type { TeacherMaterialKind } from "@/lib/teacher-materials-api";
+
+import { mediaRegistryStreamUrl } from "./registry-ref";
+import {
+  reconcileBinaryMediaKindFromFilename,
+  reconcileTeacherMaterialKindFromFilename,
+} from "@/lib/media/infer-media-kind-from-filename";
+
+import type { MediaKind } from "./types";
+import { startMediaUploadProgressToast } from "./media-upload-toast-progress";
+import type { MediaUploadProgressEvent, MediaUploadXhrPayload } from "./upload-form-xhr";
+import { postMediaUploadForm } from "./upload-form-xhr";
+import type { MediaStorageMode } from "./media-upload-destination-copy";
+
+export type UploadToMediaPlatformResult = {
+  registryId: string;
+  assetId: string;
+  viewUrl: string;
+  reviewStatus: string;
+  reused: boolean;
+  storageMode?: MediaStorageMode;
+  fileUrl?: string | null;
+  registration?: "v1" | "v2";
+};
+
+export type MediaPlatformUploadOptions = {
+  onProgress?: (e: MediaUploadProgressEvent) => void;
+  /** 默认 toast：含进度条与落点说明；silent 不展示内置 Toast（适合已有完整进度 UI 的场景） */
+  ui?: "toast" | "silent";
+  /**
+   * full：上传结束弹出成功/失败 Toast；
+   * loading-only：仅展示上传过程，成功后关闭加载提示且不弹「媒体上传完成」，便于业务侧收口一条成功文案。
+   */
+  toastOutcome?: "full" | "loading-only";
+  /** 单次上传的自动重试次数，默认为 1；设为 0 可完全禁用重试。 */
+  retryCount?: number;
+  /** 幂等键；同一文件重复提交时可用于后端去重。 */
+  uploadKey?: string;
+};
+
+async function postUploadEnvelope(
+  form: FormData,
+  opts?: MediaPlatformUploadOptions,
+): Promise<MediaUploadXhrPayload> {
+  const ui = opts?.ui ?? "toast";
+  const outcome = opts?.toastOutcome ?? "full";
+  const toastCtl = ui === "toast" ? startMediaUploadProgressToast("正在上传媒体资源", outcome) : null;
+  try {
+    const payload = await postMediaUploadForm(form, {
+      onProgress: (e) => {
+        opts?.onProgress?.(e);
+        toastCtl?.updateProgress(e.percent);
+      },
+    });
+    if (!payload.ok || !payload.data) {
+      throw new Error(payload.error ?? "上传失败");
+    }
+    toastCtl?.finishSuccess(payload.data.storageMode, payload.data.reused);
+    return payload;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "上传失败";
+    toastCtl?.finishError(msg);
+    throw e instanceof Error ? new Error(`[上传接口] ${e.message}`) : new Error(`[上传接口] ${msg}`);
+  }
+}
+
+function mapData(payload: MediaUploadXhrPayload): UploadToMediaPlatformResult {
+  const d = payload.data!;
+  return {
+    registryId: d.registryId,
+    assetId: d.assetId,
+    viewUrl: d.viewUrl,
+    reviewStatus: d.reviewStatus,
+    reused: d.reused,
+    storageMode: d.storageMode,
+    fileUrl: d.fileUrl ?? undefined,
+    registration: d.registration,
+  };
+}
+
+export async function uploadMediaFileToPlatform(
+  actor: ApiActor,
+  file: File,
+  input: { kind: MediaKind; title?: string },
+  options?: MediaPlatformUploadOptions,
+): Promise<UploadToMediaPlatformResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("title", (input.title ?? file.name).trim() || "未命名素材");
+  form.append("mediaKind", reconcileBinaryMediaKindFromFilename(input.kind, file.name));
+  form.append("userId", actor.userId);
+  form.append("orgId", actor.orgId);
+  form.append("userName", actor.userName);
+  form.append("role", actor.role);
+  if (options?.uploadKey) form.append("uploadKey", options.uploadKey);
+
+  const payload = await postUploadEnvelope(form, options);
+  return mapData(payload);
+}
+
+/** 实验素材库：按素材类型上传至媒体中台（含 Office / PDF / Excel 等）。 */
+export async function uploadTeacherMaterialFileToPlatform(
+  actor: ApiActor,
+  file: File,
+  input: { materialKind: TeacherMaterialKind; title: string },
+  options?: MediaPlatformUploadOptions,
+): Promise<UploadToMediaPlatformResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const title =
+    input.title.trim() || defaultMaterialTitleFromFileName(file.name) || file.name.trim() || "未命名素材";
+  form.append("title", title);
+  form.append("teacherMaterialKind", reconcileTeacherMaterialKindFromFilename(input.materialKind, file.name));
+  form.append("userId", actor.userId);
+  form.append("orgId", actor.orgId);
+  form.append("userName", actor.userName);
+  form.append("role", actor.role);
+  if (options?.uploadKey) form.append("uploadKey", options.uploadKey);
+
+  const payload = await postUploadEnvelope(form, options);
+  return mapData(payload);
+}
+
+export function viewUrlForRegistryId(registryId: string, actor?: ApiActor): string {
+  return mediaRegistryStreamUrl(registryId, "view", actor);
+}

@@ -1,0 +1,44 @@
+# local scratch / reference material
+temp/
+# 本地影子资源 Registry ID（见 docs/local-dev-seeds.example.md）
+README.local
+
+# dependencies
+**/node_modules/
+package-lock.json
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Next.js build outputs
+**/.next/
+**/out/
+**/dist/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# 本地追加的素材扩展名（见 v2-file-extension-groups.local.example.json）
+backend/src/domain/v2-file/v2-file-extension-groups.local.json
+
+# v0 prototype — UI reference only, not active code
+bsv0/
+v0-assets/
+
+# runtime / debug reports
+backend/reports/
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+

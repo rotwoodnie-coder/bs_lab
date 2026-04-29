@@ -1,0 +1,32 @@
+---
+description: DataTable 列约定（序号列、禁止内部编码展示列）
+alwaysApply: true
+---
+
+# DataTable 列约定
+
+## 序号列（强制）
+
+- 凡使用 `DataTable` / TanStack Table 渲染的**业务列表表格**，必须在列定义**最左侧**增加「序号」列。
+- 序号表示**当前页**内的顺序：`(pageIndex * pageSize) + rowIndex + 1`，使用 `tabular-nums` 等与现有表格风格一致的样式。
+- 优先复用 `frontend/src/lib/data-table/serial-column.tsx` 中的 `createSerialNumberColumn<T>()`，避免各页重复实现。
+- 列可见性、导出若涉及列裁剪，序号列默认保留；若产品明确要求导出不含序号，在导出逻辑中单独处理，表格 UI 仍保留序号。
+
+## 禁止在表格中展示内部编码（强制）
+
+- **内部编码**包括但不限于：`standardCode`、数据库主键 `id`、纯技术用 `code`、租户/组织内部流水号等用户无需理解的标识。
+- 上述字段**不得**作为 DataTable 的常规展示列；用户面向的列表应使用**名称、描述、学段·学科、状态**等业务可读字段。
+- 若排障或运维需要查看编码：放在**详情抽屉/侧栏**、**复制到剪贴板**、或受权限控制的调试入口，而非主表格列。
+
+## 新建/改造表格时的自检
+
+- [ ] 是否已添加序号列（且位于首列）？
+- [ ] 是否移除了或避免了内部编码列？
+- [ ] 列头与 `meta.label` 是否与「列可见性」文案一致？
+- [ ] 时间字段是否使用全站统一中文格式（见 `frontend/src/lib/datetime/format-zh.ts`）？
+
+## 时间/日期展示规范（强制）
+
+- 列表/表格中的时间字段（如创建时间、更新时间、最近登录、审计时间等）必须使用统一格式化函数，禁止散落 `toLocaleString(...)` / `slice(0, 10)` 等临时代码。
+- 全站中文时间规范定义在 `frontend/src/lib/datetime/format-zh.ts`：
+  - 统一格式：`YYYY-MM-DD HH:mm`

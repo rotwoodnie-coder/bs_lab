@@ -1,0 +1,29 @@
+{
+  "name": "new-core-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev-entry.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node --test src/**/*.test.ts",
+    "lint": "pnpm run typecheck",
+    "media:scan-missing-objects": "node --env-file ../.env.local --experimental-strip-types scripts/media-integrity-scan-missing-objects.mjs",
+    "media:apply-missing-objects-repair": "node --env-file ../.env.local --experimental-strip-types scripts/media-apply-missing-objects-repair.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1030.0",
+    "@aws-sdk/s3-request-presigner": "^3.1030.0",
+    "bcryptjs": "^3.0.3",
+    "mysql2": "^3.22.1",
+    "pinyin-pro": "3.26.0",
+    "sharp": "^0.33.5",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.7.3"
+  }
+}

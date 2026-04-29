@@ -1,0 +1,42 @@
+---
+description: Force all media-related work to use the shared GMS upload/preview controls and hooks
+globs: frontend/src/**/*.{ts,tsx}, backend/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# GMS is mandatory for media work
+
+For any feature, page, hook, component, or API that involves media upload, preview, thumbnail generation, playback, recovery, or status tracking:
+
+- MUST use the shared GMS primitives and controls.
+- MUST NOT create a new ad hoc media upload component or preview component.
+- MUST NOT duplicate thumbnail-ensure logic in feature code.
+- MUST NOT reimplement media task state in component-local state if GMS can own it.
+
+## Required shared entry points
+
+Use these first and extend them only when necessary:
+
+- `useMediaUpload`
+- `useMediaPreview`
+- `useMediaStore`
+- `MediaPreviewCard`
+- `MediaUploadPreviewCard` when upload + preview must be combined
+
+## Media code review rule
+
+If a new media-related UI is needed, it must be composed from the shared GMS controls.
+If a new media-related hook is needed, it must wrap or extend the shared GMS hooks rather than replace them.
+If a new media-related API flow is needed, it must plug into the shared GMS task/state model.
+
+## Hard constraint
+
+Do not introduce a parallel media system.
+Do not create new one-off upload/preview widgets for a feature page.
+Do not bypass the GMS controls for a "quick" implementation.
+
+## Preferred pattern
+
+- Feature pages should only provide business context and identifiers.
+- GMS should own media state, thumbnail state, upload state, retry state, and preview fallback behavior.
+- Feature code may customize layout, labels, and business actions, but not the media lifecycle itself.

@@ -1,0 +1,69 @@
+---
+description: 管理页 UI 交互母版（标准实验目录 + 教学框架管理）
+alwaysApply: true
+---
+
+# 管理页 UI 交互母版与统一化
+
+## 适用范围
+
+- `frontend/src/app/(dashboard)/console/**` 下的资源管理、配置、审核等**列表或看板主导**页面。
+- 教师端等与上述**同构**的「筛选 + 列表 + 新建」类页面，除非产品明确为完全不同的信息架构。
+
+## 双母版参考（优先对齐）
+
+新增或改版上述页面时，**必须先对照**以下两处最近迭代、已接库的风格与结构；禁止在无说明的情况下另起一套布局或交互。
+
+### 母版 A：标准实验目录（experiments）
+
+- **工具条（搜索 + 次要操作 + 主操作）**  
+  `frontend/src/app/(dashboard)/console/resources/experiments/_components/experiment-catalog-toolbar.tsx`  
+  - 搜索 `Input`：`min-w-0 flex-1`；大屏同一工具行右侧为 `flex-wrap` 的次要按钮 + 主色「新建/新增」类主操作；小屏纵向堆叠时保持「搜索 → 操作」顺序。
+
+- **页面分层**  
+  `frontend/src/app/(dashboard)/console/resources/experiments/`  
+  - 薄 `page.tsx` → `*Screen`；`page.hooks.ts` 承载列表/筛选与刷新；复杂 UI 放入 `_components/`。遵守 `single-file-300-lines-max.mdc`。
+
+- **左栏筛选 + 右侧主内容**  
+  `frontend/src/app/(dashboard)/console/resources/experiments/_components/experiment-catalog-page-view.tsx`（及同目录树/筛选相关组件）。  
+  - 多维度筛选时优先「左侧树或侧栏 + 右侧列表/表格」，避免首屏被多行横向筛选占满。
+
+### 母版 B：教学框架管理（subject-grades）
+
+- **整页骨架与布局**  
+  `frontend/src/app/(dashboard)/console/resources/subject-grades/page.tsx`  
+  - 使用 `LeftTreeRightTableLayout`（`frontend/src/components/layout/left-tree-right-table-layout`）：左侧维度树/看板标题区 + 右侧 `Card` 主工作区。
+
+- **数据与 API 分层**  
+  `frontend/src/app/(dashboard)/console/resources/subject-grades/page.hooks.ts`、`page.api.ts`、`page.types.ts`、`page.constants.ts`  
+  - 状态、请求与类型分离，便于与同域其他管理页对齐。
+
+- **右侧分区与卡片内交互**  
+  `_components/EduStageTreeBoard.tsx`、`EduGradeSettingsPanel.tsx`、`EduSubjectBoard.tsx` 等。  
+  - `Card` / `CardHeader` / `CardContent`：`border-border shadow-none`；标题行 `flex` 对齐，主操作（如「新增学科」）与标题同区或紧邻；内容区内 **搜索 `Input`**（占位示例：「搜索学科名称或编码」）与列表分区清晰；列表可用卡片行、开关、行内次要按钮等，与实验目录的 DataTable 场景互补——**信息密度与分区节奏**以本母版为准。
+
+## 强制交互约定
+
+- **首屏工具区**：凡「关键词 + 新建」类场景，须与 **母版 A 工具条** 同构（搜索与主操作同一工具区域，响应式折行 acceptable）。非表格型看板可参考 **母版 B** 在 `CardHeader` 或内容区首行的同等语义组合。
+- **管理表格**：凡使用 `DataTable` 的页面，遵守 `datatable-conventions.mdc` 与 `ui-source-of-truth.mdc`（序号列、禁止内部编码作主列、表头吸顶等）。
+- **详情与编辑**：优先 Sheet / Dialog；弹层中文与按钮遵守 `dialog-chinese-output.mdc`。
+- **原子组件**：仅 `@bs-lab/ui`；语义色与 Dark 模式遵守 `ui-source-of-truth.mdc`。
+- **提炼通用能力**：应从上述双母版抽取并复用，禁止复制后各自维护一套等价布局。
+
+## 联调、运维、中台类面板
+
+登记 ID、审核策略、版本/引用升级等**面向联调或运维**的区块：**不得**作为列表页默认首屏大块常驻；须采用以下至少一种：**默认折叠**、**独立控制台路由**、**权限可见**、或与主列表**明确分区**且不抢占主内容首屏。与 `reuse-first-ui-and-pages.mdc` 一致。
+
+## 每次改动自检清单
+
+- [ ] 是否已打开并对照 **母版 A（experiments）** 与 **母版 B（subject-grades）** 中与本页最接近的片段。
+- [ ] 工具条或卡片首行是否与母版 A/B 的「搜索 + 主操作」节奏一致。
+- [ ] 多维度筛选是否优先「左栏 + 右侧内容」，而非无限横向 chip 堆叠。
+- [ ] 若使用 DataTable，是否满足 `datatable-conventions.mdc` 与 UI 包规则。
+- [ ] 对话框与 Toast 是否为简体中文且符合产品文案相关规则。
+- [ ] 单文件行数与函数长度是否满足 `single-file-300-lines-max.mdc`。
+- [ ] 联调/运维类面板是否未默认挤压主列表首屏。
+
+## 例外
+
+产品或信息架构与「列表 + 工具条」或「左树右卡」**实质不同**（如纯向导、地图型）时，可偏离母版，但须在变更说明中写明**偏离原因**与**替代交互模型**。

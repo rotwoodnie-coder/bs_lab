@@ -1,0 +1,6 @@
+/* Consumer should import this once in their global CSS:
+   @import "@bs-lab/ui/styles.css";
+
+   This file intentionally stays minimal. The single source of truth for
+   design tokens is the app's CSS variables (e.g. src/app/globals.css). */
+

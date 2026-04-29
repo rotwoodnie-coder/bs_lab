@@ -1,0 +1,21 @@
+{
+  "name": "bs-lab",
+  "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "dependencies": {
+    "dompurify": "^3.2.4"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter new-core-backend --filter new-core-frontend run dev",
+    "dev:fresh": "node scripts/dev-fresh.mjs",
+    "guardrails:check": "node scripts/guardrails-check.mjs",
+    "guardrails:check:changed": "node scripts/guardrails-check.mjs --changed",
+    "typecheck": "pnpm --filter @bs-lab/ui run typecheck && pnpm --filter new-core-frontend run typecheck && pnpm --filter new-core-backend run typecheck",
+    "build": "pnpm --filter new-core-frontend run build",
+    "dev:frontend": "pnpm --filter new-core-frontend run dev",
+    "dev:backend": "pnpm --filter new-core-backend run dev",
+    "audit:heal": "node scripts/auto-heal-audit.mjs",
+    "heal:doctor": "node -e \"console.log('\\n--------------------------------------------------\\n🆘 医生巡检指令已就绪！\\n\\n请直接复制并发送以下指令给 Cursor Agent：\\n\\n\\\"请读取顶层的 CURRENT_SYSTEM_STATE.md，点击进入对应的 AUTO_HEAL_AUDIT.md 报告，按【紧急】优先级修复前三个高频故障。修复后请更新 CURRENT_SYSTEM_STATE.md 的已修复列表。\\\"\\n--------------------------------------------------\\n')\""
+  }
+}
+

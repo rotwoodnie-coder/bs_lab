@@ -1,0 +1,55 @@
+---
+description: 视觉宪法 1.0——布局容器、按钮规范、富文本、组织架构三级下钻（宝山放大镜全局强制）
+alwaysApply: true
+---
+
+# 视觉宪法 1.0（全局强制）
+
+## 布局容器
+
+- 所有管理/配置页主容器 **必须** 使用 `DASHBOARD_MAIN_CONTAINER_CLASS`（来自 `@/lib/layout-container-classes`）。
+- **严禁**使用 `max-w-*` 或固定 `width` 对右侧内容区做硬限制；必须实现"内容驱动自适应全宽"布局。
+
+```tsx
+// ✅ 正确
+import { DASHBOARD_MAIN_CONTAINER_CLASS } from "@/lib/layout-container-classes";
+<div className={`${DASHBOARD_MAIN_CONTAINER_CLASS} gap-6 py-4`}>...</div>
+
+// ❌ 错误
+<div className="max-w-4xl mx-auto">...</div>
+```
+
+## 操作按钮规范
+
+所有"保存/新增/确认/发布"等**操作类按钮**必须同时满足：
+
+| 要求 | 实现 |
+|------|------|
+| 黑色背景 | `bg-foreground text-background hover:bg-foreground/90` |
+| 紧凑圆角 | `rounded-lg` + `size="sm"` |
+| Lucide 图标 | 图标在文字左侧，`className="size-3.5"` |
+| Loading 状态 | `disabled` + 文字改为"…中" |
+
+```tsx
+// ✅ 正确
+<Button size="sm" className="gap-1.5 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+  disabled={pending} onClick={handleSave}>
+  <Save className="size-3.5" />
+  {pending ? "保存中…" : "保存"}
+</Button>
+```
+
+## 长文本输入——强制富文本
+
+步骤、原理、结论、描述等**长文本字段**：
+
+- **必须**调用项目已有的 Rich Text Editor（不得使用 `<Textarea>` 代替）。
+- 搜索路径：`@/components/shared` 或 `@/components/business`（如 `RichTextEditor`）。
+
+## 组织架构选择——三级下钻
+
+凡涉及"选择班级/年级/学校"场景：
+
+- **必须**遵循 `学校 → 年级 → 班级` 三级级联逻辑（对应 `Org_School → Org_School_Grade → Org_School_Class`）。
+- **严禁**将所有班级扁平化展示在同一列表中（不做学校/年级过滤）。
+- 使用 `V2_ORG_TYPE_IDS`（`@/lib/v2/v2-org-type-constants`）判断节点类型。

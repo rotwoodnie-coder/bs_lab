@@ -1,0 +1,33 @@
+<svg width="720" height="405" viewBox="0 0 720 405" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="720" y2="405" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F4F7FF"/>
+      <stop offset="1" stop-color="#F7F7F8"/>
+    </linearGradient>
+    <linearGradient id="card" x1="180" y1="92" x2="540" y2="313" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F7F7F8"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="720" height="405" rx="24" fill="url(#bg)"/>
+
+  <!-- soft blobs -->
+  <circle cx="124" cy="96" r="84" fill="#E8F2FF"/>
+  <circle cx="612" cy="318" r="96" fill="#EEF2FF"/>
+
+  <!-- dashed frame -->
+  <rect x="152" y="78" width="416" height="248" rx="20" fill="url(#card)" stroke="#D7DCE6" stroke-width="2" stroke-dasharray="8 8"/>
+
+  <!-- upload icon -->
+  <circle cx="360" cy="160" r="34" fill="#EEF2FF"/>
+  <path d="M360 144V176" stroke="#6B7280" stroke-width="6" stroke-linecap="round"/>
+  <path d="M346 156L360 142L374 156" stroke="#6B7280" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M336 186C336 178.268 342.268 172 350 172H370C377.732 172 384 178.268 384 186" stroke="#9CA3AF" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- hint text -->
+  <rect x="248" y="218" width="224" height="14" rx="7" fill="#E5E7EB"/>
+  <rect x="212" y="242" width="296" height="12" rx="6" fill="#EEF2F7"/>
+  <rect x="236" y="262" width="248" height="12" rx="6" fill="#EEF2F7"/>
+</svg>
+

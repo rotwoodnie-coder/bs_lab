@@ -1,0 +1,366 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@source "../../../packages/ui/src/**/*.tsx";
+
+/* ============================================================
+   Local font faces (Inter Latin + Noto Sans SC CJK)
+   Downloaded to public/fonts/ by scripts/download-fonts.ps1
+   ============================================================ */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("/fonts/Inter-VariableFont.ttf") format("truetype-variations");
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans SC Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  src: url("/fonts/NotoSansSC-Variable.ttf") format("truetype-variations");
+  font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+/* Primary：与 v0-assets/globals.css 对齐 Teal-600 #0d9488（唯一主色真源） */
+:root {
+  --background: oklch(0.98 0.005 170);
+  --foreground: oklch(0.25 0.02 180);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.02 180);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.02 180);
+  --primary: #0d9488;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.92 0.03 170);
+  --secondary-foreground: oklch(0.35 0.08 170);
+  --muted: oklch(0.95 0.01 170);
+  --muted-foreground: oklch(0.5 0.03 180);
+  --accent: oklch(0.65 0.18 145);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.9 0.02 170);
+  --input: oklch(0.95 0.01 170);
+  --ring: oklch(0.55 0.15 170);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.75rem;
+  --radius-component: 0.5rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.25 0.02 180);
+  --sidebar-primary: oklch(0.55 0.15 170);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.95 0.03 170);
+  --sidebar-accent-foreground: oklch(0.35 0.08 170);
+  --sidebar-border: oklch(0.92 0.02 170);
+  --sidebar-ring: oklch(0.55 0.15 170);
+  /* 模态/抽屉遮罩：统一走主题变量，避免组件内硬编码纯黑 */
+  --overlay: oklch(0.145 0 0 / 0.5);
+  /* 设计系统：品牌与状态语义色 */
+  --brand-science: oklch(0.52 0.14 252);
+  /* 学科矩阵主题条：物理蓝 / 化学红紫 / 生物绿（语义 token，供 Tailwind 引用） */
+  --subject-physics: oklch(0.52 0.19 252);
+  --subject-chemistry: oklch(0.5 0.22 330);
+  --subject-biology: oklch(0.5 0.16 152);
+  --brand-management: oklch(0.22 0.02 264);
+  --status-success: oklch(0.55 0.14 155);
+  --status-warning: oklch(0.72 0.16 75);
+  --status-error: oklch(0.55 0.22 25);
+  /* 校区初始化工作台：实时日志面板（深浅主题均保持可读的高对比深色带） */
+  --console-terminal: oklch(0.24 0.02 264);
+  --console-terminal-foreground: oklch(0.93 0.015 264);
+  --console-terminal-muted: oklch(0.62 0.03 264);
+  --console-terminal-border: oklch(0.38 0.03 264);
+  --radius-bento: 1.5rem;
+}
+
+.dark {
+  --background: oklch(0.18 0.02 180);
+  --foreground: oklch(0.95 0.01 170);
+  --card: oklch(0.22 0.02 180);
+  --card-foreground: oklch(0.95 0.01 170);
+  --popover: oklch(0.22 0.02 180);
+  --popover-foreground: oklch(0.95 0.01 170);
+  --primary: #0d9488;
+  --primary-foreground: #f0fdfa;
+  --secondary: oklch(0.28 0.03 180);
+  --secondary-foreground: oklch(0.9 0.02 170);
+  --muted: oklch(0.28 0.02 180);
+  --muted-foreground: oklch(0.7 0.03 170);
+  --accent: oklch(0.6 0.18 145);
+  --accent-foreground: oklch(0.15 0.02 180);
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.32 0.02 180);
+  --input: oklch(0.28 0.02 180);
+  --ring: oklch(0.55 0.15 170);
+  --chart-1: oklch(0.65 0.15 170);
+  --chart-2: oklch(0.6 0.18 145);
+  --chart-3: oklch(0.55 0.12 200);
+  --chart-4: oklch(0.65 0.15 90);
+  --chart-5: oklch(0.55 0.2 30);
+  --sidebar: oklch(0.2 0.02 180);
+  --sidebar-foreground: oklch(0.95 0.01 170);
+  --sidebar-primary: oklch(0.65 0.15 170);
+  --sidebar-primary-foreground: oklch(0.15 0.02 180);
+  --sidebar-accent: oklch(0.28 0.03 180);
+  --sidebar-accent-foreground: oklch(0.9 0.02 170);
+  --sidebar-border: oklch(0.32 0.02 180);
+  --sidebar-ring: oklch(0.55 0.15 170);
+  --overlay: oklch(0.05 0 0 / 0.65);
+  --brand-science: oklch(0.62 0.12 252);
+  --subject-physics: oklch(0.68 0.16 252);
+  --subject-chemistry: oklch(0.65 0.18 330);
+  --subject-biology: oklch(0.62 0.14 152);
+  --brand-management: oklch(0.92 0.02 264);
+  --status-success: oklch(0.72 0.16 155);
+  --status-warning: oklch(0.82 0.14 85);
+  --status-error: oklch(0.65 0.2 25);
+  --console-terminal: oklch(0.2 0.025 264);
+  --console-terminal-foreground: oklch(0.94 0.015 264);
+  --console-terminal-muted: oklch(0.58 0.03 264);
+  --console-terminal-border: oklch(0.34 0.03 264);
+  --radius-bento: 1.5rem;
+}
+
+@theme inline {
+  /* CSS @font-face 本地字体（见上方 @font-face 声明），兜底系统字体栈 */
+  --font-sans: "Inter Variable", "Noto Sans SC Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-overlay: var(--overlay);
+  --color-brand-science: var(--brand-science);
+  --color-subject-physics: var(--subject-physics);
+  --color-subject-chemistry: var(--subject-chemistry);
+  --color-subject-biology: var(--subject-biology);
+  --color-brand-management: var(--brand-management);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-error: var(--status-error);
+  --color-console-terminal: var(--console-terminal);
+  --color-console-terminal-foreground: var(--console-terminal-foreground);
+  --color-console-terminal-muted: var(--console-terminal-muted);
+  --color-console-terminal-border: var(--console-terminal-border);
+  --radius-bento: 1.5rem;
+  --radius-component: 0.5rem;
+}
+
+@layer base {
+  html {
+    font-size: 16px;
+  }
+  @media (min-width: 1920px) {
+    html {
+      font-size: 17px;
+    }
+  }
+  @media (min-width: 2560px) {
+    html {
+      font-size: 18px;
+    }
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground tracking-tight antialiased;
+  }
+}
+
+@layer utilities {
+  /* Experiment Manage: 全屏列表模式隐藏全局侧栏（平滑过渡，避免横向抖动） */
+  html[data-exp-mgmt-fullscreen="1"] aside[data-app-shell-sidebar] {
+    width: 0 !important;
+    min-width: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    border-right-width: 0 !important;
+    opacity: 0;
+    pointer-events: none;
+    transition: width 280ms ease, min-width 280ms ease, opacity 200ms ease;
+  }
+
+  /* 管理台主内容区字体：仅放大内容区，不影响左侧主导航栏。 */
+  .dashboard-main-text {
+    font-size: 1rem;
+  }
+  @media (min-width: 1920px) {
+    .dashboard-main-text {
+      font-size: 1.0625rem;
+    }
+  }
+  @media (min-width: 2560px) {
+    .dashboard-main-text {
+      font-size: 1.125rem;
+    }
+  }
+
+  /* 实验课程管理：右侧内容区（搜索+表格）大分辨率整体放大 1 号 */
+  .exp-mgmt-right-scale {
+    font-size: var(--exp-mgmt-right-font, 0.875rem);
+  }
+  @media (min-width: 2000px) {
+    .exp-mgmt-right-scale {
+      font-size: 1.1875rem;
+    }
+  }
+  @media (min-width: 2560px) {
+    .exp-mgmt-right-scale {
+      font-size: 1.25rem;
+    }
+  }
+
+  /* 时间列：西式等宽数字 + 更紧的字距（横向紧凑） */
+  .exp-mgmt-table-time {
+    font-family: var(--font-mono);
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /**
+   * iOS 底部安全区：用于 fixed / sticky bottom 工具条，避免 Home Indicator 遮挡。
+   * 与至少 12px 内边距取较大值，避免无 inset 时贴死边缘。
+   */
+  .pb-safe-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  /** 侧栏主导航：细滚动条（Firefox + WebKit），与 V0 风格接近 */
+  .sidebar-scroll-v0 {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--primary) 22%, transparent) transparent;
+  }
+  .sidebar-scroll-v0::-webkit-scrollbar {
+    width: 5px;
+  }
+  .sidebar-scroll-v0::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .sidebar-scroll-v0::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--primary) 24%, var(--muted) 76%);
+  }
+  .sidebar-scroll-v0::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--primary) 35%, var(--muted) 65%);
+  }
+
+  /* ExperimentCard variant A：霓虹发光（基于主题色，避免硬编码色值） */
+  .drop-shadow-neon {
+    filter: drop-shadow(0 0 10px color-mix(in oklab, var(--primary) 50%, transparent))
+      drop-shadow(0 0 22px color-mix(in oklab, var(--chart-4) 38%, transparent));
+  }
+
+  @keyframes experiment-tag-breathe {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 28%, transparent);
+    }
+    50% {
+      opacity: 0.88;
+      box-shadow: 0 0 10px 1px color-mix(in oklab, var(--primary) 32%, transparent);
+    }
+  }
+
+  .animate-experiment-tag-breathe {
+    animation: experiment-tag-breathe 2.8s ease-in-out infinite;
+  }
+
+  @keyframes experiment-pulse-graph-flow {
+    to {
+      stroke-dashoffset: -36;
+    }
+  }
+
+  .experiment-pulse-graph-stroke {
+    stroke-dasharray: 5 4;
+    animation: experiment-pulse-graph-flow 2.4s linear infinite;
+  }
+
+  .experiment-pulse-graph-stroke-delayed {
+    stroke-dasharray: 4 6;
+    animation: experiment-pulse-graph-flow 3.1s linear infinite reverse;
+  }
+
+  @keyframes experiment-neon-scan {
+    0% {
+      transform: translateY(-100%);
+    }
+    100% {
+      transform: translateY(100%);
+    }
+  }
+
+  .experiment-neon-scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in oklab, var(--primary) 12%, transparent) 48%,
+      transparent 96%
+    );
+    animation: experiment-neon-scan 4.5s linear infinite;
+    opacity: 0.35;
+  }
+
+  /** 个人中心：切换左侧 Tab 时右侧内容区入场（对齐 fade-in + slide-in-from-right-4） */
+  @keyframes profile-pane-enter {
+    from {
+      opacity: 0;
+      transform: translateX(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-profile-pane-enter {
+    animation: profile-pane-enter 0.3s ease-out both;
+  }
+}

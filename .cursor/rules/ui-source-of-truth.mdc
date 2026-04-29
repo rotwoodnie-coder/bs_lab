@@ -1,0 +1,35 @@
+---
+description: UI组件真源与引用强约束
+alwaysApply: true
+---
+
+# UI 组件库最高优先级架构准则
+
+本项目内，以下规则为最高优先级，必须严格执行：
+
+1. 严禁在 `apps/frontend/src/components/ui` 或 `frontend/src/components/ui` 下创建、修改、复制任何原子组件实现。
+2. 所有 UI 原子组件的真源仅允许存在于 `packages/ui/src/components/ui`。
+3. 当用户要求调整 UI 样式或逻辑时，必须在 `packages/ui` 内完成修改，不得在 frontend 本地 UI 目录改动。
+4. 每次新增或开放组件能力后，必须确认组件已通过 `packages/ui/src/index.ts` 对外导出（必要时同步补齐聚合导出）。
+5. frontend 必须通过 `@bs-lab/ui` 引用原子组件；若发现页面仍使用旧相对路径（如 `@/components/ui/*` 或 `../components/ui/*`），应在本次任务中优先自动重构为包引用。
+6. 若遇到与以上规则冲突的历史实现，优先执行迁移到 `@bs-lab/ui`，而不是继续扩展旧路径。
+7. `packages/ui` 仅负责展示逻辑（无状态、无业务 API 调用）；所有数据获取与业务编排必须保留在 `frontend`。
+8. frontend 禁止直接 import 第三方 UI 依赖（如 Radix、lucide 等）；必须由 `packages/ui` 封装后统一导出，再由 frontend 使用。
+9. 所有样式类名必须优先使用 Tailwind v4 语义化变量（如 `text-foreground`、`bg-background`），禁止硬编码颜色类，确保 Light/Dark 模式一致性。
+10. **Living Styleguide**：凡修改 `packages/ui` 中已列入沙盘的原子组件（或本页引用的业务组件），必须同步更新 `frontend/src/app/debug/ui/all-components` 下的 `registry.tsx` 与 `living-docs.ts`（含 props 速查与变体）；仅改包内组件而未更新预览页视为任务未完成。
+11. **DataTable 强制规则（硬性）**：凡涉及“详情列表/管理表格”（如课标详情、实验目录、题库列表等），必须优先复用 `@bs-lab/ui` 的 `DataTable` 示例交互与视觉规范，不得自创新样式体系；表格在可滚动容器中时，表头必须保持吸顶可见（sticky header）。
+12. **多媒体组件标准化（硬性）**：视频、图片、附件等多媒体能力必须通过项目标准库（`@bs-lab/ui` 或项目既有标准组件）接入，禁止在业务页面直接手写原生多媒体标签（如 `<video>`、`<audio>`、`<img>`、`<input type="file">`）作为最终实现。
+13. **视频命名原子化（硬性）**：凡新增或重构的视频管理相关组件、hook、store、工具函数，命名必须以 `VideoManager` 或 `StandardVideo` 为前缀，确保全站语义一致。
+
+## 执行清单（每次 UI 任务都要检查）
+
+- 变更文件是否位于 `packages/ui/src/components/ui`。
+- 是否更新了 `packages/ui/src/index.ts` 导出。
+- frontend 中是否仍有旧 UI 相对路径引用未迁移。
+- `packages/ui` 是否出现业务状态或 API 调用（若有需回迁到 frontend）。
+- frontend 是否直接引用第三方 UI 依赖（若有需迁移到 `@bs-lab/ui`）。
+- 是否存在硬编码颜色类名（若有需改为 Tailwind v4 语义化 token）。
+- 是否已同步更新 `/debug/ui/all-components`（registry + living-docs）以匹配本次 UI 变更。
+- 是否遵循 DataTable 强制规则（统一样式、统一交互、滚动时表头吸顶）。
+- 多媒体实现是否来自项目标准库，而非业务页原生媒体标签直写。
+- 视频相关命名是否统一为 `VideoManager*` / `StandardVideo*`。

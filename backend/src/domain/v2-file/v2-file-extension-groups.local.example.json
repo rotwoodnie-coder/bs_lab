@@ -1,0 +1,4 @@
+{
+  "_comment": "复制为 v2-file-extension-groups.local.json（已 gitignore）。仅追加扩展名，与默认 JSON 按 kind 合并去重。",
+  "video": ["m2ts"]
+}
