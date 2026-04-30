@@ -49,10 +49,10 @@ if [ "$BUILD_EXIT" -ne 0 ]; then
   exit 1
 fi
 
-# ── 重启服务 ──
-echo ">>> pm2 restart all..." | tee -a "$DEPLOY_LOG"
+# ── 重启服务（用 ecosystem 配置，确保未注册的 app 也会被启动） ──
+echo ">>> pm2 startOrReload ecosystem.config.cjs..." | tee -a "$DEPLOY_LOG"
 cd "$DEPLOY_DIR"
-pm2 restart all 2>&1 | tee -a "$DEPLOY_LOG"
+pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
 
 # ── 健康检查：验证后端和前端是否正常响应 ──
 echo ">>> 健康检查（最长等待 ${HEALTH_TIMEOUT}s）..." | tee -a "$DEPLOY_LOG"
@@ -80,6 +80,8 @@ else
   cd "$DEPLOY_DIR"
   pm2 restart all 2>&1 | tee -a "$DEPLOY_LOG"
   echo ">>> 已回滚至 $OLD_COMMIT" | tee -a "$DEPLOY_LOG"
+  # 回滚后重新从 ecosystem 启动，确保所有 app 注册正确
+  pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
 fi
 
 echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
