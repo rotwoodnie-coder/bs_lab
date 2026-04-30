@@ -21,31 +21,27 @@ echo "║  bs_lab 提 交 前 检 查                     ║"
 echo "╚════════════════════════════════════════════╝"
 echo ""
 
-# ── 0. 版本号自动递增 ──────────────────────────
-if has_staged 'frontend/'; then
-  VERSION_FILE="frontend/package.json"
-  if [ -f "$VERSION_FILE" ]; then
-    # 读取当前版本号（格式: x.y.zzz）
-    CURRENT=$(git show :"$VERSION_FILE" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
-    if [ -n "$CURRENT" ]; then
-      # 分割版本号，递增最后一段（补零至3位）
-      BASE="${CURRENT%.*}"
-      LAST="${CURRENT##*.}"
-      # 去掉前导零再递增
-      LAST=$((10#$LAST + 1))
-      NEXT="${BASE}.$(printf '%03d' $LAST)"
-      # 用 in-place sed 更新工作区版本号（暂存区版本在 git add 时自动同步）
-      sed -i "s/\"version\": *\"${CURRENT}\"/\"version\": \"${NEXT}\"/" "$VERSION_FILE"
-      echo "  ${GREEN}[VERSION]${NC} ${CURRENT} → ${NEXT}"
-    fi
-  fi
-fi
-
 # ── 辅助函数 ──────────────────────────────────
 has_staged() {
   local pattern="$1"
   git diff --cached --name-only --diff-filter=ACMR | grep -qE "$pattern" 2>/dev/null
 }
+
+# ── 0. 版本号自动递增 ──────────────────────────
+if has_staged 'frontend/'; then
+  VERSION_FILE="frontend/package.json"
+  if [ -f "$VERSION_FILE" ]; then
+    CURRENT=$(git show :"$VERSION_FILE" 2>/dev/null | grep '"version"' | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+    if [ -n "$CURRENT" ]; then
+      BASE="${CURRENT%.*}"
+      LAST="${CURRENT##*.}"
+      LAST=$((10#$LAST + 1))
+      NEXT="${BASE}.$(printf '%03d' $LAST)"
+      sed -i "s/\"version\": *\"${CURRENT}\"/\"version\": \"${NEXT}\"/" "$VERSION_FILE"
+      echo "  ${GREEN}[VERSION]${NC} ${CURRENT} → ${NEXT}"
+    fi
+  fi
+fi
 
 # ── 1. data_role 写入保护 ─────────────────────────
 if has_staged '^backend/'; then
