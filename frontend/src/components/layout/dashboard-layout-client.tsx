@@ -505,13 +505,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       sidebarFooterSlot={sidebarFooterSlot}
     >
       {isHomePath ? (
-        <div className="-mx-4 w-[calc(100%+2rem)] min-w-0 bg-muted/25 sm:-mx-6 sm:w-[calc(100%+3rem)]">
+        <div className="-mx-4 flex w-[calc(100%+2rem)] flex-1 flex-col min-w-0 bg-muted/25 sm:-mx-6 sm:w-[calc(100%+3rem)]">
           <div
             className={cn(
               DASHBOARD_MAIN_CONTAINER_CLASS,
               "space-y-4 pb-6 pt-1",
               (isReviewWorkbench || isConsoleWorkbench) &&
-                "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col",
+                "lg:min-h-0 lg:flex-1 lg:flex-col",
             )}
           >
             {children}
@@ -522,7 +522,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           className={cn(
             DASHBOARD_MAIN_CONTAINER_CLASS,
             "space-y-4",
-            (isReviewWorkbench || isConsoleWorkbench) && "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col",
+            (isReviewWorkbench || isConsoleWorkbench) && "lg:min-h-0 lg:flex-1 lg:flex-col",
           )}
         >
           {children}
