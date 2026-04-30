@@ -52,6 +52,14 @@ fi
 # ── 重启服务（用 ecosystem 配置，确保未注册的 app 也会被启动） ──
 echo ">>> sudo pm2 startOrReload ecosystem.config.cjs..." | tee -a "$DEPLOY_LOG"
 cd "$DEPLOY_DIR"
+# 将 VERSION 同步到 package.json，让 PM2 状态表显示真实版本号
+SYNC_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+for pkg in backend/package.json frontend/package.json; do
+  if [ -f "$pkg" ]; then
+    sed -i "s/\"version\": \".*\"/\"version\": \"$SYNC_VERSION\"/" "$pkg"
+    echo ">>> 同步版本 $SYNC_VERSION → $pkg" | tee -a "$DEPLOY_LOG"
+  fi
+done
 sudo pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
 
 # ── 健康检查：验证后端和前端是否正常响应 ──
@@ -81,6 +89,12 @@ else
   sudo pm2 restart all 2>&1 | tee -a "$DEPLOY_LOG"
   echo ">>> 已回滚至 $OLD_COMMIT" | tee -a "$DEPLOY_LOG"
   # 回滚后重新从 ecosystem 启动，确保所有 app 注册正确
+  SYNC_VERSION=$(cat VERSION 2>/dev/null || echo "0.0.0")
+  for pkg in backend/package.json frontend/package.json; do
+    if [ -f "$pkg" ]; then
+      sed -i "s/\"version\": \".*\"/\"version\": \"$SYNC_VERSION\"/" "$pkg"
+    fi
+  done
   sudo pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
 fi
 
