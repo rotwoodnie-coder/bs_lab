@@ -22,6 +22,14 @@ import { fileStableKey, inferKindFromFile, inferUniformKind } from "../_lib/teac
 import { TeacherMaterialsCreateFilePicker } from "./teacher-materials-create-file-picker";
 import { TeacherMaterialCreateMetaPanel } from "./TeacherMaterialCreateMetaPanel";
 
+import {
+  clearUploadSnapshot,
+  readUploadSnapshot,
+  writeUploadSnapshot,
+  type RecoveredUploadEntry,
+  type UploadState,
+} from "../_lib/teacher-material-create-dialog-snapshot";
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,71 +48,6 @@ type Props = {
   experimentOptions?: { value: string; label: string }[];
   experimentOptionsLoading?: boolean;
 };
-
-type UploadState = { status: "pending" | "uploading" | "success" | "failed"; progress: number; message?: string };
-type RecoveredUploadEntry = {
-  key: string;
-  name: string;
-  size: number;
-  type: string;
-  lastModified: number;
-  traceId?: string;
-  state: UploadState;
-};
-type PersistedUploadSnapshot = {
-  version: 2;
-  title: string;
-  kind: TeacherMaterialKind;
-  experimentId: string | null;
-  linkedExperimentTitle: string | null;
-  entries: RecoveredUploadEntry[];
-  updatedAt: number;
-};
-
-function readUploadSnapshot(storageKey: string): PersistedUploadSnapshot | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(storageKey);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (parsed?.version === 2 && Array.isArray(parsed.entries)) {
-      return parsed as unknown as PersistedUploadSnapshot;
-    }
-    /* 兼容旧版 v1（含 audiences） */
-    if (parsed?.version === 1 && Array.isArray(parsed.entries)) {
-      return {
-        version: 2,
-        title: String(parsed.title ?? ""),
-        kind: (parsed.kind as TeacherMaterialKind) ?? TEACHER_MATERIALS_DEFAULT_CREATE_KIND,
-        experimentId: (parsed.experimentId as string | null) ?? null,
-        linkedExperimentTitle: (parsed.linkedExperimentTitle as string | null) ?? null,
-        entries: parsed.entries as RecoveredUploadEntry[],
-        updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function writeUploadSnapshot(storageKey: string, snapshot: PersistedUploadSnapshot) {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
-  } catch {
-    /* ignore */
-  }
-}
-
-function clearUploadSnapshot(storageKey: string) {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(storageKey);
-  } catch {
-    /* ignore */
-  }
-}
 
 export function TeacherMaterialCreateDialog(props: Props) {
   const MAX_FILES_PER_BATCH = 200;
@@ -310,6 +253,12 @@ export function TeacherMaterialCreateDialog(props: Props) {
     () => selectedFiles.some((file) => inferKindFromFile(file) == null),
     [selectedFiles],
   );
+  const recoverFailedCount = React.useMemo(
+    () => recoveredEntries.filter((e) => e.state.status === "failed").length,
+    [recoveredEntries],
+  );
+  const totalFailedCount = failedFiles.length + recoverFailedCount;
+  const hasOrphanedFailed = recoverFailedCount > 0 && failedFiles.length === 0;
 
   React.useEffect(() => {
     if (!props.open) return;
@@ -339,20 +288,34 @@ export function TeacherMaterialCreateDialog(props: Props) {
     });
   }, [UPLOAD_SNAPSHOT_KEY, experimentId, fileKey, kind, linkedExperimentTitle, props.open, recoveredEntries, selectedFiles, title, uploadStates]);
 
+  const clearAllFailed = React.useCallback(() => {
+    const failedKeys = new Set<string>();
+    for (const f of selectedFiles) {
+      if (uploadStates[fileKey(f)]?.status === "failed") failedKeys.add(fileKey(f));
+    }
+    for (const e of recoveredEntries) {
+      if (e.state.status === "failed") failedKeys.add(e.key);
+    }
+    setSelectedFiles((prev) => prev.filter((f) => !failedKeys.has(fileKey(f))));
+    setRecoveredEntries((prev) => prev.filter((e) => !failedKeys.has(e.key)));
+    setUploadStates((prev) => {
+      const n = { ...prev };
+      for (const k of failedKeys) delete n[k];
+      return n;
+    });
+    sonnerToast.success("已清除所有失败项");
+  }, [fileKey, selectedFiles, uploadStates, recoveredEntries]);
+
   const submit = React.useCallback(async (targetFiles?: File[]) => {
     const filesToUpload = targetFiles ?? selectedFiles;
     if (filesToUpload.length === 0) {
       const recoveredFailed = recoveredEntries.filter((entry) => entry.state.status === "failed");
       if (recoveredFailed.length > 0) {
-        const traceId = recoveredFailed[0]?.traceId;
-        sonnerToast.error(traceId ? `文件已丢失，请重新上传（traceId: ${traceId}）` : "文件已丢失，请重新上传");
+        sonnerToast.error("文件已丢失，请重新上传");
       } else {
         sonnerToast.error("请先选择要上传的文件");
       }
       return;
-    }
-    if (selectedFiles.length === 1 && !title.trim()) {
-      /* 名称留空时由上层按文件名生成 */
     }
     setSubmitting(true);
     try {
@@ -385,25 +348,48 @@ export function TeacherMaterialCreateDialog(props: Props) {
         },
         onFileError: (file, message) => {
           const key = fileKey(file);
-          const traceId = /traceId:\s*([^\)\s]+)/i.exec(message)?.[1];
-          setUploadStates((prev) => ({
-            ...prev,
-            [key]: { status: "failed", progress: 100, message },
-          }));
-          setRecoveredEntries((prev) => prev.map((entry) => (entry.key === key ? { ...entry, traceId } : entry)));
+          setUploadStates((prev) => ({ ...prev, [key]: { status: "failed", progress: 100, message } }));
+          setRecoveredEntries((prev) => prev.map((entry) => (entry.key === key ? { ...entry, message } : entry)));
         },
       });
+      // 全成功 → 关闭弹窗
       if (result.failureCount === 0 && filesToUpload.length === selectedFiles.length) {
         clearUploadSnapshot(UPLOAD_SNAPSHOT_KEY);
         setRecoveredEntries([]);
         props.onOpenChange(false);
+      } else if (result.successCount > 0 && result.failureCount > 0) {
+        // 部分成功 → 保留失败项在列表中，弹窗保持打开
+        setSelectedFiles((prev) => prev.filter((f) => {
+          const k = fileKey(f);
+          const s = uploadStates[k]?.status;
+          return s === "failed" || s === "pending" || s === undefined;
+        }));
       }
     } catch (e) {
       sonnerToast.error(e instanceof Error ? e.message : "创建素材失败");
     } finally {
       setSubmitting(false);
     }
-  }, [experimentId, fileKey, kind, linkedExperimentTitle, props, selectedFiles, title]);
+  }, [experimentId, fileKey, kind, linkedExperimentTitle, props, selectedFiles, title, uploadStates]);
+
+  const handleRetryFailures = React.useCallback(() => {
+    if (failedFiles.length > 0) return void submit(failedFiles);
+    // 仅有恢复队列中的失败项（File 已丢失），引导用户重新选择
+    const names = recoveredEntries.filter((e) => e.state.status === "failed");
+    if (names.length === 0) return;
+    sonnerToast.warning("请重新选择以下失败文件", {
+      description: names.slice(0, 15).map((e) => e.name).join("、") + (names.length > 15 ? ` 等${names.length}个` : ""),
+      duration: 8000,
+    });
+    const keys = new Set(names.map((e) => e.key));
+    setRecoveredEntries((prev) => prev.filter((e) => !keys.has(e.key)));
+    setUploadStates((prev) => {
+      const n = { ...prev };
+      for (const k of keys) delete n[k];
+      return n;
+    });
+    setTimeout(() => inputRef.current?.click(), 100);
+  }, [failedFiles, recoveredEntries, submit, inputRef]);
 
   const previewTitle = title.trim() || selectedFiles[0]?.name || "素材预览";
 
@@ -416,7 +402,8 @@ export function TeacherMaterialCreateDialog(props: Props) {
             新建课件素材
           </DialogTitle>
           <DialogDescription>
-            左侧上传并预览，右侧填写素材信息。文件写入 V2 文件库；支持一次选择多个同类型文件。上次未完成的条目会出现在「恢复队列」，可逐条删除后不再参与重试。
+            左侧上传并预览，右侧填写素材信息。文件写入 V2 文件库；支持一次选择多个同类型文件。
+            上传失败不自动关闭，失败项可一键清除或重新选择原文件重试。
           </DialogDescription>
         </DialogHeader>
 
@@ -467,16 +454,24 @@ export function TeacherMaterialCreateDialog(props: Props) {
             <div className="mr-auto text-xs text-destructive">
               检测到未识别文件类型，请先移除异常文件后再提交。
             </div>
+          ) : totalFailedCount > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-auto text-destructive hover:text-destructive"
+              onClick={clearAllFailed}
+            >
+              清除失败项（{totalFailedCount}）
+            </Button>
           ) : null}
           <Button
             type="button"
             variant="outline"
-            onClick={() => void submit(failedFiles)}
-            disabled={submitting || failedFiles.length === 0 || hasUnrecognizedFiles}
+            onClick={handleRetryFailures}
+            disabled={submitting || totalFailedCount === 0 || hasUnrecognizedFiles}
           >
-            {recoveredEntries.some((entry) => entry.state.status === "failed" && entry.size <= 0)
-              ? "文件已丢失，请重新上传"
-              : `重试失败项${failedFiles.length > 0 ? `（${failedFiles.length}）` : ""}`}
+            {hasOrphanedFailed ? "补选失败文件" : `重试失败项（${totalFailedCount}）`}
           </Button>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)} disabled={submitting}>
             取消
