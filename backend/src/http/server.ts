@@ -14,6 +14,7 @@ import { routeV2Sys } from "./routes/v2-sys.ts";
 import { routeV2SysOrgTypes } from "./routes/v2-sys-org-types.ts";
 import { routeV2SysOrg } from "./routes/v2-sys-org.ts";
 import { routeV2SysRole } from "./routes/v2-sys-role.ts";
+import { routeV2RolePermission } from "./routes/v2-role-permission.ts";
 import { routeV2Homework } from "./routes/v2-homework.ts";
 import { routeV2Question } from "./routes/v2-question.ts";
 import { routeV2TeacherMaterialTypes } from "./routes/v2-teacher-material-types.ts";
@@ -93,6 +94,7 @@ const routes = [
   routeV2Parent,
   routeV2Sys,
   routeV2SysRole,
+  routeV2RolePermission,
   routeGroup,
   routeV2Homework,
   routeV2Question,

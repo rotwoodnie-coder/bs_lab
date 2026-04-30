@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { getMysqlPool } from "../infrastructure/mysql/mysql-client.ts";
 import { resolveVarchar32PrimaryKey } from "../infrastructure/ids/identifiable-varchar32.ts";
 import { sanitizeAndNormalizeRichText } from "../utils/text.ts";
+import { getPublicObjectUrl, tryStorageKeyFromFileUrl } from "../infrastructure/storage/s3-storage.ts";
 import type {
   MaterialMsgRecord,
   MaterialPicRecord,
@@ -33,6 +34,13 @@ function normalizeText(input: unknown, maxLen: number, code: MaterialServiceErro
   return text;
 }
 
+function materializeMaterialUrl(rawUrl: string | null): string | null {
+  const raw = rawUrl?.trim();
+  if (!raw) return null;
+  const storageKey = tryStorageKeyFromFileUrl(raw);
+  return storageKey ? getPublicObjectUrl(storageKey) : raw;
+}
+
 function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
   return {
     materialId: String(row.material_id),
@@ -43,7 +51,7 @@ function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
     materialUnitId: null,
     materialUnitName: null,
     materialNum: row.material_num ?? null,
-    mainPicUrl: row.main_pic_url ? String(row.main_pic_url) : null,
+    mainPicUrl: materializeMaterialUrl(row.main_pic_url ? String(row.main_pic_url) : null),
     expPurpose: row.exp_purpose ? String(row.exp_purpose) : null,
     additionalComments: row.additional_comments ? String(row.additional_comments) : null,
     comments: row.comments ? String(row.comments) : null,
@@ -87,7 +95,7 @@ async function getMaterialDetail(connOrPool: ReturnType<typeof getMysqlPool> | P
     pics: (pics as RowDataPacket[]).map((r) => ({
       seqId: String(r.seq_id),
       materialId: String(r.material_id),
-      materialUrl: r.material_url ? String(r.material_url) : null,
+      materialUrl: materializeMaterialUrl(r.material_url ? String(r.material_url) : null),
       sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
       createTime: r.create_time ? String(r.create_time) : null,
     } as MaterialPicRecord)),

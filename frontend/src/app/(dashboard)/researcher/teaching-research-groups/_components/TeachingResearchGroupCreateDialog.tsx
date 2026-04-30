@@ -44,7 +44,7 @@ export function TeachingResearchGroupCreateDialog({ open, onOpenChange, actor, s
   const [groupName, setGroupName] = React.useState("");
   const [comments, setComments] = React.useState("");
   const [status, setStatus] = React.useState<"Y" | "N">("Y");
-  const [subjectId, setSubjectId] = React.useState("");
+  const [subjectId, setSubjectId] = React.useState("__none__");
   const [subjectList, setSubjectList] = React.useState<V2DictItem[]>([]);
   const [owner, setOwner] = React.useState<UserSearchSelection | null>(null);
   const creator = React.useMemo<UserSearchSelection>(() => ({ userId: actor.userId, userName: actor.userName, loginName: actor.userId, userRoleId: null, roleName: null, userOrgId: actor.orgId, orgName: null }), [actor]);
@@ -54,7 +54,7 @@ export function TeachingResearchGroupCreateDialog({ open, onOpenChange, actor, s
       setGroupName("");
       setComments("");
       setStatus("Y");
-      setSubjectId("");
+      setSubjectId("__none__");
       setOwner(null);
       return;
     }
@@ -67,7 +67,7 @@ export function TeachingResearchGroupCreateDialog({ open, onOpenChange, actor, s
     await onSubmit({
       groupName: name,
       comments: comments.trim() || null,
-      subjectId: subjectId || null,
+      subjectId: subjectId && subjectId !== "__none__" ? subjectId : null,
       ownerId: owner?.userId ?? actor.userId,
       status,
       createUserId: actor.userId,
@@ -99,7 +99,7 @@ export function TeachingResearchGroupCreateDialog({ open, onOpenChange, actor, s
                 <SelectValue placeholder="请选择学科" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">全部 / 未设置</SelectItem>
+                <SelectItem value="__none__">全部 / 未设置</SelectItem>
                 {subjectList.map((item) => (
                   <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                 ))}

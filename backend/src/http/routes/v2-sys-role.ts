@@ -3,7 +3,6 @@
  * 前缀：/v2/sys-role/*
  *
  * data_role 为基础字典表，仅提供只读查询。角色新增/修改由数据迁移管理。
- * 权限矩阵（sys_role_perm 表不存在）由前端硬编码 RBAC 定义。
  */
 import { z } from "zod";
 import {
@@ -12,6 +11,7 @@ import {
   listSysRoles,
   updateSysRole,
 } from "../../infrastructure/repositories/v2-sys-role-repository.ts";
+import { assertPageRead } from "../../lib/auth/permission-guard.ts";
 
 function ok(data: unknown): Response {
   return Response.json({ success: true, data, error: null });
@@ -41,9 +41,11 @@ export async function routeV2SysRole(req: Request): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
     const actorId = req.headers.get("x-user-id") ?? undefined;
+    const actorRoleId = req.headers.get("x-role-id") ?? req.headers.get("x-role") ?? undefined;
 
     if (path === "/v2/sys-role") {
       if (req.method === "GET") {
+        assertPageRead(actorRoleId, "console_system_roles");
         const query = roleQuerySchema.parse(Object.fromEntries(url.searchParams));
         return ok(await listSysRoles(query));
       }
@@ -57,6 +59,7 @@ export async function routeV2SysRole(req: Request): Promise<Response> {
     if (match) {
       const roleId = decodeURIComponent(match[1]!);
       if (req.method === "GET") {
+        assertPageRead(actorRoleId, "console_system_roles");
         const row = await getSysRoleById(roleId);
         if (!row) return fail("角色不存在", 404);
         return ok(row);

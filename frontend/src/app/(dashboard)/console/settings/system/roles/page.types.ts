@@ -25,6 +25,24 @@ export type AuthRole =
   | "Role_Student"
   | "Role_Parent";
 
+export type RolePermissionRow = {
+  menuId: number;
+  menuCode: string;
+  menuName: string;
+  path: string | null;
+  canRead: boolean;
+  canWrite: boolean;
+  readCode: string;
+  writeCode: string;
+  group: string;
+};
+
+export type PermissionGroup = {
+  group: string;
+  title: string;
+  items: RolePermissionRow[];
+};
+
 export type UseRolesPageReturn = {
   /** 角色列表（从 data_role 读取） */
   roles: RoleItem[];
@@ -38,10 +56,20 @@ export type UseRolesPageReturn = {
   /** 页面可见性矩阵 */
   accessMatrix: PageAccessRow[];
 
+  /** 当前角色授权明细 */
+  permissionRows: RolePermissionRow[];
+  permissionGroups: PermissionGroup[];
+  permissionSearch: string;
+  permissionScope: "all" | "read-on" | "write-on" | "missing";
+  setPermissionSearch: (value: string) => void;
+  setPermissionScope: (value: "all" | "read-on" | "write-on" | "missing") => void;
+  updatePermissionRow: (menuId: number, patch: Partial<Pick<RolePermissionRow, "canRead" | "canWrite">>) => void;
+
   /** 身份治理面板 */
   identityDrawerOpen: boolean;
   setIdentityDrawerOpen: (open: boolean) => void;
 
   /** 切换选中角色 */
   handleRoleChange: (roleId: string) => void;
+  resetToPreset: () => void;
 };

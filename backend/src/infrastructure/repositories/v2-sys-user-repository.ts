@@ -152,6 +152,68 @@ export async function listSysUsers(query: SysUserListQuery): Promise<SysUserList
   return { items: rows.map(rowToSysUser), total, page, pageSize };
 }
 
+/**
+ * 按 keyword 模糊搜索用户（不要求管理权限，供选人场景使用）。
+ * 仅返回未删除用户，默认最多 20 条。
+ */
+export async function searchSysUsersByKeyword(keyword: string, limit: number = 20): Promise<SysUserListPage> {
+  const pool = getMysqlPool();
+  const like = `%${keyword}%`;
+  const pageSize = Math.min(50, Math.max(1, limit));
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM sys_user u WHERE u.is_deleted = 0 AND (u.user_name LIKE ? OR u.login_name LIKE ? OR u.user_phone LIKE ?)`,
+    [like, like, like],
+  );
+  const total = Number((countRows[0] as RowDataPacket).total ?? 0);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT u.*, o.org_name, r.role_name, t.title_name AS pref_title_name
+     FROM sys_user u
+     LEFT JOIN sys_org o ON o.org_id = u.user_org_id AND o.is_deleted = 0
+     LEFT JOIN data_role r ON r.role_id = u.user_role_id
+     LEFT JOIN data_pref_title t ON t.title_id = u.pref_title_id
+     WHERE u.is_deleted = 0 AND (u.user_name LIKE ? OR u.login_name LIKE ? OR u.user_phone LIKE ?)
+     ORDER BY u.create_time DESC
+     LIMIT ?`,
+    [like, like, like, pageSize],
+  );
+  return { items: rows.map(rowToSysUser), total, page: 1, pageSize };
+}
+
+/**
+ * 按 keyword 模糊搜索教师（不要求管理权限，供成员添加等选人场景使用）。
+ * 不传 keyword 时返回全部教师（默认最多 200 条）。
+ */
+export async function searchSysTeachersByKeyword(keyword: string, limit: number = 200): Promise<SysUserListPage> {
+  const pool = getMysqlPool();
+  const pageSize = Math.min(200, Math.max(1, limit));
+  const where: string[] = ["u.is_deleted = 0", "r.role_id = 'Role_Teacher'"];
+  const params: unknown[] = [];
+  if (keyword.trim()) {
+    const like = `%${keyword.trim()}%`;
+    where.push("(u.user_name LIKE ? OR u.login_name LIKE ? OR u.user_phone LIKE ?)");
+    params.push(like, like, like);
+  }
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM sys_user u
+     LEFT JOIN data_role r ON r.role_id = u.user_role_id
+     WHERE ${where.join(" AND ")}`,
+    params,
+  );
+  const total = Number((countRows[0] as RowDataPacket).total ?? 0);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT u.*, o.org_name, r.role_name, t.title_name AS pref_title_name
+     FROM sys_user u
+     LEFT JOIN sys_org o ON o.org_id = u.user_org_id AND o.is_deleted = 0
+     LEFT JOIN data_role r ON r.role_id = u.user_role_id
+     LEFT JOIN data_pref_title t ON t.title_id = u.pref_title_id
+     WHERE ${where.join(" AND ")}
+     ORDER BY u.create_time DESC
+     LIMIT ?`,
+    [...params, pageSize],
+  );
+  return { items: rows.map(rowToSysUser), total, page: 1, pageSize };
+}
+
 export async function getSysUserById(userId: string): Promise<SysUserSafeRecord | null> {
   const pool = getMysqlPool();
   const [rows] = await pool.query<RowDataPacket[]>(

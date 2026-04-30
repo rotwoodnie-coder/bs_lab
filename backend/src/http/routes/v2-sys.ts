@@ -5,6 +5,8 @@
 import { z } from "zod";
 import {
   listSysUsers,
+  searchSysUsersByKeyword,
+  searchSysTeachersByKeyword,
   getSysUserById,
   createSysUser,
   updateSysUser,
@@ -110,8 +112,23 @@ export async function routeV2Sys(req: Request): Promise<Response> {
     const pool = getMysqlPool();
 
     // ── sys-user ──────────────────────────────────────────
+    if (path === "/v2/sys-user/teachers") {
+      if (req.method === "GET") {
+        const keyword = String(url.searchParams.get("keyword") ?? "").trim();
+        const pageSize = Math.min(200, Math.max(1, Number(url.searchParams.get("pageSize") ?? 200)));
+        return ok(await searchSysTeachersByKeyword(keyword, pageSize));
+      }
+    }
+
     if (path === "/v2/sys-user") {
       if (req.method === "GET") {
+        // 模糊搜索模式：只需认证，不限管理权限
+        const keyword = String(url.searchParams.get("keyword") ?? "").trim();
+        const pageSize = Math.min(50, Math.max(1, Number(url.searchParams.get("pageSize") ?? 20)));
+        if (keyword && !url.searchParams.has("userOrgId") && !url.searchParams.has("userRoleId") && !url.searchParams.has("status")) {
+          // 纯 keyword 搜索不走管理权限（供 UserSearchDialog 等选人场景使用）
+          return ok(await searchSysUsersByKeyword(keyword, pageSize));
+        }
         assertAnyPermission(actorRoleId, [PERMISSIONS.USER_MANAGE, PERMISSIONS.ROLE_MANAGE, PERMISSIONS.ORG_MANAGE]);
         const query = userQuerySchema.parse(Object.fromEntries(url.searchParams));
         return ok(await listSysUsers(query));

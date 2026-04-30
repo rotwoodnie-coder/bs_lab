@@ -1,14 +1,16 @@
 import { z } from "zod";
-import { assertAnyPermission } from "../../lib/auth/permission-guard.ts";
-import { PERMISSIONS } from "../../lib/auth/role-permissions.ts";
 import {
   addSubjectGroupMember,
   canJoinSubjectGroup,
+  canDeleteSubjectGroup,
   createSubjectGroup,
+  deleteSubjectGroup,
   getSubjectGroupById,
   isSubjectGroupManager,
   listSubjectGroupMembers,
   listSubjectGroups,
+  listSubjectGroupsByMember,
+  listSubjectGroupsNotJoined,
   patchSubjectGroup,
   removeSubjectGroupMember,
   transferSubjectGroupOwner,
@@ -60,10 +62,23 @@ export async function routeGroup(req: Request): Promise<Response> {
     const actorId = req.headers.get("x-user-id") ?? undefined;
     const actorRoleId = req.headers.get("x-role-id") ?? req.headers.get("x-role") ?? undefined;
 
-    if (path === "/v2/group" && req.method === "GET") return ok(await listSubjectGroups());
+    // GET /v2/group — 列出所有组
+    if (path === "/v2/group" && req.method === "GET") {
+      return ok(await listSubjectGroups());
+    }
 
+    // GET /v2/group/my — 当前用户所属/负责的组
+    if (path === "/v2/group/my" && req.method === "GET") {
+      if (!actorId) return fail("缺少用户身份", 401);
+      return ok(await listSubjectGroupsByMember(actorId));
+    }
+
+    // POST /v2/group — 创建组（仅教研员或超管）
     if (path === "/v2/group" && req.method === "POST") {
-      assertAnyPermission(actorRoleId, [PERMISSIONS.ORG_MANAGE, PERMISSIONS.USER_MANAGE, PERMISSIONS.ROLE_MANAGE, PERMISSIONS.SYSTEM_DICT_WRITE]);
+      const normalizedRole = normalizeRoleKey(actorRoleId);
+      if (normalizedRole !== "RESEARCHER" && normalizedRole !== "SUPER_ADMIN") {
+        return fail("仅教研员可创建教研组", 403);
+      }
       const body = subjectGroupSchema.parse(await req.json());
       return ok(await createSubjectGroup({
         groupName: body.group_name,
@@ -74,6 +89,7 @@ export async function routeGroup(req: Request): Promise<Response> {
       }, actorId));
     }
 
+    // POST /v2/group/transfer — 转交负责人
     if (path === "/v2/group/transfer" && req.method === "POST") {
       const body = transferSchema.parse(await req.json());
       if (!(await isSubjectGroupManager({ userId: actorId ?? "", groupId: body.group_id, role: String(actorRoleId ?? "") }))) {
@@ -82,15 +98,36 @@ export async function routeGroup(req: Request): Promise<Response> {
       return ok(await transferSubjectGroupOwner(body.group_id, body.new_owner_id, actorId));
     }
 
+    // GET /v2/group/available — 当前用户可加入的教研组
+    if (path === "/v2/group/available" && req.method === "GET") {
+      if (!actorId) return fail("缺少用户身份", 401);
+      return ok(await listSubjectGroupsNotJoined(actorId));
+    }
+
+    // POST /v2/group/join — 申请加入教研组
+    if (path === "/v2/group/join" && req.method === "POST") {
+      if (!actorId) return fail("缺少用户身份", 401);
+      const body = z.object({ group_id: z.string().min(1) }).parse(await req.json());
+      return ok(await addSubjectGroupMember(body.group_id, actorId, actorId));
+    }
+
+    // /v2/group/:groupId
     const groupMatch = path.match(/^\/v2\/group\/([^/]+)$/);
     if (groupMatch) {
       const groupId = decodeURIComponent(groupMatch[1]!);
+
+      // GET /v2/group/:groupId — 查看单组
       if (req.method === "GET") {
         const row = await getSubjectGroupById(groupId);
         if (!row) return fail("组不存在", 404);
         return ok(row);
       }
+
+      // PATCH /v2/group/:groupId — 更新组信息，仅 owner 或超管
       if (req.method === "PATCH") {
+        if (!(await isSubjectGroupManager({ userId: actorId ?? "", groupId, role: String(actorRoleId ?? "") }))) {
+          return fail("权限不足：仅教研组负责人或超管可编辑", 403);
+        }
         const body = subjectGroupSchema.partial().parse(await req.json());
         return ok(await patchSubjectGroup(groupId, {
           groupName: body.group_name,
@@ -100,16 +137,30 @@ export async function routeGroup(req: Request): Promise<Response> {
           ownerId: body.owner_id,
         }, actorId));
       }
+
+      // DELETE /v2/group/:groupId — 删除教研组，(isOwner && isResearcher) || isSuperAdmin
+      if (req.method === "DELETE") {
+        if (!(await canDeleteSubjectGroup({ userId: actorId ?? "", groupId, role: String(actorRoleId ?? "") }))) {
+          return fail("权限不足：仅教研组负责人（教研员身份）或超管可删除", 403);
+        }
+        await deleteSubjectGroup(groupId);
+        return ok({ deleted: true });
+      }
     }
 
+    // /v2/group/:groupId/members
     const membersMatch = path.match(/^\/v2\/group\/([^/]+)\/members$/);
     if (membersMatch && req.method === "GET") {
       const groupId = decodeURIComponent(membersMatch[1]!);
       return ok(await listSubjectGroupMembers(groupId));
     }
 
+    // POST /v2/group/members — 添加成员（仅 owner 或超管）
     if (path === "/v2/group/members" && req.method === "POST") {
       const body = addMemberSchema.parse(await req.json());
+      if (!(await isSubjectGroupManager({ userId: actorId ?? "", groupId: body.group_id, role: String(actorRoleId ?? "") }))) {
+        return fail("权限不足：仅教研组负责人或超管可添加成员", 403);
+      }
       const group = await getSubjectGroupById(body.group_id);
       if (!group) return fail("组不存在", 404);
       const user = await getSysUserById(body.user_id);
@@ -122,6 +173,7 @@ export async function routeGroup(req: Request): Promise<Response> {
       return ok(await addSubjectGroupMember(body.group_id, body.user_id, actorId));
     }
 
+    // DELETE /v2/group/members/:seqId — 移除成员
     const memberMatch = path.match(/^\/v2\/group\/members\/([^/]+)$/);
     if (memberMatch && req.method === "DELETE") {
       const seqId = decodeURIComponent(memberMatch[1]!);

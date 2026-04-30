@@ -14,6 +14,7 @@ import {
   type SubjectGroupRecord,
 } from "@/lib/v2/v2-group-api";
 import { fetchV2SysUserById, type V2SysUserItem } from "@/lib/v2/v2-sys-api";
+import { fetchV2SchoolSubjects } from "@/lib/v2/v2-exp-api";
 
 export type TeachingResearchGroupMemberView = SubjectGroupMemberRecord & {
   userName: string;
@@ -28,6 +29,8 @@ export type TeachingResearchGroupRow = SubjectGroupRecord & {
   createUserName: string;
   memberCount: number;
   members: TeachingResearchGroupMemberView[];
+  /** 学科名称（由 hooks 层映射） */
+  subjectName: string | null;
 };
 
 async function loadUserNameMap(actor: CoreApiActor, userIds: string[]): Promise<Map<string, V2SysUserItem>> {
@@ -59,6 +62,9 @@ export function useTeachingResearchGroupsList() {
   const [submitting, setSubmitting] = React.useState(false);
   const [membersLoading, setMembersLoading] = React.useState(false);
 
+  // 学科名称映射缓存
+  const subjectNameMapRef = React.useRef<Map<string, string> | null>(null);
+
   const enrichGroups = React.useCallback(async (list: SubjectGroupRecord[]) => {
     const memberLists = await Promise.all(list.map(async (group) => {
       try { return [group.groupId, await fetchSubjectGroupMembers(actor, group.groupId)] as const; }
@@ -69,6 +75,11 @@ export function useTeachingResearchGroupsList() {
     const creatorIds = list.map((g) => g.createUserId).filter((v): v is string => Boolean(v));
     const memberUserIds = memberLists.flatMap(([, members]) => members.map((m) => m.userId));
     const userMap = await loadUserNameMap(actor, [...ownerIds, ...creatorIds, ...memberUserIds]);
+    // 加载学科映射
+    let subjectMap = subjectNameMapRef.current;
+    if (!subjectMap || subjectMap.size === 0) {
+      try { const subjects = await fetchV2SchoolSubjects(actor); subjectMap = new Map(subjects.map((s) => [s.id, s.name])); subjectNameMapRef.current = subjectMap; } catch { subjectMap = new Map<string, string>(); }
+    }
     return list.map((group) => {
       const owner = group.ownerId ? userMap.get(group.ownerId) : null;
       const creator = group.createUserId ? userMap.get(group.createUserId) : null;
@@ -83,6 +94,7 @@ export function useTeachingResearchGroupsList() {
           const u = userMap.get(m.userId);
           return { ...m, userName: u?.userName ?? m.userId, loginName: u?.loginName ?? "", roleName: u?.roleName ?? null, avatarUrl: u?.userLogo ?? null };
         }),
+        subjectName: group.subjectId ? (subjectMap!.get(group.subjectId) ?? group.subjectId) : null,
       };
     });
   }, [actor]);

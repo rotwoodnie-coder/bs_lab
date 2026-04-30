@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import {
   Avatar,
   AvatarFallback,
@@ -20,6 +21,11 @@ import {
   DialogTitle,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Table,
   TableBody,
   TableCell,
@@ -30,8 +36,9 @@ import {
 import { Grid2X2, List, MoreHorizontal, Plus, RefreshCw, School } from "@bs-lab/ui/icons";
 
 import { UserRole } from "@/types/auth";
-import { addSubjectGroupMember, patchSubjectGroup, removeSubjectGroupMember, transferSubjectGroupOwner } from "@/lib/v2/v2-group-api";
-import { UserSearchDialog, type UserSearchSelection } from "@/components/business/user/UserSearchDialog";
+import { addSubjectGroupMember, deleteSubjectGroup, patchSubjectGroup, removeSubjectGroupMember, transferSubjectGroupOwner } from "@/lib/v2/v2-group-api";
+import { fetchV2SchoolSubjects, type V2DictItem } from "@/lib/v2/v2-exp-api";
+import { TeacherSearchDialog, type UserSearchSelection } from "@/components/business/user/TeacherSearchDialog";
 import { sonnerToast } from "@bs-lab/ui";
 
 import { TeachingResearchGroupCreateDialog } from "./_components/TeachingResearchGroupCreateDialog";
@@ -43,17 +50,40 @@ function statusLabel(status: string | null | undefined): string {
 
 function ActionMenuButton({ onEdit, onDelete, onMemberManage }: { onEdit: () => void; onDelete: () => void; onMemberManage: () => void; }) {
   const [open, setOpen] = React.useState(false);
+  const btnRef = React.useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = React.useState<React.CSSProperties>({});
+  React.useEffect(() => {
+    if (open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: `${rect.bottom + 4}px`,
+        right: `${window.innerWidth - rect.right}px`,
+        zIndex: 9999,
+      });
+    }
+  }, [open]);
+  const handleClickOutside = React.useCallback((e: MouseEvent) => {
+    if (btnRef.current && !btnRef.current.contains(e.target as Node)) {
+      setOpen(false);
+    }
+  }, []);
+  React.useEffect(() => {
+    if (open) { document.addEventListener("mousedown", handleClickOutside); }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, handleClickOutside]);
   return (
-    <div className="relative inline-flex justify-end">
+    <div ref={btnRef} className="relative inline-flex justify-end">
       <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => setOpen((v) => !v)}>
         <MoreHorizontal className="size-4" />
       </Button>
-      {open ? (
-        <div className="absolute right-0 top-9 z-10 min-w-32 rounded-md border border-border bg-background p-1 shadow-md">
+      {open ? createPortal(
+        <div style={menuStyle} className="min-w-32 rounded-md border border-border bg-background p-1 shadow-md">
           <button type="button" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOpen(false); onEdit(); }}>编辑</button>
           <button type="button" className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-accent" onClick={() => { setOpen(false); onMemberManage(); }}>成员管理</button>
           <button type="button" className="block w-full rounded px-3 py-2 text-left text-sm text-destructive hover:bg-accent" onClick={() => { setOpen(false); onDelete(); }}>删除</button>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );
@@ -61,21 +91,30 @@ function ActionMenuButton({ onEdit, onDelete, onMemberManage }: { onEdit: () => 
 
 export default function ResearcherTeachingResearchGroupsPage() {
   const { actor, role, loading, refresh, rows, canCreate, createOpen, setCreateOpen, submitting, handleCreateSubmit, openEdit, openDelete, openMemberManage, selectedOrg, editOpen, deleteOpen, memberManageOpen, closeOrgDialogs, selectedMembers, membersLoading, reloadMembers } = useTeachingResearchGroupsList();
-  const canOpenFullOrgTree = role === UserRole.DISTRICT_ADMIN || role === UserRole.SUPER_ADMIN;
   const [viewMode, setViewMode] = React.useState<"list" | "card">("list");
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false);
   const [ownerPickerOpen, setOwnerPickerOpen] = React.useState(false);
   const [savingEdit, setSavingEdit] = React.useState(false);
   const [savingMember, setSavingMember] = React.useState(false);
   const [savingOwner, setSavingOwner] = React.useState(false);
+  const [savingDelete, setSavingDelete] = React.useState(false);
   const [editName, setEditName] = React.useState("");
   const [editComments, setEditComments] = React.useState("");
+  const [editSubjectId, setEditSubjectId] = React.useState("__none__");
+  const [subjectList, setSubjectList] = React.useState<V2DictItem[]>([]);
 
   React.useEffect(() => {
     if (!selectedOrg) return;
     setEditName(selectedOrg.groupName);
     setEditComments(selectedOrg.comments ?? "");
+    setEditSubjectId(selectedOrg.subjectId ?? "__none__");
   }, [selectedOrg]);
+
+  React.useEffect(() => {
+    if (editOpen) {
+      void fetchV2SchoolSubjects(actor).then(setSubjectList).catch(() => setSubjectList([]));
+    }
+  }, [editOpen, actor]);
 
   const creatorDisplay = selectedOrg?.createUserName ?? "—";
   const ownerId = selectedOrg?.ownerId ?? null;
@@ -91,7 +130,12 @@ export default function ResearcherTeachingResearchGroupsPage() {
     if (!selectedOrg) return;
     setSavingEdit(true);
     try {
-      await patchSubjectGroup(actor, selectedOrg.groupId, { group_name: editName.trim(), comments: editComments.trim() || null, status: selectedOrg.status });
+      await patchSubjectGroup(actor, selectedOrg.groupId, {
+        group_name: editName.trim(),
+        comments: editComments.trim() || null,
+        subject_id: editSubjectId && editSubjectId !== "__none__" ? editSubjectId : null,
+        status: selectedOrg.status,
+      });
       sonnerToast.success("已保存教研组信息");
       closeOrgDialogs();
       await refresh();
@@ -99,6 +143,21 @@ export default function ResearcherTeachingResearchGroupsPage() {
       sonnerToast.error(e instanceof Error ? e.message : "保存失败");
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  const onDeleteConfirm = async () => {
+    if (!selectedOrg) return;
+    setSavingDelete(true);
+    try {
+      await deleteSubjectGroup(actor, selectedOrg.groupId);
+      sonnerToast.success("已删除教研组");
+      closeOrgDialogs();
+      await refresh();
+    } catch (e) {
+      sonnerToast.error(e instanceof Error ? e.message : "删除失败");
+    } finally {
+      setSavingDelete(false);
     }
   };
 
@@ -167,9 +226,9 @@ export default function ResearcherTeachingResearchGroupsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <School className="size-6 text-primary" />
           <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">教研组管理</h1>
-          <Badge variant="secondary">弱组织化 Group</Badge>
+          <Badge variant="secondary">教研组（可管理）</Badge>
         </div>
-        <p className="max-w-3xl text-sm text-muted-foreground">该页面用于维护弱组织化的业务分组，包括组基础信息、负责人、成员和状态管理，不依赖行政组织树。</p>
+        <p className="max-w-3xl text-sm text-muted-foreground">管理全区教研组，包括基础信息、学科、负责人、成员和状态管理。</p>
       </header>
 
       <Card className="border-border shadow-none">
@@ -242,7 +301,47 @@ export default function ResearcherTeachingResearchGroupsPage() {
       </Card>
 
       {canCreate ? <TeachingResearchGroupCreateDialog open={createOpen} onOpenChange={setCreateOpen} actor={actor} submitting={submitting} onSubmit={handleCreateSubmit} /> : null}
-      <Dialog open={editOpen} onOpenChange={closeOrgDialogs}><DialogContent><DialogHeader><DialogTitle>编辑教研组</DialogTitle><DialogDescription>{selectedOrg ? `当前选中：${selectedOrg.groupName}` : "请选择一条记录后继续。"}</DialogDescription></DialogHeader><div className="grid gap-4 py-2"><div className="grid gap-2"><Label>组名</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div><div className="grid gap-2"><Label>说明</Label><Input value={editComments} onChange={(e) => setEditComments(e.target.value)} /></div><div className="grid gap-2"><Label>负责人</Label><Input value={selectedOrg?.ownerName ?? ""} readOnly /><Button type="button" variant="outline" onClick={() => setOwnerPickerOpen(true)}>选择负责人</Button></div></div><DialogFooter><Button type="button" variant="outline" onClick={closeOrgDialogs}>取消</Button><Button type="button" onClick={() => void onEditSave()} disabled={savingEdit}>{savingEdit ? "保存中…" : "保存"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={editOpen} onOpenChange={closeOrgDialogs}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑教研组</DialogTitle>
+            <DialogDescription>{selectedOrg ? `当前选中：${selectedOrg.groupName}` : "请选择一条记录后继续。"}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label>组名</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>说明</Label>
+              <Input value={editComments} onChange={(e) => setEditComments(e.target.value)} />
+            </div>
+            <div className="grid gap-2">
+              <Label>所属学科</Label>
+              <Select value={editSubjectId} onValueChange={setEditSubjectId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="请选择学科" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">全部 / 未设置</SelectItem>
+                  {subjectList.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>负责人</Label>
+              <Input value={selectedOrg?.ownerName ?? ""} readOnly />
+              <Button type="button" variant="outline" onClick={() => setOwnerPickerOpen(true)}>选择负责人</Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeOrgDialogs}>取消</Button>
+            <Button type="button" onClick={() => void onEditSave()} disabled={savingEdit}>{savingEdit ? "保存中…" : "保存"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={memberManageOpen} onOpenChange={closeOrgDialogs}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -333,9 +432,22 @@ export default function ResearcherTeachingResearchGroupsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Dialog open={deleteOpen} onOpenChange={closeOrgDialogs}><DialogContent><DialogHeader><DialogTitle>删除教研组</DialogTitle><DialogDescription>{selectedOrg ? `确认删除「${selectedOrg.groupName}」吗？` : "请选择一条记录后继续。"}</DialogDescription></DialogHeader><div className="py-4 text-sm text-muted-foreground">这里先保留删除确认壳，后续接入真实删除接口。</div><DialogFooter><Button type="button" variant="outline" onClick={closeOrgDialogs}>取消</Button><Button type="button" variant="destructive" onClick={closeOrgDialogs}>确认删除</Button></DialogFooter></DialogContent></Dialog>
-      {selectedOrg ? <UserSearchDialog open={memberPickerOpen} onOpenChange={setMemberPickerOpen} actor={actor} title="选择成员" description="搜索姓名、账号或手机号，选择后加入当前教研组。" confirmLabel={savingMember ? "添加中…" : "添加成员"} onConfirm={(u) => void addMemberBySearch(u)} /> : null}
-      {selectedOrg ? <UserSearchDialog open={ownerPickerOpen} onOpenChange={setOwnerPickerOpen} actor={actor} title="选择负责人" description="搜索姓名、账号或手机号，选择后转交负责人。" confirmLabel={savingOwner ? "转交中…" : "转交负责人"} onConfirm={(u) => void transferOwnerBySearch(u)} /> : null}
+      <Dialog open={deleteOpen} onOpenChange={closeOrgDialogs}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>删除教研组</DialogTitle>
+            <DialogDescription>{selectedOrg ? `确认删除「${selectedOrg.groupName}」吗？此操作不可恢复，将同时清空成员关系。` : "请选择一条记录后继续。"}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeOrgDialogs}>取消</Button>
+            <Button type="button" variant="destructive" onClick={() => void onDeleteConfirm()} disabled={savingDelete}>
+              {savingDelete ? "删除中…" : "确认删除"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {selectedOrg ? <TeacherSearchDialog open={memberPickerOpen} onOpenChange={setMemberPickerOpen} actor={actor} title="选择成员" description="搜索教师姓名、账号或手机号，选择后加入当前教研组。" confirmLabel={savingMember ? "添加中…" : "添加成员"} excludeUserIds={selectedMembers.map((m) => m.userId)} onConfirm={(u) => void addMemberBySearch(u)} /> : null}
+      {selectedOrg ? <TeacherSearchDialog open={ownerPickerOpen} onOpenChange={setOwnerPickerOpen} actor={actor} title="选择负责人" description="搜索教师姓名、账号或手机号，选择后转交负责人。" confirmLabel={savingOwner ? "转交中…" : "转交负责人"} onConfirm={(u) => void transferOwnerBySearch(u)} /> : null}
     </div>
   );
 }

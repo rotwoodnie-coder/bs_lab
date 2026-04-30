@@ -11,7 +11,7 @@
  Target Server Version : 90001
  File Encoding         : 65001
 
- Date: 25/04/2026 10:20:58
+ Date: 30/04/2026 21:44:10
 */
 
 SET NAMES utf8mb4;
@@ -29,7 +29,7 @@ CREATE TABLE `data_coursebook`  (
   `comments` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '说明',
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   PRIMARY KEY (`coursebook_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_coursebook_chapter
@@ -45,7 +45,7 @@ CREATE TABLE `data_coursebook_chapter`  (
   PRIMARY KEY (`chapter_id`) USING BTREE,
   INDEX `idx_data_chapter_coursebook`(`coursebook_id` ASC) USING BTREE,
   CONSTRAINT `fk_data_chapter_coursebook` FOREIGN KEY (`coursebook_id`) REFERENCES `data_coursebook` (`coursebook_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材章' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材章' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_coursebook_unit
@@ -61,7 +61,7 @@ CREATE TABLE `data_coursebook_unit`  (
   PRIMARY KEY (`unit_id`) USING BTREE,
   INDEX `idx_data_unit_chapter`(`chapter_id` ASC) USING BTREE,
   CONSTRAINT `fk_data_unit_chapter` FOREIGN KEY (`chapter_id`) REFERENCES `data_coursebook_chapter` (`chapter_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材节' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教材节' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_difficulty_type
@@ -74,7 +74,7 @@ CREATE TABLE `data_difficulty_type`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题库难度类型' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题库难度类型' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_exp_difficulty
@@ -87,7 +87,7 @@ CREATE TABLE `data_exp_difficulty`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`difficulty_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验难度' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验难度' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_file
@@ -103,15 +103,18 @@ CREATE TABLE `data_file`  (
   `logo_url` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封面图URL',
   `file_size` bigint NULL DEFAULT NULL COMMENT '文件大小（字节）',
   `file_ext` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件后缀',
-  `content_sha256` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容 SHA-256(hex)，用于同归属去重',
+  `content_sha256` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容 SHA-256(hex)',
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  `parent_file_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '父文件ID（自引用），表达从属关系',
+  `relation_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '关系类型：logo（封面）、transcoded（转码）等',
+  `cover_file_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '封面文件ID（冗余加速）',
   PRIMARY KEY (`file_id`) USING BTREE,
-  UNIQUE INDEX `uq_data_file_owner_content_sha`( ASC, `content_sha256` ASC) USING BTREE,
   INDEX `idx_data_file_type`(`file_type_id` ASC) USING BTREE,
   INDEX `idx_data_file_owner`(`owner_user_id` ASC) USING BTREE,
-  CONSTRAINT `fk_data_file_owner` FOREIGN KEY (`owner_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `fk_data_file_type` FOREIGN KEY (`file_type_id`) REFERENCES `data_file_type` (`type_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+  UNIQUE INDEX `uq_data_file_parent_relation`(`parent_file_id` ASC, `relation_type` ASC) USING BTREE,
+  INDEX `idx_data_file_relation`(`relation_type` ASC) USING BTREE,
+  CONSTRAINT `fk_data_file_parent` FOREIGN KEY (`parent_file_id`) REFERENCES `data_file` (`file_id`) ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '文件资源主表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
@@ -126,7 +129,7 @@ CREATE TABLE `data_file_type`  (
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   `logo_class` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '图标样式标识',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '素材类别（初始化，不能修改）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '素材类别（初始化，不能修改）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_material_prop
@@ -139,7 +142,7 @@ CREATE TABLE `data_material_prop`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`prop_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料属性' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料属性' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_material_security
@@ -153,7 +156,7 @@ CREATE TABLE `data_material_security`  (
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   `security_level` int NULL DEFAULT NULL COMMENT '危险等级（数值越低越危险，0最危险）',
   PRIMARY KEY (`security_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料安全性' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料安全性' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_material_type
@@ -166,7 +169,7 @@ CREATE TABLE `data_material_type`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料分类' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料分类' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_material_unit
@@ -179,7 +182,7 @@ CREATE TABLE `data_material_unit`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`unit_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料计量单位' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料计量单位' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_msg_type
@@ -192,7 +195,7 @@ CREATE TABLE `data_msg_type`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '消息分类' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '消息分类' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_org_type
@@ -205,7 +208,7 @@ CREATE TABLE `data_org_type`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组织类型（初始化，不能修改）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组织类型（初始化，不能修改）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_pref_title
@@ -218,7 +221,7 @@ CREATE TABLE `data_pref_title`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`title_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '职称' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '职称' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_question_capacity
@@ -231,7 +234,7 @@ CREATE TABLE `data_question_capacity`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`capacity_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目能力侧重点' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目能力侧重点' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_question_type
@@ -244,7 +247,7 @@ CREATE TABLE `data_question_type`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`type_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题型' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题型' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_rating_scale
@@ -257,7 +260,7 @@ CREATE TABLE `data_rating_scale`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`scale_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评分等级（初始化，不能修改）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评分等级（初始化，不能修改）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_role
@@ -270,7 +273,7 @@ CREATE TABLE `data_role`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`role_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户角色（初始化，不能修改）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户角色（初始化，不能修改）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_school_grade
@@ -286,7 +289,7 @@ CREATE TABLE `data_school_grade`  (
   PRIMARY KEY (`grade_id`) USING BTREE,
   INDEX `idx_data_school_grade_level`(`school_level_id` ASC) USING BTREE,
   CONSTRAINT `fk_data_school_grade_level` FOREIGN KEY (`school_level_id`) REFERENCES `data_school_level` (`level_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '年级信息' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '年级信息' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_school_grade_subject
@@ -301,7 +304,7 @@ CREATE TABLE `data_school_grade_subject`  (
   INDEX `idx_data_grade_subject_grade`(`grade_id` ASC) USING BTREE,
   CONSTRAINT `fk_data_grade_subject_grade` FOREIGN KEY (`grade_id`) REFERENCES `data_school_grade` (`grade_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_data_grade_subject_subject` FOREIGN KEY (`subject_id`) REFERENCES `data_school_subject` (`subject_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '年级与学科关联' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '年级与学科关联' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_school_level
@@ -314,7 +317,7 @@ CREATE TABLE `data_school_level`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`level_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学段信息' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学段信息' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for data_school_subject
@@ -327,7 +330,7 @@ CREATE TABLE `data_school_subject`  (
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`subject_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学科' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学科' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_arbitration
@@ -348,7 +351,7 @@ CREATE TABLE `exp_arbitration`  (
   INDEX `idx_exp_arbitration_initiator`(`initiator_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_arbitration_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_arbitration_initiator` FOREIGN KEY (`initiator_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '实验仲裁（实验小法庭）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '实验仲裁（实验小法庭）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_arbitration_like
@@ -365,7 +368,7 @@ CREATE TABLE `exp_arbitration_like`  (
   INDEX `idx_exp_arb_like_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_arb_like_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_arb_like_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁支持记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁支持记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_arbitration_notlike
@@ -382,7 +385,7 @@ CREATE TABLE `exp_arbitration_notlike`  (
   INDEX `idx_exp_arb_notlike_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_arb_notlike_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_arb_notlike_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁反对记录（仅实验小法庭中展示，不可删除）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁反对记录（仅实验小法庭中展示，不可删除）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_grade
@@ -398,7 +401,7 @@ CREATE TABLE `exp_grade`  (
   INDEX `idx_exp_grade_grade`(`grade_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_grade_exp` FOREIGN KEY (`lib_exp_id`) REFERENCES `exp_library` (`lib_exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_grade_grade` FOREIGN KEY (`grade_id`) REFERENCES `data_school_grade` (`grade_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验适用年级' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验适用年级' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_homework
@@ -422,7 +425,7 @@ CREATE TABLE `exp_homework`  (
   CONSTRAINT `fk_exp_homework_class` FOREIGN KEY (`class_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_homework_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_homework_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验作业（教师发布）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验作业（教师发布）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_homework_student
@@ -449,7 +452,7 @@ CREATE TABLE `exp_homework_student`  (
   CONSTRAINT `fk_exp_hw_student_student` FOREIGN KEY (`student_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_hw_student_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_hw_student_work` FOREIGN KEY (`work_id`) REFERENCES `exp_homework` (`work_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生试验作业（含快照机制）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '学生试验作业（含快照机制）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_library
@@ -473,7 +476,7 @@ CREATE TABLE `exp_library`  (
   INDEX `idx_exp_library_level`(`school_level_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_library_level` FOREIGN KEY (`school_level_id`) REFERENCES `data_school_level` (`level_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_library_subject` FOREIGN KEY (`subject_id`) REFERENCES `data_school_subject` (`subject_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验库' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验库' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_library_grade
@@ -489,7 +492,7 @@ CREATE TABLE `exp_library_grade`  (
   INDEX `idx_exp_library_grade_grade`(`grade_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_library_grade_exp` FOREIGN KEY (`lib_exp_id`) REFERENCES `exp_library` (`lib_exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_library_grade_grade` FOREIGN KEY (`grade_id`) REFERENCES `data_school_grade` (`grade_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验适用年级' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验适用年级' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_library_video
@@ -504,7 +507,7 @@ CREATE TABLE `exp_library_video`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_library_video_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_library_video_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_library` (`lib_exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验视频' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '标准试验视频' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_material
@@ -533,7 +536,7 @@ CREATE TABLE `exp_material`  (
   CONSTRAINT `fk_exp_material_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_material_prop` FOREIGN KEY (`material_prop_id`) REFERENCES `data_material_prop` (`prop_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_material_type` FOREIGN KEY (`material_type_id`) REFERENCES `data_material_type` (`type_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料明细' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料明细' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_material_pic
@@ -549,7 +552,7 @@ CREATE TABLE `exp_material_pic`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_material_pic_material`(`exp_material_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_material_pic_material` FOREIGN KEY (`exp_material_id`) REFERENCES `exp_material` (`exp_material_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料图片' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料图片' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_material_security
@@ -567,7 +570,7 @@ CREATE TABLE `exp_material_security`  (
   INDEX `idx_exp_material_sec_security`(`security_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_material_sec_material` FOREIGN KEY (`exp_material_id`) REFERENCES `exp_material` (`exp_material_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_material_sec_security` FOREIGN KEY (`security_id`) REFERENCES `data_material_security` (`security_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料安全性关联' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料安全性关联' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_msg
@@ -622,7 +625,7 @@ CREATE TABLE `exp_msg`  (
   CONSTRAINT `fk_exp_msg_standard_exp` FOREIGN KEY (`standard_exp_id`) REFERENCES `exp_library` (`lib_exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_msg_subject` FOREIGN KEY (`subject_id`) REFERENCES `data_school_subject` (`subject_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_msg_unit` FOREIGN KEY (`unit_id`) REFERENCES `data_coursebook_unit` (`unit_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验（教师/学生）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验（教师/学生）' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_pic
@@ -637,7 +640,7 @@ CREATE TABLE `exp_pic`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_pic_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_pic_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验图片' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验图片' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_question
@@ -656,7 +659,6 @@ CREATE TABLE `exp_question`  (
   `knowledge_content` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '知识点内容',
   `choose_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '选择类型：单选/多选',
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用，t 草稿',
-  `reject_reason` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '驳回原因（status=n 时由审核人填写）',
   `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '创建人id',
   `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
   `update_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '最后更新人id',
@@ -675,7 +677,7 @@ CREATE TABLE `exp_question`  (
   CONSTRAINT `fk_exp_question_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_question_type` FOREIGN KEY (`question_type_id`) REFERENCES `data_question_type` (`type_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_question_unit` FOREIGN KEY (`unit_id`) REFERENCES `data_coursebook_unit` (`unit_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_question_answer
@@ -692,7 +694,7 @@ CREATE TABLE `exp_question_answer`  (
   INDEX `idx_exp_q_answer_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_q_answer_question` FOREIGN KEY (`question_id`) REFERENCES `exp_question` (`question_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_q_answer_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '答题记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '答题记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_question_answer_select
@@ -710,7 +712,7 @@ CREATE TABLE `exp_question_answer_select`  (
   CONSTRAINT `fk_exp_q_ans_sel_answer` FOREIGN KEY (`answer_id`) REFERENCES `exp_question_answer` (`answer_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_q_ans_sel_question` FOREIGN KEY (`question_id`) REFERENCES `exp_question` (`question_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_q_ans_sel_select` FOREIGN KEY (`select_id`) REFERENCES `exp_question_select` (`select_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '答题选项明细' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '答题选项明细' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_question_select
@@ -725,7 +727,7 @@ CREATE TABLE `exp_question_select`  (
   PRIMARY KEY (`select_id`) USING BTREE,
   INDEX `idx_exp_q_select_question`(`question_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_q_select_question` FOREIGN KEY (`question_id`) REFERENCES `exp_question` (`question_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目选项' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '题目选项' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_reference
@@ -741,7 +743,7 @@ CREATE TABLE `exp_reference`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_reference_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_reference_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验参考引用' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验参考引用' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_reference_video
@@ -756,7 +758,7 @@ CREATE TABLE `exp_reference_video`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_reference_video_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_reference_video_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验参考引用视频' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验参考引用视频' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_result
@@ -771,7 +773,7 @@ CREATE TABLE `exp_result`  (
   PRIMARY KEY (`result_id`) USING BTREE,
   INDEX `idx_exp_result_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_result_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验结果' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验结果' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_scientist
@@ -787,7 +789,7 @@ CREATE TABLE `exp_scientist`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_scientist_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_scientist_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验科学家故事' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验科学家故事' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_security
@@ -804,7 +806,7 @@ CREATE TABLE `exp_security`  (
   INDEX `idx_exp_security_security`(`security_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_security_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_security_security` FOREIGN KEY (`security_id`) REFERENCES `data_material_security` (`security_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验安全性关联' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验安全性关联' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_simulation_record
@@ -822,7 +824,7 @@ CREATE TABLE `exp_simulation_record`  (
   INDEX `idx_exp_simulation_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_simulation_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_simulation_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '模拟试验记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '模拟试验记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_step
@@ -837,7 +839,7 @@ CREATE TABLE `exp_step`  (
   PRIMARY KEY (`step_id`) USING BTREE,
   INDEX `idx_exp_step_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_step_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验步骤' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验步骤' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for exp_video
@@ -852,7 +854,7 @@ CREATE TABLE `exp_video`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_video_exp`(`exp_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_video_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验视频' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验视频' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for material_msg
@@ -863,11 +865,11 @@ CREATE TABLE `material_msg`  (
   `material_name` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '材料名称',
   `material_prop_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '材料属性id',
   `material_type_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '材料分类id',
-  `material_num` int NULL DEFAULT NULL COMMENT '建议用量',
+  `material_num` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '建议用量（含单位，如\"500 毫升\"）',
   `main_pic_url` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '主图片URL',
   `exp_purpose` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '试验用途',
   `additional_comments` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '补充说明',
-  `comments` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注',
+  `comments` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '备注/安全说明',
   `status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '状态：y 启用，n 停用',
   `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '创建人id',
   `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
@@ -879,7 +881,7 @@ CREATE TABLE `material_msg`  (
   INDEX `idx_material_msg_type`(`material_type_id` ASC) USING BTREE,
   CONSTRAINT `fk_material_msg_prop` FOREIGN KEY (`material_prop_id`) REFERENCES `data_material_prop` (`prop_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_material_msg_type` FOREIGN KEY (`material_type_id`) REFERENCES `data_material_type` (`type_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料主库' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验材料主库' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for material_pic
@@ -894,7 +896,7 @@ CREATE TABLE `material_pic`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_material_pic_material`(`material_id` ASC) USING BTREE,
   CONSTRAINT `fk_material_pic_material` FOREIGN KEY (`material_id`) REFERENCES `material_msg` (`material_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料图片' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料图片' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for material_security
@@ -911,7 +913,7 @@ CREATE TABLE `material_security`  (
   INDEX `idx_material_security_security`(`security_id` ASC) USING BTREE,
   CONSTRAINT `fk_material_security_material` FOREIGN KEY (`material_id`) REFERENCES `material_msg` (`material_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_material_security_security` FOREIGN KEY (`security_id`) REFERENCES `data_material_security` (`security_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料安全性关联' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '材料安全性关联' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for migration_error_log
@@ -941,6 +943,55 @@ CREATE TABLE `migration_id_map`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for parent_report
+-- ----------------------------
+DROP TABLE IF EXISTS `parent_report`;
+CREATE TABLE `parent_report`  (
+  `report_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '报告ID',
+  `session_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '关联会话ID',
+  `summary` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '摘要',
+  `strengths` json NULL COMMENT '亮点列表（JSON数组）',
+  `improvements` json NULL COMMENT '待改进列表（JSON数组）',
+  `next_recommendations` json NULL COMMENT '后续建议列表（JSON数组）',
+  `share_copy` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '分享文案',
+  `teacher_comment` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '教师评语（成就卡用）',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`report_id`) USING BTREE,
+  UNIQUE INDEX `uk_report_session`(`session_id` ASC) USING BTREE,
+  CONSTRAINT `fk_parent_report_session` FOREIGN KEY (`session_id`) REFERENCES `parent_session` (`session_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '亲子实验报告' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for parent_session
+-- ----------------------------
+DROP TABLE IF EXISTS `parent_session`;
+CREATE TABLE `parent_session`  (
+  `session_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
+  `parent_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '家长用户ID',
+  `student_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学生用户ID',
+  `exp_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '实验ID',
+  `work_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '关联作业ID（来自教师分发）',
+  `task_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '关联学生任务seq_id（exp_homework_student.seq_id）',
+  `guide_style` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'gentle' COMMENT 'AI引导风格：gentle/rigorous/playful',
+  `parent_attested_at` datetime NULL DEFAULT NULL COMMENT '家长陪同背书时间',
+  `error_count` int NOT NULL DEFAULT 0 COMMENT '操作错误预警次数',
+  `material_shortage_reported` tinyint NOT NULL DEFAULT 0 COMMENT '是否已反馈材料难凑齐',
+  `evaluation_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'none' COMMENT '教师评价状态：none/evaluated',
+  `teacher_comment` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '教师评语',
+  `teacher_star_rating` int NULL DEFAULT NULL COMMENT '教师星级评分（1-5）',
+  `completion_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'in_progress' COMMENT '完成状态：in_progress/completed',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+  PRIMARY KEY (`session_id`) USING BTREE,
+  INDEX `idx_parent_session_parent`(`parent_user_id` ASC) USING BTREE,
+  INDEX `idx_parent_session_student`(`student_user_id` ASC) USING BTREE,
+  INDEX `idx_parent_session_exp`(`exp_id` ASC) USING BTREE,
+  CONSTRAINT `fk_parent_session_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_parent_session_parent` FOREIGN KEY (`parent_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_parent_session_student` FOREIGN KEY (`student_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '家长辅导会话' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
 -- Table structure for scale_log
 -- ----------------------------
 DROP TABLE IF EXISTS `scale_log`;
@@ -954,7 +1005,7 @@ CREATE TABLE `scale_log`  (
   INDEX `idx_scale_log_user`(`user_id` ASC) USING BTREE,
   INDEX `idx_scale_log_time`(`create_time` ASC) USING BTREE,
   CONSTRAINT `fk_scale_log_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '积分流水' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '积分流水' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for scale_title
@@ -969,7 +1020,7 @@ CREATE TABLE `scale_title`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_scale_title_role`(`role_id` ASC) USING BTREE,
   CONSTRAINT `fk_scale_title_role` FOREIGN KEY (`role_id`) REFERENCES `data_role` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '积分称号规则' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '积分称号规则' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for social_collection
@@ -986,7 +1037,7 @@ CREATE TABLE `social_collection`  (
   INDEX `idx_social_collection_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_social_collection_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_social_collection_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '收藏记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '收藏记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for social_evaluate
@@ -1004,7 +1055,7 @@ CREATE TABLE `social_evaluate`  (
   INDEX `idx_social_evaluate_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_social_evaluate_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_social_evaluate_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评价记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '评价记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for social_like
@@ -1021,7 +1072,7 @@ CREATE TABLE `social_like`  (
   INDEX `idx_social_like_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_social_like_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_social_like_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '点赞记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '点赞记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for social_notlike
@@ -1038,7 +1089,7 @@ CREATE TABLE `social_notlike`  (
   INDEX `idx_social_notlike_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_social_notlike_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_social_notlike_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '倒赞记录' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '倒赞记录' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for subject_group
@@ -1076,6 +1127,51 @@ CREATE TABLE `subject_group_member`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组成员关系表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
+-- Table structure for sys_auth_refresh_token
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_auth_refresh_token`;
+CREATE TABLE `sys_auth_refresh_token`  (
+  `sid` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `token_hash` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `role_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `org_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '',
+  `expires_at` datetime NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`sid`) USING BTREE,
+  INDEX `idx_expires_at`(`expires_at` ASC) USING BTREE,
+  INDEX `idx_user_id`(`user_id` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Table structure for sys_feedback
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_feedback`;
+CREATE TABLE `sys_feedback`  (
+  `feedback_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '主键',
+  `type` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'BUG / FEATURE / OPTIMIZE / INQUIRY',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '简述标题',
+  `content` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '富文本 HTML 内容',
+  `status` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'TODO' COMMENT 'TODO / DOING / DONE / REJECT',
+  `reporter` json NULL COMMENT '提报人信息：{userId, name, role, orgId, orgName}',
+  `env` json NULL COMMENT '环境信息：{url, ua, browser, resolution}',
+  `issue_fingerprint` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `reply` mediumtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '修复说明 HTML',
+  `replier_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '运维回复人 user_id',
+  `reply_time` datetime NULL DEFAULT NULL COMMENT '回复时间',
+  `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `create_time` datetime NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `update_time` datetime NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`feedback_id`) USING BTREE,
+  INDEX `idx_feedback_type`(`type` ASC) USING BTREE,
+  INDEX `idx_feedback_status`(`status` ASC) USING BTREE,
+  INDEX `idx_feedback_create_time`(`create_time` ASC) USING BTREE,
+  INDEX `idx_issue_fingerprint`(`issue_fingerprint` ASC) USING BTREE
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户反馈表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
 -- Table structure for sys_log
 -- ----------------------------
 DROP TABLE IF EXISTS `sys_log`;
@@ -1086,11 +1182,12 @@ CREATE TABLE `sys_log`  (
   `log_time` datetime NULL DEFAULT NULL COMMENT '记录时间',
   `log_data_type` varchar(60) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作数据类型',
   `log_data_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '操作数据id',
+  `log_data_content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '操作数据内容（JSON 格式的详细上下文）',
   PRIMARY KEY (`log_id`) USING BTREE,
   INDEX `idx_sys_log_user`(`user_id` ASC) USING BTREE,
   INDEX `idx_sys_log_time`(`log_time` ASC) USING BTREE,
   CONSTRAINT `fk_sys_log_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统日志' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for sys_msg
@@ -1110,7 +1207,7 @@ CREATE TABLE `sys_msg`  (
   INDEX `idx_sys_msg_sender`(`sender_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_sys_msg_receiver` FOREIGN KEY (`receiver_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_msg_sender` FOREIGN KEY (`sender_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统消息' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统消息' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for sys_org
@@ -1137,7 +1234,31 @@ CREATE TABLE `sys_org`  (
   CONSTRAINT `fk_sys_org_grade` FOREIGN KEY (`grade_id`) REFERENCES `data_school_grade` (`grade_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_org_parent` FOREIGN KEY (`parent_org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_org_type` FOREIGN KEY (`org_type_id`) REFERENCES `data_org_type` (`type_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组织（学校/班级/课题组等）' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组织（学校/班级/课题组等）' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- Table structure for sys_parent_student_rel
+-- ----------------------------
+DROP TABLE IF EXISTS `sys_parent_student_rel`;
+CREATE TABLE `sys_parent_student_rel`  (
+  `seq_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '主键id',
+  `parent_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '家长id,关联sys_user表',
+  `student_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学生id,关联sys_user表',
+  `school_org_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学校id,关联sys_org表',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
+  `audit_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'T' COMMENT '审核状态(T-待审，Y-通过，N-不通过)',
+  `audit_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核人id,关联sys_user表',
+  `audit_comments` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核说明',
+  `audit_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
+  PRIMARY KEY (`seq_id`) USING BTREE,
+  UNIQUE INDEX `uk_parent_student`(`parent_user_id` ASC, `student_user_id` ASC) USING BTREE,
+  INDEX `idx_parent_id`(`parent_user_id` ASC) USING BTREE,
+  INDEX `idx_student_id`(`student_user_id` ASC) USING BTREE,
+  INDEX `idx_audit_list`(`school_org_id` ASC, `audit_status` ASC) USING BTREE,
+  CONSTRAINT `fk_parent_student_rel_parent` FOREIGN KEY (`parent_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_parent_student_rel_school` FOREIGN KEY (`school_org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_parent_student_rel_student` FOREIGN KEY (`student_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '家长-学生绑定审核表' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for sys_user
@@ -1174,7 +1295,7 @@ CREATE TABLE `sys_user`  (
   CONSTRAINT `fk_sys_user_org` FOREIGN KEY (`user_org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_user_role` FOREIGN KEY (`user_role_id`) REFERENCES `data_role` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_user_title` FOREIGN KEY (`pref_title_id`) REFERENCES `data_pref_title` (`title_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Table structure for sys_user_role
@@ -1193,30 +1314,48 @@ CREATE TABLE `sys_user_role`  (
   CONSTRAINT `fk_sys_user_role_org` FOREIGN KEY (`org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `data_role` (`role_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_sys_user_role_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户角色关联' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户角色关联' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
--- Table structure for sys_parent_student_rel
+-- Table structure for teacher_class
 -- ----------------------------
-DROP TABLE IF EXISTS `sys_parent_student_rel`;
-CREATE TABLE `sys_parent_student_rel`  (
+DROP TABLE IF EXISTS `teacher_class`;
+CREATE TABLE `teacher_class`  (
   `seq_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '主键id',
-  `parent_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '家长id,关联Sys_User表',
-  `student_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学生id,关联Sys_User表',
-  `school_org_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学校id,关联Sys_org表',
-  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '申请时间',
-  `audit_status` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'T' COMMENT '审核状态(T-待审，Y-通过，N-不通过)',
-  `audit_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核人id,关联Sys_User表',
-  `audit_comments` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '审核说明',
-  `audit_time` datetime NULL DEFAULT NULL COMMENT '审核时间',
+  `teacher_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '教师人员id（sys_user.user_id）',
+  `class_org_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '班级组织id（sys_org.org_id，org_type_id=Org_School_Class）',
+  `subject_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '学科id（data_school_subject.subject_id）',
+  `status` varchar(4) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'y' COMMENT '状态：y启用 n停用',
+  `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
+  `update_time` datetime NULL DEFAULT NULL COMMENT '更新时间',
+  `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '创建人',
+  `update_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '更新人',
   PRIMARY KEY (`seq_id`) USING BTREE,
-  UNIQUE INDEX `uk_parent_student`(`parent_user_id` ASC, `student_user_id` ASC) USING BTREE,
-  INDEX `idx_parent_id`(`parent_user_id` ASC) USING BTREE,
-  INDEX `idx_student_id`(`student_user_id` ASC) USING BTREE,
-  INDEX `idx_audit_list`(`school_org_id` ASC, `audit_status` ASC) USING BTREE,
-  CONSTRAINT `fk_parent_student_rel_parent` FOREIGN KEY (`parent_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `fk_parent_student_rel_school` FOREIGN KEY (`school_org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT `fk_parent_student_rel_student` FOREIGN KEY (`student_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '家长-学生绑定审核表' ROW_FORMAT = Dynamic;
+  UNIQUE INDEX `uk_teacher_class_subject`(`teacher_id` ASC, `class_org_id` ASC, `subject_id` ASC) USING BTREE,
+  INDEX `idx_tc_teacher`(`teacher_id` ASC) USING BTREE,
+  INDEX `idx_tc_class`(`class_org_id` ASC) USING BTREE,
+  INDEX `idx_tc_subject`(`subject_id` ASC) USING BTREE,
+  CONSTRAINT `fk_tc_class` FOREIGN KEY (`class_org_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_tc_subject` FOREIGN KEY (`subject_id`) REFERENCES `data_school_subject` (`subject_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_tc_teacher` FOREIGN KEY (`teacher_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教师授课班级关系' ROW_FORMAT = DYNAMIC;
+
+-- ----------------------------
+-- View structure for v_active_student_enrollments
+-- ----------------------------
+DROP VIEW IF EXISTS `v_active_student_enrollments`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_student_enrollments` AS select `iam_student_enrollments`.`id` AS `id`,`iam_student_enrollments`.`tenant_id` AS `tenant_id`,`iam_student_enrollments`.`user_id` AS `user_id`,`iam_student_enrollments`.`class_org_id` AS `class_org_id`,`iam_student_enrollments`.`academic_year` AS `academic_year`,`iam_student_enrollments`.`semester` AS `semester`,`iam_student_enrollments`.`enroll_status` AS `enroll_status`,`iam_student_enrollments`.`start_at` AS `start_at`,`iam_student_enrollments`.`end_at` AS `end_at`,`iam_student_enrollments`.`from_enrollment_id` AS `from_enrollment_id`,`iam_student_enrollments`.`created_at` AS `created_at`,`iam_student_enrollments`.`updated_at` AS `updated_at` from `iam_student_enrollments` where ((`iam_student_enrollments`.`enroll_status` = 'enrolled') and ((`iam_student_enrollments`.`start_at` is null) or (`iam_student_enrollments`.`start_at` <= now())) and ((`iam_student_enrollments`.`end_at` is null) or (`iam_student_enrollments`.`end_at` >= now())));
+
+-- ----------------------------
+-- View structure for v_active_user_org_posts
+-- ----------------------------
+DROP VIEW IF EXISTS `v_active_user_org_posts`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_user_org_posts` AS select `iam_user_org_posts`.`id` AS `id`,`iam_user_org_posts`.`tenant_id` AS `tenant_id`,`iam_user_org_posts`.`user_id` AS `user_id`,`iam_user_org_posts`.`org_id` AS `org_id`,`iam_user_org_posts`.`role_id` AS `role_id`,`iam_user_org_posts`.`is_primary` AS `is_primary`,`iam_user_org_posts`.`status` AS `status`,`iam_user_org_posts`.`start_at` AS `start_at`,`iam_user_org_posts`.`end_at` AS `end_at`,`iam_user_org_posts`.`created_at` AS `created_at`,`iam_user_org_posts`.`updated_at` AS `updated_at` from `iam_user_org_posts` where ((`iam_user_org_posts`.`status` = 1) and ((`iam_user_org_posts`.`start_at` is null) or (`iam_user_org_posts`.`start_at` <= now())) and ((`iam_user_org_posts`.`end_at` is null) or (`iam_user_org_posts`.`end_at` >= now())));
+
+-- ----------------------------
+-- View structure for v_active_user_org_subject_posts
+-- ----------------------------
+DROP VIEW IF EXISTS `v_active_user_org_subject_posts`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_user_org_subject_posts` AS select `iam_user_org_subject_posts`.`id` AS `id`,`iam_user_org_subject_posts`.`tenant_id` AS `tenant_id`,`iam_user_org_subject_posts`.`user_id` AS `user_id`,`iam_user_org_subject_posts`.`org_id` AS `org_id`,`iam_user_org_subject_posts`.`subject_code` AS `subject_code`,`iam_user_org_subject_posts`.`role_id` AS `role_id`,`iam_user_org_subject_posts`.`is_primary` AS `is_primary`,`iam_user_org_subject_posts`.`status` AS `status`,`iam_user_org_subject_posts`.`start_at` AS `start_at`,`iam_user_org_subject_posts`.`end_at` AS `end_at`,`iam_user_org_subject_posts`.`created_at` AS `created_at`,`iam_user_org_subject_posts`.`updated_at` AS `updated_at` from `iam_user_org_subject_posts` where ((`iam_user_org_subject_posts`.`status` = 1) and ((`iam_user_org_subject_posts`.`start_at` is null) or (`iam_user_org_subject_posts`.`start_at` <= now())) and ((`iam_user_org_subject_posts`.`end_at` is null) or (`iam_user_org_subject_posts`.`end_at` >= now())));
 
 SET FOREIGN_KEY_CHECKS = 1;

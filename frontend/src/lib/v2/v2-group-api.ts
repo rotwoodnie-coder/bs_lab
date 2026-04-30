@@ -17,6 +17,7 @@ export type SubjectGroupMemberRecord = {
   seqId: string;
   groupId: string;
   userId: string;
+  role: "ADMIN" | "MEMBER";
   status: "Y" | "N";
   createUserId: string | null;
   createTime: string | null;
@@ -54,9 +55,39 @@ async function v2Delete<T>(path: string, actor: CoreApiActor): Promise<T> {
 
 export function fetchSubjectGroups(actor: CoreApiActor): Promise<SubjectGroupRecord[]> { return v2Get("/v2/group", actor); }
 export function fetchSubjectGroupById(actor: CoreApiActor, groupId: string): Promise<SubjectGroupRecord> { return v2Get(`/v2/group/${encodeURIComponent(groupId)}`, actor); }
+
+export type SubjectGroupMembershipRecord = {
+  groupId: string;
+  groupName: string;
+  comments: string | null;
+  status: "Y" | "N";
+  ownerId: string | null;
+  ownerName: string | null;
+  subjectId: string | null;
+  createTime: string | null;
+};
+
+/** 查询当前用户所属或负责的教研组（从 token 自动识别用户） */
+export function fetchMySubjectGroups(actor: CoreApiActor): Promise<SubjectGroupMembershipRecord[]> { return v2Get("/v2/group/my", actor); }
+
 export function createSubjectGroup(actor: CoreApiActor, input: { group_name: string; comments?: string | null; status?: "Y" | "N"; subject_id?: string | null; owner_id?: string | null }): Promise<SubjectGroupRecord> { return v2Post("/v2/group", actor, input); }
 export function patchSubjectGroup(actor: CoreApiActor, groupId: string, input: Partial<{ group_name: string; comments: string | null; status: "Y" | "N"; subject_id: string | null; owner_id: string | null }>): Promise<SubjectGroupRecord> { return v2Patch(`/v2/group/${encodeURIComponent(groupId)}`, actor, input); }
 export function transferSubjectGroupOwner(actor: CoreApiActor, groupId: string, newOwnerId: string): Promise<SubjectGroupRecord> { return v2Post("/v2/group/transfer", actor, { group_id: groupId, new_owner_id: newOwnerId }); }
 export function fetchSubjectGroupMembers(actor: CoreApiActor, groupId: string): Promise<SubjectGroupMemberRecord[]> { return v2Get(`/v2/group/${encodeURIComponent(groupId)}/members`, actor); }
 export function addSubjectGroupMember(actor: CoreApiActor, groupId: string, userId: string): Promise<SubjectGroupMemberRecord> { return v2Post("/v2/group/members", actor, { group_id: groupId, user_id: userId }); }
 export function removeSubjectGroupMember(actor: CoreApiActor, seqId: string): Promise<{ deleted: boolean }> { return v2Delete(`/v2/group/members/${encodeURIComponent(seqId)}`, actor); }
+export function deleteSubjectGroup(actor: CoreApiActor, groupId: string): Promise<{ deleted: boolean }> { return v2Delete(`/v2/group/${encodeURIComponent(groupId)}`, actor); }
+
+/** 可加入的教研组列表（用户未加入的启用组） */
+export type AvailableGroupRecord = {
+  groupId: string;
+  groupName: string;
+  status: "Y" | "N";
+  ownerId: string | null;
+  ownerName: string | null;
+  subjectId: string | null;
+};
+export function fetchAvailableGroups(actor: CoreApiActor): Promise<AvailableGroupRecord[]> { return v2Get("/v2/group/available", actor); }
+
+/** 申请加入教研组 */
+export function joinSubjectGroup(actor: CoreApiActor, groupId: string): Promise<SubjectGroupMemberRecord> { return v2Post("/v2/group/join", actor, { group_id: groupId }); }

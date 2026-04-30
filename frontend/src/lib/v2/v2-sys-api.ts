@@ -228,6 +228,11 @@ export function fetchV2SysUserList(actor: CoreApiActor, query: V2SysUserQuery = 
   return v2Get("/v2/sys-user", actor, query as Record<string, string | number | undefined>);
 }
 
+/** 搜索教师（免权限，默认返回全部教师，支持 keyword 过滤） */
+export function fetchV2SysTeacherList(actor: CoreApiActor, keyword: string = "", pageSize: number = 200): Promise<V2SysUserListResult> {
+  return v2Get("/v2/sys-user/teachers", actor, { keyword: keyword || undefined, pageSize });
+}
+
 export function fetchV2SysUserById(actor: CoreApiActor, userId: string): Promise<V2SysUserItem> {
   return v2Get(`/v2/sys-user/${encodeURIComponent(userId)}`, actor);
 }

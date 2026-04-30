@@ -1,3 +1,5 @@
+import { buildPagePermissionCode, PAGE_PERMISSIONS } from "./page-permissions.ts";
+
 export const PERMISSIONS = {
   EXP_VIEW: "exp_view",
   EXP_CREATE: "exp_create",
@@ -16,7 +18,33 @@ export const PERMISSIONS = {
   SCALE_MANAGE: "scale_manage",
 } as const;
 
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;
+
+export type PagePermissionEntry = {
+  menuCode: string;
+  read: boolean;
+  write: boolean;
+};
+
+const PAGE_PERMISSION_STORE = new Map<string, PagePermissionEntry[]>();
+
+export function setRolePagePermissions(roleId: string, items: PagePermissionEntry[]): void {
+  const rid = String(roleId ?? "").trim();
+  if (!rid) return;
+  PAGE_PERMISSION_STORE.set(rid, items.map((item) => ({ ...item })));
+}
+
+export function clearRolePagePermissions(roleId: string): void {
+  const rid = String(roleId ?? "").trim();
+  if (!rid) return;
+  PAGE_PERMISSION_STORE.delete(rid);
+}
+
+export function getRolePagePermissions(roleId: string | null | undefined): readonly PagePermissionEntry[] {
+  const rid = String(roleId ?? "").trim();
+  if (!rid) return [];
+  return PAGE_PERMISSION_STORE.get(rid) ?? [];
+}
 
 export const ROLE_PERMISSIONS_MAP = {
   STUDENT: [PERMISSIONS.EXP_VIEW],
@@ -76,16 +104,29 @@ export const ROLE_PERMISSIONS_MAP = {
   SUPER_ADMIN: Object.values(PERMISSIONS),
 } as const satisfies Record<string, readonly Permission[]>;
 
+function buildDynamicPagePermissions(roleId: string): Permission[] {
+  const pagePerms = getRolePagePermissions(roleId);
+  if (pagePerms.length === 0) return [];
+  const out: Permission[] = [];
+  for (const p of pagePerms) {
+    if (p.read) out.push(buildPagePermissionCode(p.menuCode, "READ"));
+    if (p.write) out.push(buildPagePermissionCode(p.menuCode, "WRITE"));
+  }
+  return out;
+}
+
 export function resolvePermissionCodes(roleId: string | null | undefined): readonly Permission[] {
   const role = (roleId ?? "").trim().toLowerCase();
   if (!role) return [];
-  // 兼容新格式 Role_* （migration_v2_role_id_fix）和旧格式（纯小写）
-  if (role === "system_admin" || role === "role_sys_admin") return Object.values(PERMISSIONS);
-  if (role === "district_admin" || role === "role_district_admin") return ROLE_PERMISSIONS_MAP.DISTRICT_ADMIN;
-  if (role === "school_admin" || role === "role_school_admin") return ROLE_PERMISSIONS_MAP.SCHOOL_ADMIN;
-  if (role === "researcher" || role === "role_researcher") return ROLE_PERMISSIONS_MAP.RESEARCHER;
-  if (role === "teacher" || role === "role_teacher") return ROLE_PERMISSIONS_MAP.TEACHER;
-  if (role === "student" || role === "role_student") return ROLE_PERMISSIONS_MAP.STUDENT;
-  if (role === "parent" || role === "role_parent") return ROLE_PERMISSIONS_MAP.PARENT;
-  return [];
+  // 兼容超级管理员，无条件放行。
+  if (role === "system_admin" || role === "role_sys_admin") {
+    return [...Object.values(PERMISSIONS), ...PAGE_PERMISSIONS.flatMap((p) => [buildPagePermissionCode(p.menuCode, "READ"), buildPagePermissionCode(p.menuCode, "WRITE")])];
+  }
+  if (role === "district_admin" || role === "role_district_admin") return [...ROLE_PERMISSIONS_MAP.DISTRICT_ADMIN, ...buildDynamicPagePermissions(roleId)];
+  if (role === "school_admin" || role === "role_school_admin") return [...ROLE_PERMISSIONS_MAP.SCHOOL_ADMIN, ...buildDynamicPagePermissions(roleId)];
+  if (role === "researcher" || role === "role_researcher") return [...ROLE_PERMISSIONS_MAP.RESEARCHER, ...buildDynamicPagePermissions(roleId)];
+  if (role === "teacher" || role === "role_teacher") return [...ROLE_PERMISSIONS_MAP.TEACHER, ...buildDynamicPagePermissions(roleId)];
+  if (role === "student" || role === "role_student") return [...ROLE_PERMISSIONS_MAP.STUDENT, ...buildDynamicPagePermissions(roleId)];
+  if (role === "parent" || role === "role_parent") return [...ROLE_PERMISSIONS_MAP.PARENT, ...buildDynamicPagePermissions(roleId)];
+  return buildDynamicPagePermissions(roleId);
 }

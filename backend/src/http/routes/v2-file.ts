@@ -39,11 +39,17 @@ function materializeFileUrl(rawUrl: string): string {
   return getPublicObjectUrl(raw);
 }
 
+function normalizeStoredOrPublicUrl(rawUrl: string | null | undefined): string | null {
+  const raw = (rawUrl ?? "").trim();
+  if (!raw) return null;
+  return materializeFileUrl(raw);
+}
+
 function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null }>(record: T): T {
   return {
     ...record,
-    fileUrl: typeof record.fileUrl === "string" ? materializeFileUrl(record.fileUrl) : record.fileUrl,
-    logoUrl: typeof record.logoUrl === "string" && record.logoUrl.trim() ? materializeFileUrl(record.logoUrl) : record.logoUrl,
+    fileUrl: normalizeStoredOrPublicUrl(record.fileUrl),
+    logoUrl: normalizeStoredOrPublicUrl(record.logoUrl),
   };
 }
 

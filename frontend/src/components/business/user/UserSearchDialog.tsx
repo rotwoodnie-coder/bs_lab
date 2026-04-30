@@ -44,7 +44,10 @@ export function UserSearchDialog({ open, onOpenChange, actor, title = "选择用
       setSelectedUserId("");
       return;
     }
-    void doSearch();
+    // 仅当有关键词时才自动搜索，避免空字符串触发权限校验
+    if (initialKeyword.trim()) {
+      void doSearch();
+    }
   }, [open, doSearch, initialKeyword]);
 
   const selected = items.find((i) => i.userId === selectedUserId) ?? null;
