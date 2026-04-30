@@ -52,11 +52,11 @@ async function v2Delete<T>(path: string, actor: CoreApiActor): Promise<T> {
   return json.data;
 }
 
-export function fetchSubjectGroups(actor: CoreApiActor): Promise<SubjectGroupRecord[]> { return v2Get("/api/group", actor); }
-export function fetchSubjectGroupById(actor: CoreApiActor, groupId: string): Promise<SubjectGroupRecord> { return v2Get(`/api/group/${encodeURIComponent(groupId)}`, actor); }
-export function createSubjectGroup(actor: CoreApiActor, input: { group_name: string; comments?: string | null; status?: "Y" | "N"; subject_id?: string | null; owner_id?: string | null }): Promise<SubjectGroupRecord> { return v2Post("/api/group", actor, input); }
-export function patchSubjectGroup(actor: CoreApiActor, groupId: string, input: Partial<{ group_name: string; comments: string | null; status: "Y" | "N"; subject_id: string | null; owner_id: string | null }>): Promise<SubjectGroupRecord> { return v2Patch(`/api/group/${encodeURIComponent(groupId)}`, actor, input); }
-export function transferSubjectGroupOwner(actor: CoreApiActor, groupId: string, newOwnerId: string): Promise<SubjectGroupRecord> { return v2Post("/api/group/transfer", actor, { group_id: groupId, new_owner_id: newOwnerId }); }
-export function fetchSubjectGroupMembers(actor: CoreApiActor, groupId: string): Promise<SubjectGroupMemberRecord[]> { return v2Get(`/api/group/${encodeURIComponent(groupId)}/members`, actor); }
-export function addSubjectGroupMember(actor: CoreApiActor, groupId: string, userId: string): Promise<SubjectGroupMemberRecord> { return v2Post("/api/group/members", actor, { group_id: groupId, user_id: userId }); }
-export function removeSubjectGroupMember(actor: CoreApiActor, seqId: string): Promise<{ deleted: boolean }> { return v2Delete(`/api/group/members/${encodeURIComponent(seqId)}`, actor); }
+export function fetchSubjectGroups(actor: CoreApiActor): Promise<SubjectGroupRecord[]> { return v2Get("/v2/group", actor); }
+export function fetchSubjectGroupById(actor: CoreApiActor, groupId: string): Promise<SubjectGroupRecord> { return v2Get(`/v2/group/${encodeURIComponent(groupId)}`, actor); }
+export function createSubjectGroup(actor: CoreApiActor, input: { group_name: string; comments?: string | null; status?: "Y" | "N"; subject_id?: string | null; owner_id?: string | null }): Promise<SubjectGroupRecord> { return v2Post("/v2/group", actor, input); }
+export function patchSubjectGroup(actor: CoreApiActor, groupId: string, input: Partial<{ group_name: string; comments: string | null; status: "Y" | "N"; subject_id: string | null; owner_id: string | null }>): Promise<SubjectGroupRecord> { return v2Patch(`/v2/group/${encodeURIComponent(groupId)}`, actor, input); }
+export function transferSubjectGroupOwner(actor: CoreApiActor, groupId: string, newOwnerId: string): Promise<SubjectGroupRecord> { return v2Post("/v2/group/transfer", actor, { group_id: groupId, new_owner_id: newOwnerId }); }
+export function fetchSubjectGroupMembers(actor: CoreApiActor, groupId: string): Promise<SubjectGroupMemberRecord[]> { return v2Get(`/v2/group/${encodeURIComponent(groupId)}/members`, actor); }
+export function addSubjectGroupMember(actor: CoreApiActor, groupId: string, userId: string): Promise<SubjectGroupMemberRecord> { return v2Post("/v2/group/members", actor, { group_id: groupId, user_id: userId }); }
+export function removeSubjectGroupMember(actor: CoreApiActor, seqId: string): Promise<{ deleted: boolean }> { return v2Delete(`/v2/group/members/${encodeURIComponent(seqId)}`, actor); }

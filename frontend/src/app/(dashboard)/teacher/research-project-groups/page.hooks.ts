@@ -14,7 +14,7 @@ import type { V2SysOrgItem } from "@/lib/v2/v2-sys-api";
 
 export type ResearchGroupOrgFilter = "all" | "y" | "n";
 
-/** 与 Researcher 教研组 hooks 对齐；后端使用 `subject_group` 表 + `/api/group` 路由。 */
+/** 与 Researcher 教研组 hooks 对齐；后端使用 `subject_group` 表 + `/v2/group` 路由。 */
 export function useTeacherResearchProjectGroups() {
   const { user } = useAuth();
   const actor = React.useMemo<CoreApiActor>(

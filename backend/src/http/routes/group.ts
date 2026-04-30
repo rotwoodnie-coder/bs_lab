@@ -60,9 +60,9 @@ export async function routeGroup(req: Request): Promise<Response> {
     const actorId = req.headers.get("x-user-id") ?? undefined;
     const actorRoleId = req.headers.get("x-role-id") ?? req.headers.get("x-role") ?? undefined;
 
-    if (path === "/api/group" && req.method === "GET") return ok(await listSubjectGroups());
+    if (path === "/v2/group" && req.method === "GET") return ok(await listSubjectGroups());
 
-    if (path === "/api/group" && req.method === "POST") {
+    if (path === "/v2/group" && req.method === "POST") {
       assertAnyPermission(actorRoleId, [PERMISSIONS.ORG_MANAGE, PERMISSIONS.USER_MANAGE, PERMISSIONS.ROLE_MANAGE, PERMISSIONS.SYSTEM_DICT_WRITE]);
       const body = subjectGroupSchema.parse(await req.json());
       return ok(await createSubjectGroup({
@@ -74,7 +74,7 @@ export async function routeGroup(req: Request): Promise<Response> {
       }, actorId));
     }
 
-    if (path === "/api/group/transfer" && req.method === "POST") {
+    if (path === "/v2/group/transfer" && req.method === "POST") {
       const body = transferSchema.parse(await req.json());
       if (!(await isSubjectGroupManager({ userId: actorId ?? "", groupId: body.group_id, role: String(actorRoleId ?? "") }))) {
         return fail("权限不足：group_transfer", 403);
@@ -82,7 +82,7 @@ export async function routeGroup(req: Request): Promise<Response> {
       return ok(await transferSubjectGroupOwner(body.group_id, body.new_owner_id, actorId));
     }
 
-    const groupMatch = path.match(/^\/api\/group\/([^/]+)$/);
+    const groupMatch = path.match(/^\/v2\/group\/([^/]+)$/);
     if (groupMatch) {
       const groupId = decodeURIComponent(groupMatch[1]!);
       if (req.method === "GET") {
@@ -102,27 +102,27 @@ export async function routeGroup(req: Request): Promise<Response> {
       }
     }
 
-    const membersMatch = path.match(/^\/api\/group\/([^/]+)\/members$/);
+    const membersMatch = path.match(/^\/v2\/group\/([^/]+)\/members$/);
     if (membersMatch && req.method === "GET") {
       const groupId = decodeURIComponent(membersMatch[1]!);
       return ok(await listSubjectGroupMembers(groupId));
     }
 
-    if (path === "/api/group/members" && req.method === "POST") {
+    if (path === "/v2/group/members" && req.method === "POST") {
       const body = addMemberSchema.parse(await req.json());
-      const group = await getSubjectGroupById(body.groupId);
+      const group = await getSubjectGroupById(body.group_id);
       if (!group) return fail("组不存在", 404);
-      const user = await getSysUserById(body.userId);
+      const user = await getSysUserById(body.user_id);
       if (!user) return fail("用户不存在", 404);
       const userRole = normalizeRoleKey(user.roleName ?? user.userRoleId ?? "");
       const groupType = inferGroupType(group);
       if (!canJoinSubjectGroup({ groupType, userRole })) {
         return fail(groupType === "research_group" ? "教研组不允许该身份加入" : "该身份不允许加入此课题组", 403);
       }
-      return ok(await addSubjectGroupMember(body.groupId, body.userId, actorId));
+      return ok(await addSubjectGroupMember(body.group_id, body.user_id, actorId));
     }
 
-    const memberMatch = path.match(/^\/api\/group\/members\/([^/]+)$/);
+    const memberMatch = path.match(/^\/v2\/group\/members\/([^/]+)$/);
     if (memberMatch && req.method === "DELETE") {
       const seqId = decodeURIComponent(memberMatch[1]!);
       await removeSubjectGroupMember(seqId);

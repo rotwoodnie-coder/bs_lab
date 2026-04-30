@@ -53,7 +53,7 @@ export function useQuestionBank(): UseQuestionBankReturn {
 
   const loadAll = React.useCallback(() => {
     setLoading(true);
-    fetchV2QuestionList(actor, { pageSize: 200 })
+    fetchV2QuestionList(actor, { pageSize: 100 })
       .then((r) => setAllItems(r.items))
       .catch((err: unknown) => {
         sonnerToast.error("题库加载失败", {
