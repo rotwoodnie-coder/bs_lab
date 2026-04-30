@@ -31,9 +31,26 @@ export default function TeacherMaterialsPage() {
   const { role } = useSessionActor();
   const st = useTeacherMaterialsPage();
   const [dbInspectorOpen, setDbInspectorOpen] = React.useState(false);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+
+  // 暴力撑满：空状态时用 JS 算剩余高度
+  React.useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const updateHeight = () => {
+      const rect = el.getBoundingClientRect();
+      const available = window.innerHeight - rect.top;
+      if (available > 0) {
+        el.style.minHeight = `${available}px`;
+      }
+    };
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
 
   return (
-    <div className="space-y-6 flex flex-1 flex-col min-h-[75vh]">
+    <div ref={rootRef} className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">实验素材库</h1>
         <p className="text-sm text-muted-foreground">
