@@ -32,7 +32,7 @@ export function ViewModeMainTransition({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
     >
-      {children}
+      <div className="flex min-h-0 flex-1 flex-col">{children}</div>
     </motion.div>
   );
 }
