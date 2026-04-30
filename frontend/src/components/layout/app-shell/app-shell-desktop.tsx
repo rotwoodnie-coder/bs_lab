@@ -202,10 +202,10 @@ export function AppShellDesktop({
           </div>
         </header>
 
-        <main className="w-full max-w-none flex-1 flex-col overflow-auto transition-colors duration-300">
+        <main className="h-full w-full max-w-none flex-1 flex-col overflow-auto transition-colors duration-300">
           <ViewModeMainTransition
             viewMode={viewMode}
-            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto p-3 sm:p-4 lg:p-4"
+            className="h-full min-h-0 min-w-0 flex-1 flex-col overflow-auto p-3 sm:p-4 lg:p-4"
           >
             {children}
           </ViewModeMainTransition>
