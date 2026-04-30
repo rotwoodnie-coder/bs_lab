@@ -31,27 +31,10 @@ export default function TeacherMaterialsPage() {
   const { role } = useSessionActor();
   const st = useTeacherMaterialsPage();
   const [dbInspectorOpen, setDbInspectorOpen] = React.useState(false);
-  const rootRef = React.useRef<HTMLDivElement>(null);
-
-  // 暴力撑满：空状态时用 JS 算剩余高度
-  React.useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return;
-    const updateHeight = () => {
-      const rect = el.getBoundingClientRect();
-      const available = window.innerHeight - rect.top;
-      if (available > 0) {
-        el.style.minHeight = `${available}px`;
-      }
-    };
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
 
   return (
-    <div ref={rootRef} className="space-y-6">
-      <header className="space-y-1">
+    <div className="flex flex-col space-y-6 min-h-0">
+      <header className="space-y-1 shrink-0">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">实验素材库</h1>
         <p className="text-sm text-muted-foreground">
           Word、PPT、PDF、图片、视频、Excel 等素材列表，各角色均可在此维护个人素材。当前身份：「{userRoleLabelZh(role)}」。
@@ -72,7 +55,8 @@ export default function TeacherMaterialsPage() {
         <TeacherMaterialDataFileDbInspectorTable actor={st.actor} keyword={st.keyword} />
       ) : null}
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-start">
+      {/* main: 撑满剩余空间 */}
+      <div className="flex flex-1 min-h-0 flex-col gap-4 md:flex-row md:items-start">
         <TeacherMaterialsFiltersSection
           kindFilter={st.kindFilter}
           kindOptions={st.kindOptions}
