@@ -34,7 +34,8 @@ pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
 # ── 构建前端（失败时不重启，旧服务继续运行） ──
 echo ">>> pnpm build..." | tee -a "$DEPLOY_LOG"
 cd frontend
-rm -rf .next
+# 用 sudo 清理 .next 缓存，防止 PM2 之前以 root 运行时残留的权限问题
+sudo rm -rf .next 2>/dev/null || rm -rf .next 2>/dev/null || echo ">>> WARN: .next 清理不完全，尝试继续构建..."
 set +e  # 临时关闭 exit-on-error，捕获构建结果
 pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
 BUILD_EXIT=${PIPESTATUS[0]}
