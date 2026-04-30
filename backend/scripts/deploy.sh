@@ -33,13 +33,15 @@ pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
 
 # ── 构建前端（失败时不重启，旧服务继续运行） ──
 echo ">>> pnpm build..." | tee -a "$DEPLOY_LOG"
-cd frontend
-# 用 sudo 清理 .next 缓存，防止 PM2 之前以 root 运行时残留的权限问题
-sudo rm -rf .next 2>/dev/null || rm -rf .next 2>/dev/null || echo ">>> WARN: .next 清理不完全，尝试继续构建..."
+cd "$DEPLOY_DIR/frontend"
+# 清理 .next 和 next-env.d.ts（PM2 root 运行时残留的权限问题）
+sudo rm -rf .next 2>/dev/null || true
+sudo rm -f next-env.d.ts 2>/dev/null || true
 set +e  # 临时关闭 exit-on-error，捕获构建结果
 pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
 BUILD_EXIT=${PIPESTATUS[0]}
 set -e
+cd "$DEPLOY_DIR"
 
 if [ "$BUILD_EXIT" -ne 0 ]; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 构建失败（退出码 $BUILD_EXIT），停止部署。旧服务不受影响。" | tee -a "$DEPLOY_LOG"
@@ -86,8 +88,9 @@ if $BACKEND_OK && $FRONTEND_OK; then
 else
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 健康检查失败，自动回滚到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
   git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
-  cd frontend
-  rm -rf .next
+  cd "$DEPLOY_DIR/frontend"
+  sudo rm -rf .next 2>/dev/null || true
+  sudo rm -f next-env.d.ts 2>/dev/null || true
   pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
   cd "$DEPLOY_DIR"
   sudo pm2 restart all 2>&1 | tee -a "$DEPLOY_LOG"
