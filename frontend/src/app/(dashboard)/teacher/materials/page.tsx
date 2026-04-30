@@ -33,7 +33,7 @@ export default function TeacherMaterialsPage() {
   const [dbInspectorOpen, setDbInspectorOpen] = React.useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-1 flex-col space-y-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">实验素材库</h1>
         <p className="text-sm text-muted-foreground">
@@ -62,7 +62,7 @@ export default function TeacherMaterialsPage() {
           onKindChange={st.setKindFilter}
         />
 
-        <div className="min-w-0 flex-1 space-y-3">
+        <div className="flex min-w-0 flex-1 flex-col space-y-3">
           <ViewModeBar mode={st.mode} onModeChange={st.setMode} />
           {st.mode === "list" ? (
             <TeacherMaterialDataTable
