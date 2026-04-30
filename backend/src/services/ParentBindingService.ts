@@ -45,7 +45,7 @@ async function listChildOrgs(pool: Pool, parentOrgId: string, orgTypeId: string)
 
 export async function listSchoolTree(): Promise<SchoolTreeRow[]> {
   const pool = getMysqlPool();
-  const keepSet = new Set([V2_ORG_TYPE_IDS.manage, V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
+  const keepSet: Set<string> = new Set([V2_ORG_TYPE_IDS.manage, V2_ORG_TYPE_IDS.school, V2_ORG_TYPE_IDS.campus]);
   // 先查出所有活跃节点中保留类型的节点
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT org_id, org_name, parent_org_id, org_type_id

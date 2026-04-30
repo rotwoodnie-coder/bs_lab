@@ -5,7 +5,6 @@
 import type { RowDataPacket } from "mysql2/promise";
 
 import { V2_ORG_TYPE_IDS } from "../../domain/v2-sys/v2-org-type-constants.ts";
-import { getTeachingSubjectRoleMap, invertSubjectRoleMap } from "../../domain/v2-sys/teaching-user-role-bind.ts";
 import { getMysqlPool } from "../mysql/mysql-client.ts";
 
 export type TeacherAuthorizedClassRow = {
@@ -141,18 +140,13 @@ async function selectTeachingClassRows(
     [q.teacherId, V2_ORG_TYPE_IDS.class],
   );
 
-  const map = getTeachingSubjectRoleMap();
-  const inv = map ? invertSubjectRoleMap(map) : null;
-
   const out: RowDataPacket[] = [];
   for (const r of rows as RowDataPacket[]) {
     let resolvedSubjectId: string | null = null;
-    if (inv?.has(String(r.roleId))) {
-      resolvedSubjectId = inv.get(String(r.roleId)) ?? null;
-    } else if (r.subjectJoinId != null && String(r.subjectJoinId).trim() !== "") {
+    if (r.subjectJoinId != null && String(r.subjectJoinId).trim() !== "") {
       resolvedSubjectId = String(r.subjectJoinId).trim();
     } else if (r.roleId != null && String(r.roleId).trim() !== "") {
-      // 最后回退：将 role_id 本身当作 subject_id（兼容 role_id 即为学科 ID 的场景）
+      // 回退：将 role_id 本身当作 subject_id
       resolvedSubjectId = String(r.roleId).trim();
     }
 

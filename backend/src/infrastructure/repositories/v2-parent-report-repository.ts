@@ -18,7 +18,6 @@ export async function createParentReport(
     table: "parent_report",
     column: "report_id",
     label: `pr_${input.sessionId}`,
-    explicit: undefined,
   });
 
   await pool.execute<ResultSetHeader>(

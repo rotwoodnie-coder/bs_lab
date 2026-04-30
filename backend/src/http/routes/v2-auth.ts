@@ -492,7 +492,7 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       }
 
       const tokens = createV2SessionTokens(
-        { userId, orgId: currentOrgId, roleId: currentRoleCode },
+        { userId, orgId: currentOrgId, roleId: currentRoleCode, roles: allRoleIds },
         allRoleIds,
       );
       const setCookies = buildAuthSetCookieHeaders(tokens);
@@ -540,7 +540,7 @@ export async function routeV2Auth(req: Request): Promise<Response> {
           const rotated = rotateV2RefreshTokens(refreshToken);
           if (rotated) {
             buildAuthSetCookieHeaders(rotated).forEach((c) => headers.append("set-cookie", c));
-            actor = { userId: r.userId, orgId: r.orgId, roleId: r.roleId, sid: r.sid };
+            actor = { userId: r.userId, orgId: r.orgId, roleId: r.roleId, sid: r.sid, roles: r.roles ?? [r.roleId] };
           }
         }
       }
@@ -742,7 +742,7 @@ export async function routeV2Auth(req: Request): Promise<Response> {
 
       // 复用当前 sid，避免刷新 token 记忆表失效导致短期登出
       const tokens = createV2SessionTokens(
-        { userId: actor.userId, orgId: nextOrgId, roleId: nextRoleCode, sid: actor.sid },
+        { userId: actor.userId, orgId: nextOrgId, roleId: nextRoleCode, roles: actor.roles, sid: actor.sid },
         actor.roles,
       );
       const headers = new Headers();

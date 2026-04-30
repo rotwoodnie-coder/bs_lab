@@ -105,7 +105,7 @@ export async function routeV2Sys(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const path = url.pathname;
-    const actorId = req.headers.get("x-user-id") ?? undefined;
+    const actorId = req.headers.get("x-user-id") ?? "";
     const actorRoleId = req.headers.get("x-role-id") ?? req.headers.get("x-role") ?? undefined;
     const pool = getMysqlPool();
 
@@ -224,7 +224,7 @@ export async function routeV2Sys(req: Request): Promise<Response> {
       }
       if (req.method === "DELETE") {
         assertPermission(actorRoleId, PERMISSIONS.ORG_MANAGE);
-        await deleteSysOrgHard(orgId);
+        await deleteSysOrgHard(orgId, actorId);
         return ok({ deleted: true });
       }
     }

@@ -44,7 +44,6 @@ export async function createParentSession(
     table: "parent_session",
     column: "session_id",
     label: `ps_${input.parentUserId}_${input.expId}`,
-    explicit: undefined,
   });
 
   const now = new Date().toISOString().replace("T", " ").slice(0, 19);
@@ -165,7 +164,7 @@ export async function patchParentSession(
 ): Promise<void> {
   const pool = await getMysqlPool();
   const sets: string[] = [];
-  const params: unknown[] = [];
+  const params: (string | number | null)[] = [];
 
   if (input.parentAttestedAt !== undefined) {
     sets.push("parent_attested_at = ?");
