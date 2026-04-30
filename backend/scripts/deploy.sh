@@ -27,6 +27,10 @@ if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
   exit 0
 fi
 
+# ── 安装依赖 ──
+echo ">>> pnpm install..." | tee -a "$DEPLOY_LOG"
+pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
+
 # ── 构建前端（失败时不重启，旧服务继续运行） ──
 echo ">>> pnpm build..." | tee -a "$DEPLOY_LOG"
 cd frontend
