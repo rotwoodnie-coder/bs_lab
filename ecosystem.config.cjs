@@ -26,8 +26,8 @@ module.exports = {
       env: {
         PORT: "4100",
         NODE_ENV: "production",
+        NODE_OPTIONS: "--env-file=../.env.local",
       },
-      env_file: "../.env.local",
       watch: false,
       max_memory_restart: "500M",
     },
