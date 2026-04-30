@@ -2,17 +2,18 @@
  * PM2 生态系统配置
  *
  * 前后端统一用 interpreter: "none" + script: "pnpm"，走 shell 执行。
+ * 项目目录已 chown 给 ubuntu 用户，PM2 以 ubuntu 用户运行，无需 sudo。
  *
  * ## 首次启动
- *   cd /opt/bs-lab && sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
+ *   cd /opt/bs-lab && pm2 delete all && pm2 start ecosystem.config.cjs
  *
  * ## 更新代码后重启
  *   cd /opt/bs-lab && git pull && cd frontend && rm -rf .next && pnpm build && cd ..
- *   sudo pm2 restart all
+ *   pm2 restart all
  *
  * ## 查看状态
- *   sudo pm2 status
- *   sudo pm2 logs bs-lab-backend --lines 30
+ *   pm2 status
+ *   pm2 logs bs-lab-backend --lines 30
  */
 module.exports = {
   apps: [
