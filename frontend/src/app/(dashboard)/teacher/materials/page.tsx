@@ -33,7 +33,7 @@ export default function TeacherMaterialsPage() {
   const [dbInspectorOpen, setDbInspectorOpen] = React.useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">实验素材库</h1>
         <p className="text-sm text-muted-foreground">

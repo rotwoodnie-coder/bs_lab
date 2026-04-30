@@ -31,7 +31,7 @@ export function TeacherMaterialWaterfall(props: Props) {
       : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
   if (props.items.length === 0) {
-    return <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">当前筛选无素材条目。</div>;
+    return <div className="flex items-center justify-center min-h-[50vh] rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">当前筛选无素材条目。</div>;
   }
 
   return (
