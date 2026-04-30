@@ -2,7 +2,6 @@
  * PM2 生态系统配置
  *
  * 前后端统一用 interpreter: "none" + script: "pnpm"，走 shell 执行。
- * cwd 设在项目根目录，env_file 指向根目录的 .env.local 确保路径正确。
  *
  * ## 首次启动
  *   cd /opt/bs-lab && sudo pm2 delete all && sudo pm2 start ecosystem.config.cjs
@@ -19,15 +18,13 @@ module.exports = {
   apps: [
     {
       name: "bs-lab-backend",
-      cwd: ".",
-      script: "pnpm",
-      args: "--filter new-core-backend exec tsx src/http/server.ts",
+      cwd: "./backend",
+      script: "scripts/start-with-env.sh",
       interpreter: "none",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
       },
-      env_file: "./.env.local",
       watch: false,
       max_memory_restart: "500M",
     },
