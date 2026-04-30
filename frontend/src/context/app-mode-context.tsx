@@ -47,6 +47,8 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
   const [viewMode, setViewModeState] = React.useState<AppViewMode>("portal");
   const [menuConfigRevision, setMenuConfigRevision] = React.useState(0);
   const [hydrated, setHydrated] = React.useState(false);
+  /** Once true, the role-based default viewMode has been applied (distinguishes user-initiated toggle from initial guess). */
+  const initialRoleAppliedRef = React.useRef(false);
   const [modeOverlay, setModeOverlay] = React.useState(false);
   const [overlayMessage, setOverlayMessage] = React.useState("");
   const overlayTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -87,17 +89,25 @@ export function AppModeProvider({ children }: { children: React.ReactNode }) {
     setHydrated(true);
   }, []);
 
-  // 会话身份加载后：若用户未主动存储 viewMode，则按角色默认值补一次。
+  // Once session is loaded, force the role-default viewMode (overrides the initial guess).
   React.useEffect(() => {
     if (!hydrated) return;
     if (!session.hydrated) return;
-    const stored = readStoredMode();
-    if (stored) return;
-    setViewModeState(defaultViewModeForRole(session.role));
+    if (initialRoleAppliedRef.current) return;
+    initialRoleAppliedRef.current = true;
+    const userDefault = defaultViewModeForRole(session.role);
+    setViewModeState(userDefault);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, userDefault);
+    } catch {
+      /* ignore */
+    }
   }, [hydrated, session.hydrated, session.role]);
 
+  // Persist to localStorage only on user-initiated toggle (role-default sync handled above).
   React.useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
+    if (!initialRoleAppliedRef.current) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, viewMode);
     } catch {
