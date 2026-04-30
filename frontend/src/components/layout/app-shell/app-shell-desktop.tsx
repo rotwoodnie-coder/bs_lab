@@ -7,6 +7,7 @@ import { DashboardSidebarNav } from "@/components/layout/dashboard-sidebar-nav";
 import { SidebarUserPanel } from "@/components/layout/sidebar-user-panel";
 import { ViewModeMainTransition } from "@/components/layout/view-mode-main-transition";
 import { cn } from "@/lib/utils";
+import { AppVersionBadge } from "@/components/layout/app-version-badge";
 
 import type { AppShellProps } from "./types";
 
@@ -183,7 +184,11 @@ export function AppShellDesktop({
           )}
         >
           <div className="flex h-full flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6">
-            <div className="flex min-w-0 items-center gap-3">{logoSlot}</div>
+            <div className="flex min-w-0 items-center gap-3">
+              {logoSlot}
+              <div className="hidden sm:block h-4 w-px bg-border" />
+              <AppVersionBadge />
+            </div>
             {headerCenterSlot != null ? (
               <div className="order-last flex w-full min-w-0 justify-center lg:order-none lg:flex-1 lg:px-4">
                 <div className="w-full min-w-0">{headerCenterSlot}</div>

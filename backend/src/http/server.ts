@@ -29,6 +29,7 @@ import { routeV2Student } from "./routes/v2-student.ts";
 import { routeV2Parent } from "./routes/v2-parent.ts";
 import { routeGroup } from "./routes/group.ts";
 import { routeV2TeacherClassConfig } from "./routes/v2-teacher-class-config.ts";
+import { routeV2Version } from "./routes/v2-version.ts";
 import { parseCookies, verifyV2AccessToken } from "../lib/auth/v2-session.ts";
 
 const port = Number(process.env.PORT ?? 4100);
@@ -104,6 +105,7 @@ const routes = [
   routeV2FeedbackAutoSubmit,
   routeV2SysFeedback,
   routeV2TeacherClassConfig,
+  routeV2Version,
 ];
 
 createServer(async (req, res) => {
