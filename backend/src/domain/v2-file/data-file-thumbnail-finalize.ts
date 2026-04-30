@@ -1,17 +1,27 @@
 /**
- * data_file 封面（logo_url）— 方案一
- * - 小图：复用 file_url 作为 logo_url（不落第二对象）
+ * data_file 封面行模式（独立 data_file 行，使用 parent_file_id + relation_type='logo'）
+ * - 小图：仍需 putObject 创建独立 S3 对象（封面有独立 file_url，可走 SHA 去重）
  * - 大图：Sharp 缩放为 JPEG 后写入独立存储键
- * - 视频：前若干秒内多点抽帧，按亮度打分选帧；若仍过暗则在更晚时刻追加抽帧，仍不达标则不写 logo_url（避免纯黑封面入库）
+ * - 视频：前若干秒内多点抽帧，按亮度打分选帧；若仍过暗则在更晚时刻追加抽帧，仍不达标则不创建封面行
+ *
+ * 封面写入流程：
+ *   1. 计算封面字节的 SHA-256
+ *   2. 调用 createFileRecord({ ..., parentFileId: 主fileId, relationType: 'logo', contentSha256: 封面SHA })
+ *   3. 调用 updateMainFileCover(主fileId, 封面fileId)，失败时 log 但不阻止流程
  */
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import sharp from "sharp";
-import { updateFileRecord } from "../../infrastructure/repositories/v2-file-repository.ts";
-import { getDirectUrl, putObject } from "../../infrastructure/storage/s3-storage.ts";
+import {
+  createFileRecord,
+  updateMainFileCover,
+  findCoverChildByParentId,
+  getFileById,
+} from "../../infrastructure/repositories/v2-file-repository.ts";
+import { getDirectUrl, getPublicObjectUrl, putObject } from "../../infrastructure/storage/s3-storage.ts";
 
 export type DataFileThumbFinalizeInput = {
   fileId: string;
@@ -19,7 +29,6 @@ export type DataFileThumbFinalizeInput = {
   buffer: Buffer;
   mimeType: string;
   fileName: string;
-  /** 与主文件路径前缀一致，如 `v2/{userId}/…` 中的 userId 段 */
   ownerSegment: string;
 };
 
@@ -66,7 +75,7 @@ function warnFfmpegMissingOnce(): void {
   console.warn(
     "[data_file thumb] 本机未找到 ffprobe/ffmpeg（PATH 或 ENOENT），服务端无法从视频文件自动抽封面。" +
       ` 请安装 FFmpeg 并保证命令行可执行「${ffprobeBin()}」「${ffmpegBin()}」，或设置环境变量 FFPROBE_PATH / FFMPEG_PATH 指向完整路径。` +
-      " 封面仍可由前端 POST /v2/file/:fileId/poster（截帧上传）写入 logo_url。",
+      " 封面仍可由前端 POST /v2/file/:fileId/poster（截帧上传）写入封面行。",
   );
 }
 
@@ -121,7 +130,59 @@ async function meanLumaFromImageBuffer(buf: Buffer): Promise<number> {
   return n > 0 ? sum / n : 0;
 }
 
-async function tryImageReuseOrCompress(input: DataFileThumbFinalizeInput): Promise<string | null> {
+/**
+ * 创建封面子行（独立 data_file 行），返回 { fileId, fileUrl }。
+ */
+async function createCoverChildRecord(
+  parentFileId: string,
+  thumbKey: string,
+  thumbBuf: Buffer,
+  ownerSegment: string,
+  ext: string,
+): Promise<{ coverFileId: string; fileUrl: string } | null> {
+  const parent = await getFileById(parentFileId);
+  if (!parent) {
+    console.error("[data_file thumb] parent not found for cover child", parentFileId);
+    return null;
+  }
+  const coverSha = createHash("sha256").update(thumbBuf).digest("hex");
+  const fileUrl = getPublicObjectUrl(thumbKey);
+  try {
+    const record = await createFileRecord({
+      fileName: `${parent.fileName}_封面`,
+      fileUrl: thumbKey,
+      fileTypeId: "FT_Image",
+      ownerUserId: parent.ownerUserId ?? undefined,
+      fileSize: thumbBuf.length,
+      fileExt: ext,
+      contentSha256: coverSha,
+      parentFileId,
+      relationType: "logo",
+    });
+    // 更新主文件冗余列；失败仅 log。首次写入预期 null。
+    await updateMainFileCover(parentFileId, record.fileId, null);
+    return { coverFileId: record.fileId, fileUrl };
+  } catch (e) {
+    // 唯一约束冲突：已有封面行 → 查出已有行，用其 coverFileId 更新主文件冗余列即可
+    if (typeof e === "object" && e !== null && "errno" in e && (e as { errno: number }).errno === 1062) {
+      console.warn("[data_file thumb] duplicate cover child, using existing", { parentFileId, error: e });
+      const existing = await findCoverChildByParentId(parentFileId);
+      if (existing) {
+        // 冗余更新 cover_file_id，乐观锁预期旧值为 null（首次覆盖）
+        await updateMainFileCover(parentFileId, existing.fileId, null);
+        return { coverFileId: existing.fileId, fileUrl: existing.fileUrl };
+      }
+    }
+    console.error("[data_file thumb] create cover child record failed", { parentFileId, error: e });
+    return null;
+  }
+}
+
+/**
+ * 图片封面：不再更新 logoUrl，改为创建封面子行。
+ * 即使小图也需 putObject 创建独立 S3 对象（这样封面有独立 S3 key，可以走 SHA 去重）。
+ */
+async function tryImageReuseOrCompress(input: DataFileThumbFinalizeInput): Promise<{ coverFileId: string; fileUrl: string } | null> {
   const meta = await sharp(input.buffer, { animated: true, pages: 1 }).metadata();
   const w = meta.width ?? 0;
   const h = meta.height ?? 0;
@@ -131,25 +192,29 @@ async function tryImageReuseOrCompress(input: DataFileThumbFinalizeInput): Promi
     h > 0 &&
     w <= IMAGE_REUSE_MAX_EDGE &&
     h <= IMAGE_REUSE_MAX_EDGE;
+
+  let thumbBuf: Buffer;
+  let key: string;
   if (smallEnough) {
-    await updateFileRecord(input.fileId, { logoUrl: input.fileUrl });
-    return input.fileUrl;
+    // 即使小图也需要创建独立 S3 对象（不直接复用主文件 fileUrl）
+    thumbBuf = input.buffer;
+    key = `v2/${input.ownerSegment}/thumb/${input.fileId}-${randomUUID().slice(0, 8)}-cover.jpg`;
+  } else {
+    thumbBuf = await sharp(input.buffer, { animated: true, pages: 1 })
+      .rotate()
+      .resize({
+        width: THUMB_MAX_EDGE,
+        height: THUMB_MAX_EDGE,
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: THUMB_JPEG_QUALITY, mozjpeg: true })
+      .toBuffer();
+    key = `v2/${input.ownerSegment}/thumb/${input.fileId}-${randomUUID().slice(0, 8)}.jpg`;
   }
-  const thumbBuf = await sharp(input.buffer, { animated: true, pages: 1 })
-    .rotate()
-    .resize({
-      width: THUMB_MAX_EDGE,
-      height: THUMB_MAX_EDGE,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: THUMB_JPEG_QUALITY, mozjpeg: true })
-    .toBuffer();
-  const key = `v2/${input.ownerSegment}/thumb/${input.fileId}-${randomUUID().slice(0, 8)}.jpg`;
+
   await putObject(key, thumbBuf, "image/jpeg");
-  const logoUrl = getDirectUrl(key);
-  await updateFileRecord(input.fileId, { logoUrl });
-  return logoUrl;
+  return createCoverChildRecord(input.fileId, key, thumbBuf, input.ownerSegment, "jpg");
 }
 
 function runProc(bin: string, args: string[]): Promise<{ code: number | null; stdout: Buffer; stderr: string }> {
@@ -196,7 +261,6 @@ async function ffmpegFrameAt(videoPath: string, tSec: number): Promise<Buffer | 
     "-frames:v",
     "1",
     "-vf",
-    /** `-vf` 链里 `,` 会分隔滤镜，`min(w,iw)` 内的逗号必须写成 `\,` 否则变成「No such filter: iw):-1」 */
     `scale=min(${THUMB_MAX_EDGE}\\,iw):-1`,
     "-f",
     "image2pipe",
@@ -215,9 +279,6 @@ function roundTimeSec(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
-/**
- * 首轮过暗时：在「前 5 秒窗口」之外再抽一批时刻，尽量避开长片头黑场。
- */
 function buildRetryProbeTimes(durationSec: number | null): number[] {
   const cap =
     durationSec != null && Number.isFinite(durationSec) && durationSec > 0.1
@@ -260,7 +321,7 @@ async function bestFrameAtTimes(
   return best;
 }
 
-async function tryVideoThumb(input: DataFileThumbFinalizeInput): Promise<string | null> {
+async function tryVideoThumb(input: DataFileThumbFinalizeInput): Promise<{ coverFileId: string; fileUrl: string } | null> {
   if (!(await isFfmpegToolchainAvailable())) return null;
   const id = randomUUID();
   const ext = extLower(input.fileName) || "mp4";
@@ -268,7 +329,6 @@ async function tryVideoThumb(input: DataFileThumbFinalizeInput): Promise<string 
   try {
     await fs.writeFile(videoPath, input.buffer);
     const duration = await ffprobeDurationSec(videoPath);
-    /** ffprobe 失败（封装/环境）时仍尝试在前几秒抽帧，避免封面整段跳过 */
     const maxT =
       duration != null
         ? Math.min(VIDEO_MAX_WINDOW_SEC, Math.max(0.05, duration - 0.05))
@@ -294,7 +354,7 @@ async function tryVideoThumb(input: DataFileThumbFinalizeInput): Promise<string 
 
     if (best.score < VIDEO_MIN_MEAN_LUMA) {
       console.warn(
-        "[data_file thumb] sampled frames still too dark, skip logo_url",
+        "[data_file thumb] sampled frames still too dark, skip cover",
         input.fileId,
         "bestMeanLuma",
         best.score.toFixed(1),
@@ -306,29 +366,26 @@ async function tryVideoThumb(input: DataFileThumbFinalizeInput): Promise<string 
 
     const key = `v2/${input.ownerSegment}/thumb/${input.fileId}-${id.slice(0, 8)}.jpg`;
     await putObject(key, best.buf, "image/jpeg");
-    const logoUrl = getDirectUrl(key);
-    await updateFileRecord(input.fileId, { logoUrl });
-    return logoUrl;
+    return createCoverChildRecord(input.fileId, key, best.buf, input.ownerSegment, "jpg");
   } finally {
     await fs.unlink(videoPath).catch(() => {});
   }
 }
 
 /**
- * 异步写入 `data_file.logo_url`；上传路由应 `void` 调度且不阻塞响应。
+ * 异步创建封面行（独立 data_file 行 + parent_file_id 关联）；上传路由应 `void` 调度且不阻塞响应。
  */
 export async function finalizeDataFileThumbnail(input: DataFileThumbFinalizeInput): Promise<void> {
   const mime = (input.mimeType ?? "").trim().toLowerCase();
   try {
+    let result: { coverFileId: string; fileUrl: string } | null = null;
     if (looksLikeImage(mime, input.fileName)) {
-      await tryImageReuseOrCompress(input);
-      return;
-    }
-    if (looksLikeVideo(mime, input.fileName)) {
-      const logo = await tryVideoThumb(input);
-      if (!logo && ffmpegToolchainState !== "missing") {
+      result = await tryImageReuseOrCompress(input);
+    } else if (looksLikeVideo(mime, input.fileName)) {
+      result = await tryVideoThumb(input);
+      if (!result && ffmpegToolchainState !== "missing") {
         console.error(
-          "[data_file thumb] video branch finished but logo_url not written (ffprobe/ffmpeg/sharp 可能失败或无可选帧)",
+          "[data_file thumb] video branch finished but cover not created (ffprobe/ffmpeg/sharp 可能失败或无可选帧)",
           input.fileId,
           "mime=",
           input.mimeType,
@@ -336,13 +393,20 @@ export async function finalizeDataFileThumbnail(input: DataFileThumbFinalizeInpu
           input.fileName,
         );
       }
-      return;
+    } else {
+      console.warn("[data_file thumb] skipped (not classified as image/video)", {
+        fileId: input.fileId,
+        mimeType: input.mimeType,
+        fileName: input.fileName,
+      });
     }
-    console.warn("[data_file thumb] skipped (not classified as image/video)", {
-      fileId: input.fileId,
-      mimeType: input.mimeType,
-      fileName: input.fileName,
-    });
+    if (result) {
+      console.info("[data_file thumb] cover child created", {
+        parentFileId: input.fileId,
+        coverFileId: result.coverFileId,
+        fileUrl: result.fileUrl,
+      });
+    }
   } catch (e) {
     if (isSpawnEnoent(e)) {
       ffmpegToolchainState = "missing";

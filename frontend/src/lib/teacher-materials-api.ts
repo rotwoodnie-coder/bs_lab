@@ -69,6 +69,10 @@ export type TeacherMaterialItem = {
   dataFileContentSha256?: string | null;
   /** `data_file.file_type_id` */
   dataFileTypeId?: string | null;
+  /** `data_file.cover_file_id`：封面文件ID */
+  coverFileId?: string | null;
+  /** 封面文件访问 URL（通过 coverFileId 解析） */
+  coverFileUrl?: string | null;
 };
 
 /** 与 `comments` 持久化一致：优先 `ma`，否则 `mr`，均为 `data_file.file_id` */
@@ -126,15 +130,16 @@ function isUsableDirectUrl(s: string): boolean {
   return t.startsWith("http://") || t.startsWith("https://") || t.startsWith("/");
 }
 
-/** 解析 `data_file.logo_url`：纯直链 URL */
-function parseDataFileLogoMeta(raw: string | null | undefined): {
-  coverDisplayHref: string | null;
-} {
+/** 解析 `data_file.logo_url`：纯 URL 或 storage key */
+function parseDataFileLogoMeta(raw: string | null | undefined): { coverDisplayHref: string | null } {
   const t = (raw ?? "").trim();
   if (!t) return { coverDisplayHref: null };
-  return {
-    coverDisplayHref: isUsableDirectUrl(t) ? materialStorageBrowserHref(t) : null,
-  };
+  // 已经是直链 → 通过同源代理访问
+  if (isUsableDirectUrl(t)) {
+    return { coverDisplayHref: materialStorageBrowserHref(t) };
+  }
+  // storage key（非 http，如 v2/user/thumb/uuid.jpg）→ 用同源代理地址
+  return { coverDisplayHref: `/api/materials/open?${new URLSearchParams({ u: t }).toString()}` };
 }
 
 /** 列表/截帧落库前：与后端 `dataFileRenderableLogoUrl` 展示语义一致的可浏览封面地址 */
@@ -148,8 +153,10 @@ function buildDataFileLogoPatchForUpdate(
   prevRaw: string | null | undefined,
 ): string | null | undefined {
   if (!wantSelfOnly) return undefined;
-  const parsed = parseDataFileLogoMeta(prevRaw);
-  return parsed.coverDisplayHref ?? null;
+  // "仅自己可见"需要保留已有封面 URL 标识，用原始值（不用代理格式）
+  const t = (prevRaw ?? "").trim();
+  if (!t) return null;
+  return t;
 }
 
 /** 列表加载后：用 `data_file` 行补全缺失的 `file_url` / `logo_url`（避免库里有封面、列表仍空） */
@@ -202,6 +209,21 @@ async function mergeDataFileUrlsFromDataFile(actor: ApiActor, items: TeacherMate
         const logoMeta = parseDataFileLogoMeta(rawLogo);
         next.materialMainPicUrl = logoMeta.coverDisplayHref;
         next.logoUrlRaw = rawLogo;
+      }
+      // logoUrl 为空但已有 coverFileId 时，同批次 look up 可能已包含封面子行
+      if (!next.materialMainPicUrl && next.coverFileUrl) {
+        next.materialMainPicUrl = next.coverFileUrl;
+      }
+    }
+    // 补全 coverFileUrl（通过 coverFileId lookup 到封面子行的 fileUrl）
+    // 使用 mediaRegistryStreamUrl 而非 materialStorageBrowserHref，因为
+    // 封面子行的 fileUrl 是相对路径（如 v2/...），需要走预签名代理获取可访问地址
+    const coverId = rec.coverFileId?.trim() || it.coverFileId?.trim();
+    if (coverId && !it.coverFileUrl) {
+      const coverRec = files.find((f) => f.fileId === coverId);
+      if (coverRec && coverRec.fileUrl?.trim()) {
+        next.coverFileUrl = mediaRegistryStreamUrl(coverId, "view", actor);
+        next.coverFileId = coverId;
       }
     }
     return next;
@@ -462,11 +484,31 @@ export function teacherMaterialFromDataFileRecord(f: V2DataFileRecord): TeacherM
   return dataFileRecordToTeacherItem(f);
 }
 
+/** 与 `FILE_KIND_MAP` 反向：FT_ type_id → TeacherMaterialKind */
+const FT_TO_KIND: Record<string, TeacherMaterialKind> = {
+  FT_Document: "word",
+  FT_Ppt: "ppt",
+  FT_Pdf: "pdf",
+  FT_Image: "image",
+  FT_Video: "video",
+  FT_Audio: "audio",
+  FT_Spreadsheet: "spreadsheet",
+};
+
 function dataFileRecordToTeacherItem(f: V2DataFileRecord): TeacherMaterialItem {
   const inferredKind = inferKindFromFileNameOrUrlHints(f.fileName, f.fileUrl);
-  const kind = inferredKind ? normalizeTeacherMaterialKind(inferredKind) : "word";
+  // 文件名/URL 推断不到时，用 file_type_id 降级（如 FT_Image → image）
+  const kind = inferredKind
+    ? normalizeTeacherMaterialKind(inferredKind)
+    : f.fileTypeId?.trim()
+      ? (FT_TO_KIND[f.fileTypeId.trim()] ?? "word")
+      : "word";
   const rawLogo = f.logoUrl?.trim() || null;
   const logoMeta = parseDataFileLogoMeta(rawLogo);
+
+  // 封面 URL 优先级：coverFileUrl > 旧版 logoUrl
+  // coverFileUrl 由 listTeacherMaterialsApi 中批量 lookup 补全
+  const coverDisplayUrl = logoMeta.coverDisplayHref;
   return {
     rowSource: "data_file",
     materialId: f.fileId,
@@ -483,7 +525,7 @@ function dataFileRecordToTeacherItem(f: V2DataFileRecord): TeacherMaterialItem {
       formatTeacherMaterialsListDate(readV2DataFileTimestamp(f, "create")) ||
       "—",
     materialStatus: f.status?.trim() ? f.status.trim() : null,
-    materialMainPicUrl: logoMeta.coverDisplayHref,
+    materialMainPicUrl: coverDisplayUrl,
     expPurpose: null,
     additionalComments: null,
     materialNum: null,
@@ -491,6 +533,8 @@ function dataFileRecordToTeacherItem(f: V2DataFileRecord): TeacherMaterialItem {
     logoUrlRaw: rawLogo,
     dataFileContentSha256: f.contentSha256?.trim() ? f.contentSha256.trim() : null,
     dataFileTypeId: f.fileTypeId?.trim() ? f.fileTypeId.trim() : null,
+    coverFileId: f.coverFileId?.trim() || null,
+    coverFileUrl: null,
   };
 }
 
@@ -577,7 +621,55 @@ export async function listTeacherMaterialsApi(
     ...teacherMaterialsDataFileListBaseQuery(actor),
     keyword: filters?.keyword?.trim() || undefined,
   });
-  return filterTeacherMaterialsVisibleToActor(actor, files.map(dataFileRecordToTeacherItem));
+
+  // 按 contentSha256 去重：相同哈希只保留最新一条（遍历顺序即最新排序）
+  const seen = new Map<string, TeacherMaterialItem>();
+  const noShaItems: TeacherMaterialItem[] = [];
+  for (const f of files) {
+    const item = dataFileRecordToTeacherItem(f);
+    const sha = f.contentSha256?.trim();
+    if (!sha) {
+      // 无哈希的旧数据每条单独显示（不参与去重），等用户删除重传后自然消失
+      noShaItems.push(item);
+      continue;
+    }
+    if (!seen.has(sha)) {
+      seen.set(sha, item);
+    }
+  }
+
+  const deduped = filterTeacherMaterialsVisibleToActor(actor, [...seen.values()]);
+  const merged = [...deduped, ...noShaItems];
+
+  // 批量补全封面 URL：收集所有有 coverFileId 但无 coverFileUrl 的条目
+  const coverNeed = new Map<string, TeacherMaterialItem>();
+  for (const it of merged) {
+    const coverId = it.coverFileId?.trim();
+    if (coverId && !it.coverFileUrl) {
+      coverNeed.set(coverId, it);
+    }
+  }
+  if (coverNeed.size > 0) {
+    try {
+      const coverFiles = await fetchV2FilesLookup(actor, [...coverNeed.keys()]);
+      const coverById = new Map(coverFiles.map((f) => [f.fileId, f]));
+      for (const [coverId, item] of coverNeed) {
+        const rec = coverById.get(coverId);
+        if (rec && rec.fileUrl) {
+          // 封面子行的 fileUrl 是相对路径（如 v2/...），mediaRegistryStreamUrl
+          // 利用 coverFileId 走 /api/media/registry-stream 代理获得预签名可访问地址
+          const href = mediaRegistryStreamUrl(coverId, "view", actor);
+          item.coverFileUrl = href;
+          // 同步到 materialMainPicUrl，供 getMaterialPreviewPayload 读取
+          item.materialMainPicUrl = href;
+        }
+      }
+    } catch {
+      // 失败时静默忽略，封面列为空不影响主流程
+    }
+  }
+
+  return merged;
 }
 
 export type CreateTeacherMaterialPayload = Pick<
@@ -618,12 +710,13 @@ export async function deleteTeacherMaterialApi(
   actor: ApiActor,
   materialId: string,
   rowSource?: TeacherMaterialRowSource,
-): Promise<void> {
+): Promise<{ deleted: boolean; s3CleanupScheduled?: boolean; childrenCleaned?: number }> {
   if (rowSource === "data_file") {
-    await deleteV2File(actor, materialId);
-    return;
+    const result = await deleteV2File(actor, materialId);
+    return result;
   }
   await deleteV2Material(actor, materialId);
+  return { deleted: true };
 }
 
 export async function updateTeacherMaterialApi(

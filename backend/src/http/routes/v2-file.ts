@@ -10,8 +10,9 @@ import {
   getFilesByIds,
   createFileRecord,
   updateFileRecord,
-  softDeleteFile,
-  findActiveFileByOwnerAndContentSha,
+  softDeleteFileWithChildrenInTx,
+  findActiveFileByContentSha,
+  countActiveFilesByContentSha,
   resolveDataFileTypeIdByTeacherMaterialKind,
   teacherMaterialKindToDataFileTypeId,
 } from "../../infrastructure/repositories/v2-file-repository.ts";
@@ -24,23 +25,7 @@ import { dataFileHasRenderableLogoUrl } from "../../domain/v2-file/data-file-log
 import { runV2DataFileMetadataRepair } from "../../domain/v2-file/v2-file-data-repair.ts";
 import { persistClientPosterFile } from "../../domain/v2-file/v2-file-poster-upload.ts";
 import type { DataFileRecord } from "../../domain/v2-file/v2-file-types.ts";
-import { putObject, deleteObject, createPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer } from "../../infrastructure/storage/s3-storage.ts";
-
-/** 从 `data_file.file_url` 判断是否为本环境 MinIO 直链，并反解出 S3 object key */
-function tryStorageKeyFromFileUrl(fileUrl: string): string | null {
-  const raw = fileUrl.trim();
-  if (!raw) return null;
-  if (raw.startsWith("http://") || raw.startsWith("https://")) {
-    try {
-      const publicBase = getPublicObjectUrl("__probe_key__").replace(/__probe_key__$/, "");
-      if (raw.startsWith(publicBase)) return raw.slice(publicBase.length);
-    } catch {
-      return null;
-    }
-    return null;
-  }
-  return raw.replace(/^\/+/, "") || null;
-}
+import { putObject, deleteObject, createPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 function isHttpUrl(s: string): boolean {
   const t = s.trim();
@@ -215,27 +200,37 @@ export async function routeV2File(req: Request): Promise<Response> {
       const buffer = Buffer.from(await file.arrayBuffer());
       const contentSha256 = createHash("sha256").update(buffer).digest("hex");
 
-      const dup = await findActiveFileByOwnerAndContentSha(actorId, contentSha256);
-      if (dup) {
-        scheduleThumbnailFinalizeFromStorageIfNoLogo(dup, file.type || "");
-        return ok({ ...materializeRecordFileUrls(dup), contentDeduped: true });
-      }
-
       const fileExt = file.name.includes(".") ? file.name.split(".").pop()! : "";
-      const storageKey = getStorageKey(`v2/${actorId ?? "anon"}/${randomUUID()}${fileExt ? `.${fileExt}` : ""}`);
-      await putObject(storageKey, buffer, file.type || "application/octet-stream");
-
-      const fileUrl = storageKey;
       const teacherKindRaw = (formData.get("teacherMaterialKind") as string | null)?.trim().toLowerCase() || "";
       const fileTypeId = teacherKindRaw
         ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
         : undefined;
 
+      // 全库去重：同一 contentSha256 已有启用行，不传 S3，仅建新行（owner 为当前用户）
+      const dup = await findActiveFileByContentSha(contentSha256);
+      if (dup) {
+        const record = await createFileRecord({
+          fileName: file.name,
+          fileUrl: dup.fileUrl,
+          fileExt: fileExt || undefined,
+          fileSize: file.size,
+          ownerUserId: actorId,
+          fileTypeId,
+          contentSha256,
+        });
+        scheduleThumbnailFinalizeFromStorageIfNoLogo(dup, file.type || "");
+        return ok({ ...materializeRecordFileUrls(record), contentDeduped: true, existingFileId: dup.fileId });
+      }
+
+      // 全新文件：上传到 S3 并创建行
+      const storageKey = getStorageKey(`v2/${actorId ?? "anon"}/${randomUUID()}${fileExt ? `.${fileExt}` : ""}`);
+      await putObject(storageKey, buffer, file.type || "application/octet-stream");
+
       let record;
       try {
         record = await createFileRecord({
           fileName: file.name,
-          fileUrl,
+          fileUrl: storageKey,
           fileExt: fileExt || undefined,
           fileSize: file.size,
           ownerUserId: actorId,
@@ -245,10 +240,11 @@ export async function routeV2File(req: Request): Promise<Response> {
       } catch (e) {
         await deleteObject(storageKey).catch(() => {});
         if (isMysqlDuplicateKey(e)) {
-          const again = await findActiveFileByOwnerAndContentSha(actorId, contentSha256);
+          const again = await findActiveFileByContentSha(contentSha256);
           if (again) {
+            // 并发写入冲突：另一请求已创建相同 SHA 的行
             scheduleThumbnailFinalizeFromStorageIfNoLogo(again, file.type || "");
-            return ok({ ...again, contentDeduped: true });
+            return ok({ ...materializeRecordFileUrls(again), contentDeduped: true });
           }
         }
         throw e;
@@ -298,6 +294,7 @@ export async function routeV2File(req: Request): Promise<Response> {
         if (msg === "FORBIDDEN") return fail("无权更新该文件", 403);
         if (msg === "POSTER_TOO_LARGE") return fail("封面文件不能超过 500KB", 400);
         if (msg === "POSTER_BAD_MAGIC") return fail("仅支持 JPEG/PNG 图片", 400);
+        if (msg === "LOGO_CAN_ONLY_ATTACH_TO_MAIN_FILE") return fail("封面只能附加于主文件", 400);
         console.error("[v2/file/poster]", fileId, e);
         return fail("封面上传失败", 500);
       }
@@ -350,8 +347,94 @@ export async function routeV2File(req: Request): Promise<Response> {
       }
 
       if (req.method === "DELETE") {
-        await softDeleteFile(fileId);
-        return ok({ fileId, deleted: true });
+        const record = await getFileById(fileId);
+        if (!record) return fail("未找到该文件", 404);
+
+        // 不能删除封面行本身（只能删主文件触发递归）
+        if (record.relationType) {
+          return fail("请删除主文件以级联清理附属资源", 400);
+        }
+
+        const ownerUserId = record.ownerUserId?.trim();
+        const currentUserId = (actorId ?? "").trim();
+        if (ownerUserId && currentUserId && ownerUserId !== currentUserId) {
+          return fail("你无权删除该文件（非你的引用）", 403);
+        }
+
+        // 事务内软删主+子所有行，提交后再异步清理 S3
+        let txResult: Awaited<ReturnType<typeof softDeleteFileWithChildrenInTx>>;
+        try {
+          txResult = await softDeleteFileWithChildrenInTx(fileId);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg === "NOT_FOUND") return fail("未找到该文件", 404);
+          throw e;
+        }
+
+        // 异步清理 S3（引用归零判断在外层执行）
+        void (async () => {
+          const traceId = randomUUID().slice(0, 12);
+          try {
+            // 子行 S3 清理
+            for (const child of txResult.childrenToCleanS3) {
+              const childSha = child.contentSha256?.trim() ?? "";
+              if (childSha) {
+                const childRef = await countActiveFilesByContentSha(childSha);
+                if (childRef > 0) continue;
+              }
+              // content_sha256 IS NULL（存量迁移数据）或引用归零 → 删 S3
+              const childKey = tryStorageKeyFromFileUrl(child.fileUrl);
+              if (childKey) {
+                await deleteObject(childKey).catch((e) =>
+                  console.error("[v2/file] async S3 delete failed", {
+                    traceId,
+                    fileId: child.fileId,
+                    storageKey: childKey,
+                    source: "child",
+                    error: e instanceof Error ? e.message : String(e),
+                  })
+                );
+              }
+            }
+
+            // 主文件 S3 清理
+            const mainSha = txResult.mainFileSha ?? "";
+            const mainRefCount = mainSha ? await countActiveFilesByContentSha(mainSha) : 0;
+            if (mainRefCount === 0 && mainSha) {
+              const mainKey = tryStorageKeyFromFileUrl(txResult.mainFileUrl);
+              if (mainKey) {
+                await deleteObject(mainKey).catch((e) =>
+                  console.error("[v2/file] async S3 delete failed", {
+                    traceId,
+                    fileId,
+                    storageKey: mainKey,
+                    source: "main",
+                    error: e instanceof Error ? e.message : String(e),
+                  })
+                );
+              }
+            }
+            console.info("[v2/file] async S3 cleanup completed", {
+              traceId,
+              fileId,
+              childrenCount: txResult.childrenCount,
+              mainScheduled: !!mainSha && mainRefCount === 0,
+            });
+          } catch (e) {
+            console.error("[v2/file] async S3 cleanup unexpected error", {
+              traceId,
+              fileId,
+              error: e instanceof Error ? e.message : String(e),
+            });
+          }
+        })();
+
+        return ok({
+          fileId,
+          deleted: true,
+          s3CleanupScheduled: true,
+          childrenCleaned: txResult.childrenCount,
+        });
       }
     }
 

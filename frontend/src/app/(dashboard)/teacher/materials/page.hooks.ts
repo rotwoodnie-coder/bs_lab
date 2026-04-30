@@ -257,9 +257,16 @@ export function useTeacherMaterialsPage() {
   const confirmDelete = React.useCallback(async () => {
     if (!deleteTarget) return;
     try {
-      await deleteTeacherMaterialApi(actor, deleteTarget.materialId, deleteTarget.rowSource);
+      const result = await deleteTeacherMaterialApi(actor, deleteTarget.materialId, deleteTarget.rowSource);
       setItems((prev) => prev.filter((row) => row.materialId !== deleteTarget.materialId));
-      sonnerToast.success("已删除素材", { description: deleteTarget.title });
+      const childCount = result.childrenCleaned;
+      if (childCount !== undefined && childCount > 0) {
+        sonnerToast.success("已删除素材", {
+          description: `已级联清理 ${childCount} 个附属资源`,
+        });
+      } else {
+        sonnerToast.success("已删除素材", { description: deleteTarget.title });
+      }
       setDeleteTarget(null);
     } catch (e) {
       sonnerToast.error(e instanceof Error ? e.message : "删除失败");

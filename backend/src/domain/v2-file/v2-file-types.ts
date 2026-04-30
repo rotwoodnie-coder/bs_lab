@@ -20,8 +20,14 @@ export interface DataFileRecord {
   logoUrl: string | null;
   fileSize: number | null;
   fileExt: string | null;
-  /** 内容 SHA-256(hex)；上传写入，用于同归属去重 */
+  /** 内容 SHA-256(hex)；上传写入，用于全库去重 */
   contentSha256?: string | null;
+  /** 父文件ID（自引用），表达从属关系 */
+  parentFileId?: string | null;
+  /** 关系类型：logo（封面）、transcoded（转码）等 */
+  relationType?: string | null;
+  /** 封面文件ID（冗余加速） */
+  coverFileId?: string | null;
   /** 库表 `create_time`（ISO 8601 或 DATETIME 字符串，由 JSON 序列化决定） */
   createTime?: string | null;
   /** 库表 `update_time` */
@@ -38,6 +44,10 @@ export interface CreateFileInput {
   logoUrl?: string;
   fileSize?: number;
   fileExt?: string;
+  /** 父文件ID（自引用），表达从属关系 */
+  parentFileId?: string;
+  /** 关系类型：logo（封面）、transcoded（转码）等 */
+  relationType?: string;
   /** 上传必填：与对象字节一致，用于库内去重 */
   contentSha256: string;
 }

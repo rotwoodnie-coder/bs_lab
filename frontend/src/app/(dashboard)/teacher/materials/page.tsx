@@ -114,9 +114,9 @@ export default function TeacherMaterialsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除该素材？</AlertDialogTitle>
+            <AlertDialogTitle>确认操作</AlertDialogTitle>
             <AlertDialogDescription>
-              删除后无法恢复，若其他场景引用该素材链接，可能导致无法访问。请确认后再操作。
+              将解除您对此素材的引用。若您是唯一引用人，该文件将从存储中彻底清除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           {st.deleteTarget ? (

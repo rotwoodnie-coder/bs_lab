@@ -5,6 +5,7 @@ import * as React from "react";
 import type { CoreApiActor } from "@/lib/core-api-shared";
 import { getDataFileLogoCoverDisplayHref } from "@/lib/teacher-materials-api";
 import { fetchV2FileById, postV2FilePosterUpload } from "@/lib/v2/v2-file-api";
+import { mediaRegistryStreamUrl } from "@/lib/media-platform/registry-ref";
 
 import type { PosterPersistConfig } from "./exp-video-player.types";
 import { writeRasterPosterToSession } from "./video-frame-capture";
@@ -47,7 +48,8 @@ export function useExpVideoPosterPersist(
       const core = actor as CoreApiActor;
       try {
         const row = await fetchV2FileById(core, fileId);
-        const serverHref = getDataFileLogoCoverDisplayHref(row.logoUrl);
+        const coverId = row.coverFileId?.trim();
+        const serverHref = coverId ? mediaRegistryStreamUrl(coverId, "view", actor) : null;
         if (serverHref) {
           attemptKeyRef.current = attemptKey;
           setLivePoster(serverHref);
@@ -64,7 +66,7 @@ export function useExpVideoPosterPersist(
         const blob = await fetch(livePoster).then((r) => r.blob());
         if (blob.size > 500 * 1024) return;
         const out = await postV2FilePosterUpload(core, fileId, blob);
-        const href = getDataFileLogoCoverDisplayHref(out.logoUrl) ?? out.logoUrl.trim();
+        const href = getDataFileLogoCoverDisplayHref(out.coverFileUrl) ?? out.coverFileUrl.trim();
         attemptKeyRef.current = attemptKey;
         setLivePoster(href);
         writeRasterPosterToSession(trimmedSrc, href);

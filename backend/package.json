@@ -9,7 +9,8 @@
     "test": "node --test src/**/*.test.ts",
     "lint": "pnpm run typecheck",
     "media:scan-missing-objects": "node --env-file ../.env.local --experimental-strip-types scripts/media-integrity-scan-missing-objects.mjs",
-    "media:apply-missing-objects-repair": "node --env-file ../.env.local --experimental-strip-types scripts/media-apply-missing-objects-repair.mjs"
+    "media:apply-missing-objects-repair": "node --env-file ../.env.local --experimental-strip-types scripts/media-apply-missing-objects-repair.mjs",
+    "migrate:logo-to-cover-child": "node --env-file ../.env.local --experimental-strip-types scripts/migrate-logo-to-cover-child.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1030.0",

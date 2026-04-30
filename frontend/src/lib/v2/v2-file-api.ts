@@ -19,6 +19,12 @@ export type V2DataFileRecord = {
   fileExt: string | null;
   /** 后端写入；列表/单条可能返回 */
   contentSha256?: string | null;
+  /** 父文件ID（自引用），表达从属关系 */
+  parentFileId?: string | null;
+  /** 关系类型：logo（封面）、transcoded（转码）等 */
+  relationType?: string | null;
+  /** 封面文件ID（冗余加速） */
+  coverFileId?: string | null;
   createTime?: string | null;
   updateTime?: string | null;
 };
@@ -130,8 +136,15 @@ export async function postV2FileThumbnailEnsure(
   return json.data;
 }
 
-export function deleteV2File(actor: CoreApiActor, fileId: string): Promise<{ fileId: string; deleted: boolean }> {
-  return v2DeleteJson<{ fileId: string; deleted: boolean }>(
+export type V2FileDeleteResult = {
+  fileId: string;
+  deleted: boolean;
+  s3CleanupScheduled?: boolean;
+  childrenCleaned?: number;
+};
+
+export function deleteV2File(actor: CoreApiActor, fileId: string): Promise<V2FileDeleteResult> {
+  return v2DeleteJson<V2FileDeleteResult>(
     `/v2/file/${encodeURIComponent(fileId)}`,
     actor,
   );
@@ -205,11 +218,14 @@ export type V2FileDataRepairResult = {
 /** POST `/v2/file/:fileId/data-repair`：从对象存储计算 SHA-256 并推断 `file_type_id`，仅写入空列 */
 export type V2FilePosterUploadResult = {
   fileId: string;
-  logoUrl: string;
+  /** 封面子行 ID */
+  coverFileId: string;
+  /** 封面文件访问 URL */
+  coverFileUrl: string;
   alreadyHasPoster?: boolean;
 };
 
-/** POST `/v2/file/:fileId/poster`：multipart `file`，JPEG/PNG，≤500KB，写入 MinIO 并更新 `logo_url` */
+/** POST `/v2/file/:fileId/poster`：multipart `file`，JPEG/PNG，≤500KB，创建封面子行并回写 coverFileId */
 export async function postV2FilePosterUpload(
   actor: CoreApiActor,
   fileId: string,

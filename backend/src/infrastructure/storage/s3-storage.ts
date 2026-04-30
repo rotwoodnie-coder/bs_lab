@@ -166,6 +166,22 @@ export function getPublicObjectUrl(storageKey: string): string {
   return `${base}/${cfg.bucket}/${normalizeKey(storageKey)}`;
 }
 
+/** `data_file.file_url` 格式兼容：storage key 或完整 URL，反解出 S3 object key。返回 null 表示非本环境存储 */
+export function tryStorageKeyFromFileUrl(fileUrl: string): string | null {
+  const raw = fileUrl.trim();
+  if (!raw) return null;
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const publicBase = getPublicObjectUrl("__probe_key__").replace(/__probe_key__$/, "");
+      if (raw.startsWith(publicBase)) return raw.slice(publicBase.length);
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  return raw.replace(/^\/+/, "") || null;
+}
+
 export function isLocalhostEndpoint(): boolean {
   const endpoint = getConfig().endpoint.trim();
   return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(endpoint);
