@@ -126,10 +126,10 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
   const totalPages = Math.ceil(total / pageSize) || 1;
   const colTeacherWidth = fullScreen ? 220 : 180;
 
-  /** 首屏无数据时仍用占位，避免与「有表 + 遮罩」之间来回切换造成整块高度抖动 */
+  /** 首屏无数据时弹性撑满，避免占位块与「有表 + 遮罩」之间高度切换抖动 */
   if (loading && items.length === 0) {
     return (
-      <div className="flex min-h-[min(52dvh,420px)] items-center justify-center text-sm text-muted-foreground">
+      <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
         加载中…
       </div>
     );
@@ -137,7 +137,7 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
 
   if (!loading && items.length === 0) {
     return (
-      <div className="flex min-h-[min(52dvh,420px)] items-center justify-center text-sm text-muted-foreground">
+      <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
         暂无数据
       </div>
     );

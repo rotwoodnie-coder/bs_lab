@@ -4,6 +4,7 @@ import { createMediaReference } from "@/lib/media-platform/media-api";
 import { mediaUploadSuccessDescription } from "@/lib/media-platform/media-upload-destination-copy";
 import { uploadTeacherMaterialFileToPlatform, type UploadToMediaPlatformResult } from "@/lib/media-platform/upload-client";
 import { teacherMaterialFromDataFileRecord, type TeacherMaterialItem } from "@/lib/teacher-materials-api";
+import { reconcileTeacherMaterialKindFromFilename } from "@/lib/media/infer-media-kind-from-filename";
 import { fetchV2FileById } from "@/lib/v2/v2-file-api";
 import type { MediaUploadProgressEvent } from "@/lib/media-platform/upload-form-xhr";
 import { inferKindFromFile } from "./teacher-material-file-kind";
@@ -215,8 +216,10 @@ export async function executeTeacherMaterialCreate(
   file: File,
   options?: ExecuteTeacherMaterialCreateOptions,
 ): Promise<TeacherMaterialItem> {
-  // 支持混合上传：按每个文件自身类型自动匹配素材类型，无法识别时回退为当前表单类型。
-  const effectiveKind = inferKindFromFile(file) ?? item.kind;
+  // 三重兜底：先用 inferKindFromFile（MIME+常见扩展名），再用 reconcile（扩展名 JSON 表强制校正）
+  const inferred = inferKindFromFile(file);
+  const reconciled = inferred ? inferred : reconcileTeacherMaterialKindFromFilename(item.kind, file.name);
+  const effectiveKind = reconciled;
   const effectiveItem = { ...item, kind: effectiveKind };
   const { up, created: initialRow } = await uploadAndReadTeacherMaterialRow(actor, effectiveItem, file, options);
   let created = await maybeRehydrateVideoAfterLogo(actor, effectiveKind, file, up, initialRow);

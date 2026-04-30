@@ -36,10 +36,7 @@ export function ManagementPageFrame(props: {
           {props.cardMeta ? <CardDescription className="text-xs">{props.cardMeta}</CardDescription> : null}
         </CardHeader>
         <CardContent
-          className={[
-            "flex min-h-0 flex-1 flex-col border-t border-border p-2 sm:p-2 overflow-hidden",
-            "[font-size:clamp(12px,0.25vw+11px,14px)]",
-          ].join(" ")}
+          className="flex min-h-0 flex-1 flex-col border-t border-border p-2 sm:p-2 overflow-hidden"
         >
           {props.children}
         </CardContent>

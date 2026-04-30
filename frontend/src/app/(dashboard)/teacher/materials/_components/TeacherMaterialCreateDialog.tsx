@@ -430,6 +430,7 @@ export function TeacherMaterialCreateDialog(props: Props) {
             onTitleChange={setTitle}
             kind={kind}
             kindOptions={kindFormOptions}
+            kindDisabled={selectedFiles.length > 0}
             onKindChange={(value) => {
               setKind(value);
               setSelectedFiles([]);

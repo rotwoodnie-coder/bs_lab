@@ -68,6 +68,7 @@ export default function ExperimentManagePageContainer() {
   const [collapseAllToken, setCollapseAllToken] = React.useState(0);
   const [fullScreen, setFullScreen] = React.useState(false);
   const [rightFontPx, setRightFontPx] = React.useState<number | null>(null);
+  const rightContainerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (typeof document === "undefined") return;
@@ -82,27 +83,33 @@ export default function ExperimentManagePageContainer() {
   React.useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const rightEl = rightContainerRef.current;
     const clamp = (n: number, a: number, b: number) => Math.min(b, Math.max(a, n));
     const recompute = () => {
-      const vw = window.innerWidth || 0;
+      const containerW = rightEl?.clientWidth ?? window.innerWidth;
+      const vw = containerW || 0;
 
-      // 约束：<2000px 时随窗口缩小同步收敛字号与高度（基于 1920×900 的体感基准）
+      // <2000px 时随容器缩小同步收敛字号（以 1920 为基准）
       if (vw > 0 && vw < 2000) {
-        // 宽度驱动优先：以 1920 为基准，避免高度变化造成缩放“漂移”
         const scale = clamp(Math.min(vw / 1920, 1.0), 0.7, 1.0);
-        const px = Math.round(16 * scale * 10) / 10; // 保留 0.1px，避免跳动
+        const px = Math.round(16 * scale * 10) / 10;
         setRightFontPx((prev) => (prev === px ? prev : px));
         return;
       }
 
-      // >=2000px 交给 CSS 媒体查询（保持大屏效果不变）
+      // >=2000px 交给 CSS 媒体查询
       setRightFontPx((prev) => (prev == null ? prev : null));
     };
 
     recompute();
     window.addEventListener("resize", recompute, { passive: true });
-    return () => window.removeEventListener("resize", recompute);
-  }, []);
+    const ro = new ResizeObserver(() => recompute());
+    if (rightEl) ro.observe(rightEl);
+    return () => {
+      window.removeEventListener("resize", recompute);
+      ro.disconnect();
+    };
+  }, [fullScreen]);
 
   const nameByIdMap = React.useMemo(() => {
     const subj = Object.fromEntries(subjects.map((s) => [s.id, s.name]));
@@ -118,9 +125,9 @@ export default function ExperimentManagePageContainer() {
       view !== "cards" ? [] :
       items.map((it) =>
         v2ExpMsgItemToMgmtRow(it, {
-          subject: it.subjectId ? subjectNameById[it.subjectId] ?? it.subjectId : "—",
-          grade: it.gradeId ? gradeNameById[it.gradeId] ?? it.gradeId : "—",
-          authorDisplay: it.createUserId ?? "—",
+          subject: it.subjectId ? subjectNameById[it.subjectId] ?? it.subjectId : "\u2014",
+          grade: it.gradeId ? gradeNameById[it.gradeId] ?? it.gradeId : "\u2014",
+          authorDisplay: it.createUserId ?? "\u2014",
         }),
       ),
     [items, subjectNameById, gradeNameById, view],
@@ -156,6 +163,71 @@ export default function ExperimentManagePageContainer() {
     ];
   }, [items, total]);
 
+  // 弹性占位：列表视图走表格组件内部分叉；卡片视图在容器内分 loading/empty/cards
+  const renderMainContent = () => {
+    if (view === "list") {
+      return (
+        <ExperimentManageV2TableView
+          items={items}
+          loading={loading}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          draftTotal={draftTotal}
+          readOnly={readOnly}
+          fullScreen={fullScreen}
+          onPageChange={setPage}
+          subjectNameById={subjectNameById}
+          gradeNameById={gradeNameById}
+          difficultyNameById={difficultyNameById}
+          onAssign={openAssignDialog}
+          onEdit={(row) => {
+            router.push(
+              `${EXPERIMENT_MANAGE_EDITOR_PATH}?id=${encodeURIComponent(row.expId)}`,
+              { scroll: false },
+            );
+          }}
+          onDelete={(row) => deleteExperiment(row.expId, row.expName)}
+          deletePending={deletePending}
+        />
+      );
+    }
+
+    // 卡片视图
+    if (loading) {
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+          加载中\u2026
+        </div>
+      );
+    }
+
+    if (cardRows.length === 0) {
+      return (
+        <div className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
+          暂无数据
+        </div>
+      );
+    }
+
+    return (
+      <ExperimentManageCardsView
+        actor={apiActor}
+        rows={cardRows}
+        onEdit={(id) => {
+          router.push(`${EXPERIMENT_MANAGE_EDITOR_PATH}?id=${encodeURIComponent(id)}`, { scroll: false });
+        }}
+        onReviewOrView={(id) => {
+          router.push(`/experiments/${encodeURIComponent(id)}`);
+        }}
+        onDelete={(id) => {
+          const row = cardRows.find((r) => r.id === id);
+          return deleteExperiment(id, row?.title);
+        }}
+      />
+    );
+  };
+
   return (
     <LeftTreeRightTableLayout
       className="min-h-[min(72dvh,640px)] -mx-2 sm:-mx-3 lg:-mx-4 min-[2000px]:mx-0 -ml-3 sm:-ml-4 lg:-ml-4 min-[2000px]:ml-0 pl-px"
@@ -178,6 +250,7 @@ export default function ExperimentManagePageContainer() {
       }
       right={
         <div
+          ref={rightContainerRef}
           className="exp-mgmt-right-scale flex-1 w-full min-w-0"
           style={
             rightFontPx != null
@@ -341,54 +414,7 @@ export default function ExperimentManagePageContainer() {
               </div>
             }
           >
-              {view === "list" ? (
-                <ExperimentManageV2TableView
-                  items={items}
-                  loading={loading}
-                  page={page}
-                  pageSize={pageSize}
-                  total={total}
-                  draftTotal={draftTotal}
-                  readOnly={readOnly}
-                  fullScreen={fullScreen}
-                  onPageChange={setPage}
-                  subjectNameById={subjectNameById}
-                  gradeNameById={gradeNameById}
-                  difficultyNameById={difficultyNameById}
-                  onAssign={openAssignDialog}
-                  onEdit={(row) => {
-                    router.push(
-                      `${EXPERIMENT_MANAGE_EDITOR_PATH}?id=${encodeURIComponent(row.expId)}`,
-                      { scroll: false },
-                    );
-                  }}
-                  onDelete={(row) => deleteExperiment(row.expId, row.expName)}
-                  deletePending={deletePending}
-                />
-              ) : loading ? (
-                <div className="flex min-h-[min(52dvh,420px)] items-center justify-center text-sm text-muted-foreground">
-                  加载中…
-                </div>
-              ) : cardRows.length === 0 ? (
-                <div className="flex min-h-[min(52dvh,420px)] items-center justify-center text-sm text-muted-foreground">
-                  暂无数据
-                </div>
-              ) : (
-                <ExperimentManageCardsView
-                  actor={apiActor}
-                  rows={cardRows}
-                  onEdit={(id) => {
-                    router.push(`${EXPERIMENT_MANAGE_EDITOR_PATH}?id=${encodeURIComponent(id)}`, { scroll: false });
-                  }}
-                  onReviewOrView={(id) => {
-                    router.push(`/experiments/${encodeURIComponent(id)}`);
-                  }}
-                  onDelete={(id) => {
-                    const row = cardRows.find((r) => r.id === id);
-                    return deleteExperiment(id, row?.title);
-                  }}
-                />
-              )}
+            {renderMainContent()}
           </ManagementPageFrame>
           <PublishAssignmentDialog
             open={assignDialogOpen}

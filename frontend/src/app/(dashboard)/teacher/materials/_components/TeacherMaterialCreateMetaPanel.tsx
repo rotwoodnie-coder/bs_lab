@@ -11,6 +11,8 @@ type Props = {
   kind: TeacherMaterialKind;
   kindOptions: { value: string; label: string }[];
   onKindChange: (value: TeacherMaterialKind) => void;
+  /** 选中文件后锁定类型，不允许手动修改 */
+  kindDisabled?: boolean;
   selectedFilesCount: number;
   experimentId: string | null;
   linkedExperimentTitle: string | null;
@@ -40,7 +42,11 @@ export function TeacherMaterialCreateMetaPanel(props: Props) {
       </div>
       <div className="space-y-1">
         <Label>素材类型</Label>
-        <Select value={props.kind} onValueChange={(v) => props.onKindChange(v as TeacherMaterialKind)}>
+        <Select
+          value={props.kind}
+          onValueChange={(v) => props.onKindChange(v as TeacherMaterialKind)}
+          disabled={props.kindDisabled}
+        >
           <SelectTrigger>
             <SelectValue placeholder="选择类型" />
           </SelectTrigger>
@@ -52,6 +58,11 @@ export function TeacherMaterialCreateMetaPanel(props: Props) {
             ))}
           </SelectContent>
         </Select>
+        {props.kindDisabled ? (
+          <p className="text-xs text-muted-foreground mt-1">
+            已根据文件自动匹配，选择新的文件后类型会重新推断。
+          </p>
+        ) : null}
       </div>
       <TeacherMaterialExperimentField
         value={props.experimentId}
