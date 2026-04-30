@@ -62,6 +62,10 @@ for pkg in backend/package.json frontend/package.json; do
 done
 sudo pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
 
+# ── 刷新 Nginx（确保新静态资源被正确路由） ──
+echo ">>> nginx -s reload..." | tee -a "$DEPLOY_LOG"
+sudo nginx -s reload 2>&1 | tee -a "$DEPLOY_LOG"
+
 # ── 健康检查：验证后端和前端是否正常响应 ──
 echo ">>> 健康检查（最长等待 ${HEALTH_TIMEOUT}s）..." | tee -a "$DEPLOY_LOG"
 BACKEND_OK=false
@@ -96,6 +100,7 @@ else
     fi
   done
   sudo pm2 startOrReload ecosystem.config.cjs --update-env 2>&1 | tee -a "$DEPLOY_LOG"
+  sudo nginx -s reload 2>&1 | tee -a "$DEPLOY_LOG"
 fi
 
 echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
