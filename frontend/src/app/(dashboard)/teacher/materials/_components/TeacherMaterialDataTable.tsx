@@ -213,11 +213,11 @@ export function TeacherMaterialDataTable(props: Props) {
   });
 
   return (
-    <div className="flex flex-1 flex-col space-y-2">
+    <div className="space-y-2">
       <div className="flex justify-end">
         <DataTableViewOptions table={table} />
       </div>
-      <DataTable table={table} stickyHeader className="flex-1 overflow-auto rounded-md border border-border" emptyText="当前筛选无素材条目。" />
+      <DataTable table={table} stickyHeader className="max-h-[68vh] overflow-auto rounded-md border border-border" emptyText="当前筛选无素材条目。" />
       <DataTablePagination table={table} pageSizeOptions={[10, 20, 50]} />
       <TeacherMaterialDocumentPreviewDialog
         open={documentPreview !== null}
