@@ -27,6 +27,63 @@ if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
   exit 0
 fi
 
+# ── 加载环境变量（.env.local 不在 Git 中，服务器独立配置） ──
+set -a
+source "$DEPLOY_DIR/.env.local" 2>/dev/null || echo ">>> WARN: 未找到 .env.local，使用系统环境变量" | tee -a "$DEPLOY_LOG"
+set +a
+
+# ── 数据库迁移 ──
+# 从 .env.local 或系统环境读取数据库信息——同 start-with-env.sh 的加载方式
+# 优先使用 DATABASE_URL（完整连接字符串），否则逐字段拼
+if [ -n "${DATABASE_URL:-}" ]; then
+  # mysql://user:password@host:port/db
+  DB_HOST=$(echo "$DATABASE_URL" | sed -E 's|mysql://[^:]+:[^@]+@([^:/]+).*|\1|')
+  DB_PORT=$(echo "$DATABASE_URL" | sed -E 's|mysql://[^:]+:[^@]+@[^:]+:([0-9]+)/.*|\1|')
+  DB_USER=$(echo "$DATABASE_URL" | sed -E 's|mysql://([^:]+):.*|\1|')
+  DB_PASSWORD=$(echo "$DATABASE_URL" | sed -E 's|mysql://[^:]+:([^@]+)@.*|\1|')
+  DB_NAME=$(echo "$DATABASE_URL" | sed -E 's|mysql://[^:]+:[^@]+@[^:/]+:[0-9]+/([^?]+).*|\1|')
+else
+  DB_HOST="${DB_HOST:-10.0.181.204}"
+  DB_PORT="${DB_PORT:-3306}"
+  DB_USER="${DB_USER:-root}"
+  DB_PASSWORD="${DB_PASSWORD:-}"
+  DB_NAME="${DB_NAME:-bs_exp_data}"
+fi
+MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USER $([[ -z \"${DB_PASSWORD:-}\" ]] && echo \"\" || echo \"-p${DB_PASSWORD}\") $DB_NAME"
+
+echo ">>> 检查并执行数据库迁移..." | tee -a "$DEPLOY_LOG"
+cd "$DEPLOY_DIR"
+for f in $(ls database/migrations/00*.sql 2>/dev/null | sort); do
+  base=$(basename "$f")
+  # 检查是否已执行：看 migration 标记表，没有则建表
+  $MYSQL_CMD -e "CREATE TABLE IF NOT EXISTS _migrations (name VARCHAR(200) PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)" 2>/dev/null
+  done=$($MYSQL_CMD -N -e "SELECT 1 FROM _migrations WHERE name = '$base'" 2>/dev/null || echo "0")
+  if [ "$done" != "1" ]; then
+    echo ">>> ⏳ 执行迁移: $base" | tee -a "$DEPLOY_LOG"
+    if $MYSQL_CMD < "$f" 2>&1; then
+      $MYSQL_CMD -e "INSERT INTO _migrations(name) VALUES('$base')" 2>&1 | tee -a "$DEPLOY_LOG"
+      echo ">>> ✅ 迁移完成: $base" | tee -a "$DEPLOY_LOG"
+    else
+      echo ">>> ⚠️ 迁移失败（可能 DDL 已存在，继续）: $base" | tee -a "$DEPLOY_LOG"
+    fi
+  else
+    echo ">>> ✅ 已跳过（已执行）: $base" | tee -a "$DEPLOY_LOG"
+  fi
+done
+
+# ── 0053 应用层迁移（存量 logo_url → cover child） ──
+# 迁移脚本自身是幂等的（NOT EXISTS 子查询防止重复写入）
+LOGO_LEFT=$($MYSQL_CMD -N -e "SELECT COUNT(*) FROM data_file WHERE logo_url IS NOT NULL AND logo_url != '' AND NOT EXISTS (SELECT 1 FROM data_file child WHERE child.parent_file_id = data_file.file_id AND child.relation_type = 'logo')" 2>/dev/null || echo "0")
+if [ "$LOGO_LEFT" -gt 0 ]; then
+  echo ">>> ⏳ 执行 0053 存量封面迁移（剩余 $LOGO_LEFT 条）..." | tee -a "$DEPLOY_LOG"
+  cd "$DEPLOY_DIR/backend"
+  node --env-file "$DEPLOY_DIR/.env.local" --experimental-strip-types scripts/migrate-logo-to-cover-child.ts --yes 2>&1 | tee -a "$DEPLOY_LOG"
+  cd "$DEPLOY_DIR"
+  echo ">>> ✅ 0053 迁移完成" | tee -a "$DEPLOY_LOG"
+else
+  echo ">>> ✅ 无需执行 0053 迁移" | tee -a "$DEPLOY_LOG"
+fi
+
 # ── 安装依赖 ──
 echo ">>> pnpm install..." | tee -a "$DEPLOY_LOG"
 pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
