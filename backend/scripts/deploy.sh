@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 自动部署脚本 — 被 webhook 触发时调用
 # PM2 以 root 运行，所有 pm2 命令必须加 sudo
-# 安全策略：构建失败不重启；运行时健康检查失败则自动回滚
+# 安全策略：构建失败不重启；尝试自动修复已知错误后重试；无法修复则回滚
 set -euo pipefail
 
 DEPLOY_LOG="/opt/bs-lab/deploy.log"
@@ -44,11 +44,49 @@ set -e
 cd "$DEPLOY_DIR"
 
 if [ "$BUILD_EXIT" -ne 0 ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 构建失败（退出码 $BUILD_EXIT），停止部署。旧服务不受影响。" | tee -a "$DEPLOY_LOG"
-  echo ">>> 回滚代码到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
-  git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
-  echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
-  exit 1
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 构建失败（退出码 $BUILD_EXIT）" | tee -a "$DEPLOY_LOG"
+
+  # ── 嗅探错误模式并尝试自动修复 ──
+  BUILD_LOG=$(tail -50 "$DEPLOY_LOG")
+  AUTO_FIXED=false
+
+  if echo "$BUILD_LOG" | grep -qi "EACCES"; then
+    echo ">>> 🔧 检测到 EACCES 权限问题，尝试 chown 修复..." | tee -a "$DEPLOY_LOG"
+    sudo chown -R ubuntu:ubuntu "$DEPLOY_DIR/frontend/.next" "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
+    sudo rm -rf "$DEPLOY_DIR/frontend/.next" 2>/dev/null || true
+    sudo rm -f "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
+    echo ">>> 重新构建..." | tee -a "$DEPLOY_LOG"
+    cd "$DEPLOY_DIR/frontend"
+    set +e
+    pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
+    BUILD_EXIT=${PIPESTATUS[0]}
+    set -e
+    cd "$DEPLOY_DIR"
+    if [ "$BUILD_EXIT" -eq 0 ]; then
+      AUTO_FIXED=true
+      echo ">>> ✅ 自动修复 EACCES 后构建成功" | tee -a "$DEPLOY_LOG"
+    fi
+  fi
+
+  if ! $AUTO_FIXED; then
+    echo ">>> 停止部署。旧服务不受影响。" | tee -a "$DEPLOY_LOG"
+    # ── 打印可操作的修复指引 ──
+    if echo "$BUILD_LOG" | grep -qi "Cannot find module"; then
+      echo ">>> 💡 提示：模块未找到，尝试 sudo pnpm install 后重试" | tee -a "$DEPLOY_LOG"
+    elif echo "$BUILD_LOG" | grep -qi "ts2304\|ts2307\|Type.*is not assignable"; then
+      echo ">>> 💡 提示：TypeScript 类型错误，请本地 pnpm run typecheck 排查" | tee -a "$DEPLOY_LOG"
+    elif echo "$BUILD_LOG" | grep -qi "SyntaxError\|Unexpected token"; then
+      echo ">>> 💡 提示：语法错误，请检查最近提交的代码" | tee -a "$DEPLOY_LOG"
+    elif echo "$BUILD_LOG" | grep -qi "EACCES\|permission denied"; then
+      echo ">>> 💡 提示：权限问题，尝试 sudo chown -R ubuntu:ubuntu frontend/ 后重试" | tee -a "$DEPLOY_LOG"
+    elif echo "$BUILD_LOG" | grep -qi "ENOSPC\|no space left"; then
+      echo ">>> 💡 提示：磁盘空间不足，请清理服务器磁盘" | tee -a "$DEPLOY_LOG"
+    fi
+    echo ">>> 回滚代码到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
+    git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
+    echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
+    exit 1
+  fi
 fi
 
 # ── 重启服务（用 ecosystem 配置，确保未注册的 app 也会被启动） ──
@@ -88,11 +126,33 @@ if $BACKEND_OK && $FRONTEND_OK; then
 else
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 健康检查失败，自动回滚到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
   git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
+  echo ">>> 回滚后尝试重新构建..." | tee -a "$DEPLOY_LOG"
   cd "$DEPLOY_DIR/frontend"
   sudo rm -rf .next 2>/dev/null || true
   sudo rm -f next-env.d.ts 2>/dev/null || true
+  set +e
   pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
+  RETRY_EXIT=${PIPESTATUS[0]}
+  set -e
   cd "$DEPLOY_DIR"
+  if [ "$RETRY_EXIT" -ne 0 ]; then
+    # 回滚构建也失败时尝试 EACCES 自动修复
+    if tail -30 "$DEPLOY_LOG" | grep -qi "EACCES"; then
+      echo ">>> 🔧 回滚构建也遇 EACCES，尝试清理权限重试..." | tee -a "$DEPLOY_LOG"
+      sudo rm -rf "$DEPLOY_DIR/frontend/.next" "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
+      cd "$DEPLOY_DIR/frontend"
+      set +e
+      pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
+      RETRY_EXIT=${PIPESTATUS[0]}
+      set -e
+      cd "$DEPLOY_DIR"
+    fi
+  fi
+  if [ "$RETRY_EXIT" -eq 0 ]; then
+    echo ">>> 回滚后构建成功" | tee -a "$DEPLOY_LOG"
+  else
+    echo ">>> ⚠ 回滚后构建仍失败，将尝试启动旧版服务" | tee -a "$DEPLOY_LOG"
+  fi
   sudo pm2 restart all 2>&1 | tee -a "$DEPLOY_LOG"
   echo ">>> 已回滚至 $OLD_COMMIT" | tee -a "$DEPLOY_LOG"
   # 回滚后重新从 ecosystem 启动，确保所有 app 注册正确
