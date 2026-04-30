@@ -1,7 +1,6 @@
 /**
  * PM2 生态系统配置
  *
- * 前后端统一用 interpreter: "none" + script: "pnpm"，走 shell 执行。
  * 项目目录已 chown 给 ubuntu 用户，PM2 以 ubuntu 用户运行，无需 sudo。
  *
  * ## 首次启动
@@ -21,7 +20,7 @@ module.exports = {
       name: "bs-lab-backend",
       cwd: "./backend",
       script: "scripts/start-with-env.sh",
-      interpreter: "none",
+      interpreter: "bash",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
