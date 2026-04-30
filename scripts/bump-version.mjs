@@ -18,7 +18,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const VERSION_FILE = resolve(__dirname, "../VERSION");
 const bumpType = (process.argv[2] || "patch").toLowerCase();
 
-let current: string;
+let current;
 try {
   current = readFileSync(VERSION_FILE, "utf-8").trim();
 } catch {
