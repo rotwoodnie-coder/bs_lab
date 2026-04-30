@@ -40,5 +40,14 @@ module.exports = {
       watch: false,
       max_memory_restart: "500M",
     },
+    {
+      name: "bs-lab-webhook",
+      cwd: "./backend",
+      script: "node",
+      args: "scripts/webhook-deploy.mjs",
+      interpreter: "none",
+      watch: false,
+      max_memory_restart: "200M",
+    },
   ],
 };

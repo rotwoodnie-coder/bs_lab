@@ -37,6 +37,10 @@ v0-assets/
 # runtime / debug reports
 backend/reports/
 
+# PM2 / deploy logs
+deploy.log
+webhook.log
+
 # OS/editor
 .DS_Store
 .vscode/
