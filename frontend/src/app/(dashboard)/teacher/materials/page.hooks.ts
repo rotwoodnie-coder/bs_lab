@@ -49,6 +49,11 @@ function writeStoredSidebarFilters(kindFilter: KindFilterId) {
   }
 }
 
+function toStageMessage(stage: string, error: unknown): string {
+  const message = error instanceof Error ? error.message : "未知错误";
+  return `[${stage}] ${message}`;
+}
+
 export function useTeacherMaterialsPage() {
   const session = useSessionActor();
   const { role, orgId, hydrated } = session;
@@ -181,6 +186,12 @@ export function useTeacherMaterialsPage() {
         sonnerToast.error("请先选择要上传的文件");
         throw new Error("缺少文件");
       }
+      console.info("[teacher-materials] create:start", {
+        traceId: [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/"),
+        fileCount: files.length,
+        kind: item.kind,
+        experimentId: item.experimentId,
+      });
       const createdRows: TeacherMaterialItem[] = [];
       let failureCount = 0;
       for (let i = 0; i < files.length; i++) {
@@ -205,11 +216,22 @@ export function useTeacherMaterialsPage() {
             },
           );
           createdRows.push(row);
+          console.info("[teacher-materials] create:upload:ok", {
+            traceId: [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/"),
+            fileName: file.name,
+            kind: item.kind,
+          });
           hooks?.onFileSuccess?.(file);
         } catch (error) {
           failureCount += 1;
           const message = error instanceof Error ? error.message : "上传失败";
-          hooks?.onFileError?.(file, message);
+          console.error("[teacher-materials] create:failed", {
+            traceId: [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/"),
+            fileName: file.name,
+            kind: item.kind,
+            error,
+          });
+          hooks?.onFileError?.(file, toStageMessage("create", error));
         }
       }
       setItems((list) => [...createdRows, ...list]);
@@ -222,6 +244,11 @@ export function useTeacherMaterialsPage() {
       } else {
         sonnerToast.error(`上传失败：共 ${failureCount} 个文件失败`);
       }
+      console.info("[teacher-materials] create:done", {
+        traceId: [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/"),
+        successCount: createdRows.length,
+        failureCount,
+      });
       return { successCount: createdRows.length, failureCount };
     },
     [actor],

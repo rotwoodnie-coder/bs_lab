@@ -1,0 +1,47 @@
+---
+description: 后台任务、部署脚本及 AI 批处理任务的幂等、追踪与自愈规则
+globs: backend/src/**/*.{ts,tsx}, frontend/src/**/*.{ts,tsx}, scripts/**/*, **/*.sh, **/*.ps1, **/*.yml, **/*.yaml
+alwaysApply: false
+---
+
+# Automation Observability & Resilience
+
+## Scope
+
+This rule covers background jobs, deployment scripts, scheduled tasks, batch AI workflows, and any automation that mutates state or depends on external systems.
+
+## Hard constraints
+
+- **Idempotency is mandatory**: every job must support idempotency based on a business ID or deterministic business key.
+- **Traceability is mandatory**: job logs must begin with `job_trace_id`, and the same ID must be propagated through sub-tasks and retries.
+- **Timeouts are mandatory**: every job must define a hard upper timeout; no infinite or unbounded task execution is allowed.
+- **Recovery is mandatory**: every failure path must specify whether the job retries, alerts, or stops with a durable error record.
+
+## Required behavior
+
+- Prefer deterministic job keys derived from business identifiers. If a runtime-generated key is needed, it must be produced once at job creation and reused across retries.
+- Retry only when the failure is explicitly retryable. Use exponential backoff with jitter and a bounded retry count.
+- Persist job state transitions so the system can distinguish `PENDING`, `RUNNING`, `FAILED_RETRYABLE`, `FAILED_FINAL`, and `SUCCEEDED`.
+- Every failure must emit a structured record containing `job_trace_id`, job name, business key, stage, retry count, timeout budget, and original error.
+- Automation must never silently swallow exceptions or convert failures into success without a durable audit trail.
+
+## Deployment and batch safety
+
+- Deploy / migration / batch scripts must be idempotent by design.
+- Scripts must be safe to rerun after interruption.
+- If a script touches external services, it must record a trace token and produce a machine-readable result.
+- Any automatic recovery mechanism must also emit an alert or event when human follow-up is required.
+
+## AI batch task guidance
+
+- AI batch tasks must preserve request identity across prompt retries, partial failures, and resumptions.
+- If the AI provider is unavailable, the task must choose an explicit fallback: queue, retry, or fail fast with a structured error.
+- AI outputs must be validated before side effects are committed.
+
+## Self-check
+
+- [ ] Does every job have a deterministic idempotency key?
+- [ ] Does every log line expose `job_trace_id`?
+- [ ] Is there a hard timeout budget?
+- [ ] Are retries bounded and gated by retryable errors?
+- [ ] Is there a durable alert or failure record for unrecoverable errors?

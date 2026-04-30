@@ -15,7 +15,14 @@ export type MediaUploadXhrPayload = {
     fileUrl?: string | null;
     registration?: "v1" | "v2";
   };
-  error?: string;
+  error?: {
+    message: string;
+    code?: string;
+    source?: string;
+    retryable?: boolean;
+    context?: Record<string, unknown>;
+    traceId?: string;
+  } | string;
 };
 
 export type MediaUploadProgressEvent = {
@@ -25,6 +32,11 @@ export type MediaUploadProgressEvent = {
 };
 
 const MEDIA_UPLOAD_XHR_TIMEOUT_MS = 120_000;
+
+function normalizeError(error: MediaUploadXhrPayload["error"]): { message: string; code?: string; source?: string; retryable?: boolean; context?: Record<string, unknown>; traceId?: string } {
+  if (typeof error === "string") return { message: error };
+  return error ?? { message: "上传失败" };
+}
 
 export function postMediaUploadForm(
   form: FormData,
@@ -41,21 +53,24 @@ export function postMediaUploadForm(
       options.onProgress({ loaded: ev.loaded, total: ev.total, percent });
     };
     xhr.onload = () => {
-      let body: MediaUploadXhrPayload;
       try {
-        if (typeof xhr.response === "object" && xhr.response !== null) {
-          body = xhr.response as MediaUploadXhrPayload;
-        } else {
-          body = JSON.parse(xhr.responseText) as MediaUploadXhrPayload;
+        const raw = typeof xhr.response === "object" && xhr.response !== null ? xhr.response : JSON.parse(xhr.responseText);
+        const body = raw as MediaUploadXhrPayload;
+        if (!body.ok && body.error && typeof body.error === "object" && body.error.retryable !== undefined) {
+          resolve(body);
+          return;
         }
+        resolve(body);
       } catch {
         reject(new Error("服务返回了无效数据"));
-        return;
       }
-      resolve(body);
     };
     xhr.onerror = () => reject(new Error("网络异常"));
     xhr.ontimeout = () => reject(new Error("上传请求超时，请稍后重试"));
     xhr.send(form);
   });
+}
+
+export function extractMediaUploadError(payload: MediaUploadXhrPayload): { message: string; code?: string; source?: string; retryable?: boolean; context?: Record<string, unknown>; traceId?: string } {
+  return normalizeError(payload.error);
 }

@@ -302,7 +302,6 @@ export function TeacherMaterialsCreateFilePicker(props: Props) {
                           className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
                           onClick={() => props.onRemoveRecovered?.(entry.key)}
                           aria-label="从恢复队列移除"
-                          disabled={entry.state.status === "uploading"}
                         >
                           <Trash2 className="size-3.5" />
                         </Button>

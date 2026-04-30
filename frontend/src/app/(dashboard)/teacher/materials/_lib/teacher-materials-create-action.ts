@@ -9,6 +9,37 @@ import type { MediaUploadProgressEvent } from "@/lib/media-platform/upload-form-
 import { inferKindFromFile } from "./teacher-material-file-kind";
 import { finalizeTeacherVideoMaterialLogo } from "./teacher-video-material-logo-finalize";
 
+function traceIdFromActor(actor: ApiActor): string {
+  return [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/");
+}
+
+type StructuredMaterialFlowError = {
+  code: string;
+  message: string;
+  source: string;
+  retryable: boolean;
+  context: Record<string, unknown>;
+  traceId: string;
+};
+
+function buildStructuredMaterialFlowError(
+  code: string,
+  message: string,
+  source: string,
+  retryable: boolean,
+  context: Record<string, unknown>,
+  traceId: string,
+): StructuredMaterialFlowError {
+  return { code, message, source, retryable, context, traceId };
+}
+
+function logMaterialFlowError(err: StructuredMaterialFlowError, originalError?: unknown): void {
+  console.error(`[teacher-materials] ${err.source}`, {
+    ...err,
+    originalError,
+  });
+}
+
 type ExecuteTeacherMaterialCreateOptions = {
   silent?: boolean;
   onProgress?: (event: MediaUploadProgressEvent) => void;
@@ -41,6 +72,16 @@ async function uploadAndReadTeacherMaterialRow(
   file: File,
   options?: ExecuteTeacherMaterialCreateOptions,
 ): Promise<{ up: UploadToMediaPlatformResult; created: TeacherMaterialItem }> {
+  const traceId = traceIdFromActor(actor);
+  console.info("[teacher-materials] create:start", {
+    traceId,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type,
+    kind: effectiveItem.kind,
+    experimentId: effectiveItem.experimentId ?? null,
+  });
+
   let up: UploadToMediaPlatformResult;
   try {
     up = await uploadTeacherMaterialFileToPlatform(
@@ -57,22 +98,61 @@ async function uploadAndReadTeacherMaterialRow(
         uploadKey: stableUploadKey(file, effectiveItem),
       },
     );
+    console.info("[teacher-materials] create:upload:ok", {
+      traceId,
+      assetId: up.assetId,
+      registryId: up.registryId,
+      storageMode: up.storageMode,
+      reused: up.reused,
+      fileUrl: up.fileUrl ?? null,
+    });
   } catch (error) {
-    throw new Error(
-      `[上传并登记媒体] ${error instanceof Error ? error.message : "上传失败"}`,
+    const structured = buildStructuredMaterialFlowError(
+      "UPLOAD_MATERIAL_FAILED",
+      "素材上传失败",
+      "teacher-materials:create:upload",
+      true,
+      {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        kind: effectiveItem.kind,
+        experimentId: effectiveItem.experimentId ?? null,
+      },
+      traceId,
     );
+    logMaterialFlowError(structured, error);
+    throw structured;
   }
+
   try {
     const fileRow = await withTimeout(
       fetchV2FileById(actor, up.assetId),
       CREATE_MATERIAL_TIMEOUT_MS,
       "读取素材记录超时，请稍后重试",
     );
+    console.info("[teacher-materials] create:fetch:ok", {
+      traceId,
+      fileId: fileRow.fileId,
+      fileName: fileRow.fileName,
+      logoUrl: fileRow.logoUrl,
+      fileUrl: fileRow.fileUrl,
+    });
     return { up, created: teacherMaterialFromDataFileRecord(fileRow) };
   } catch (error) {
-    throw new Error(
-      `[读取 data_file] ${error instanceof Error ? error.message : "读取素材失败"}`,
+    const structured = buildStructuredMaterialFlowError(
+      "READ_MATERIAL_ROW_FAILED",
+      "读取素材记录失败",
+      "teacher-materials:create:fetch",
+      true,
+      {
+        assetId: up.assetId,
+        registryId: up.registryId,
+      },
+      traceId,
     );
+    logMaterialFlowError(structured, error);
+    throw structured;
   }
 }
 
@@ -84,15 +164,47 @@ async function maybeRehydrateVideoAfterLogo(
   created: TeacherMaterialItem,
 ): Promise<TeacherMaterialItem> {
   if (effectiveKind !== "video") return created;
-  await finalizeTeacherVideoMaterialLogo(actor, up.assetId, file);
+  const traceId = traceIdFromActor(actor);
+  console.info("[teacher-materials] create:thumbnail:start", {
+    traceId,
+    assetId: up.assetId,
+    fileName: file.name,
+  });
+  try {
+    await finalizeTeacherVideoMaterialLogo(actor, up.assetId, file);
+  } catch (error) {
+    const structured = buildStructuredMaterialFlowError(
+      "VIDEO_THUMBNAIL_FINALIZE_FAILED",
+      "视频封面生成失败",
+      "teacher-materials:create:thumbnail",
+      true,
+      { assetId: up.assetId, fileName: file.name },
+      traceId,
+    );
+    logMaterialFlowError(structured, error);
+  }
   try {
     const refreshed = await withTimeout(
       fetchV2FileById(actor, up.assetId),
       CREATE_MATERIAL_TIMEOUT_MS,
       "刷新视频封面字段超时",
     );
+    console.info("[teacher-materials] create:thumbnail:done", {
+      traceId,
+      assetId: up.assetId,
+      logoUrl: refreshed.logoUrl,
+    });
     return teacherMaterialFromDataFileRecord(refreshed);
-  } catch {
+  } catch (error) {
+    const structured = buildStructuredMaterialFlowError(
+      "REFRESH_THUMBNAIL_ROW_FAILED",
+      "刷新视频封面字段失败",
+      "teacher-materials:create:thumbnail:fetch",
+      true,
+      { assetId: up.assetId },
+      traceId,
+    );
+    logMaterialFlowError(structured, error);
     return created;
   }
 }
@@ -111,6 +223,12 @@ export async function executeTeacherMaterialCreate(
   // 仅在选择了关联实验时才执行引用登记。
   // 未选择实验时不触发该流程，避免出现无关告警干扰用户。
   if (effectiveItem.experimentId?.trim() && up.registryId?.trim()) {
+    const traceId = traceIdFromActor(actor);
+    console.info("[teacher-materials] create:reference:start", {
+      traceId,
+      assetId: up.assetId,
+      registryId: up.registryId,
+    });
     try {
       await withTimeout(
         createMediaReference(actor, {
@@ -123,9 +241,26 @@ export async function executeTeacherMaterialCreate(
         CREATE_REFERENCE_TIMEOUT_MS,
         "引用登记超时，请稍后重试",
       );
+      console.info("[teacher-materials] create:reference:done", {
+        traceId,
+        assetId: up.assetId,
+        registryId: up.registryId,
+      });
     } catch (error) {
+      const structured = buildStructuredMaterialFlowError(
+        "CREATE_REFERENCE_FAILED",
+        "素材引用登记失败",
+        "teacher-materials:create:reference",
+        true,
+        {
+          assetId: up.assetId,
+          registryId: up.registryId,
+        },
+        traceId,
+      );
+      logMaterialFlowError(structured, error);
       sonnerToast.warning("素材已创建，但引用登记失败", {
-        description: error instanceof Error ? error.message : "引用登记失败",
+        description: "引用登记失败，请稍后重试",
       });
     }
   }

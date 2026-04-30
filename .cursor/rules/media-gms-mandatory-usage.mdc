@@ -23,6 +23,13 @@ Use these first and extend them only when necessary:
 - `MediaPreviewCard`
 - `MediaUploadPreviewCard` when upload + preview must be combined
 
+## Media task resilience requirements
+
+- All GMS tasks (upload, slicing, AI processing, thumbnailing, recovery, review sync) must preserve `traceId` across the full lifecycle.
+- Media task state must support a `FAILED_RETRYABLE` state and follow the global exponential backoff + jitter retry policy.
+- Feature code must not swallow GMS failures; it must surface structured error data and a retry path when `retryable: true`.
+- Media UI must map backend structured errors to deterministic fallback behavior instead of inventing ad hoc failure states.
+
 ## Media code review rule
 
 If a new media-related UI is needed, it must be composed from the shared GMS controls.
@@ -38,5 +45,5 @@ Do not bypass the GMS controls for a "quick" implementation.
 ## Preferred pattern
 
 - Feature pages should only provide business context and identifiers.
-- GMS should own media state, thumbnail state, upload state, retry state, and preview fallback behavior.
+- GMS should own media state, thumbnail state, upload state, retry state, traceId propagation, and preview fallback behavior.
 - Feature code may customize layout, labels, and business actions, but not the media lifecycle itself.

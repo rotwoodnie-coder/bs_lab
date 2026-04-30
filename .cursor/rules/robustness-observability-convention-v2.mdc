@@ -1,0 +1,19 @@
+---
+description: 宝山 AI 平台全局健壮性与可观测性公约 V2.1
+alwaysApply: true
+---
+
+# 全局健壮性与可观测性公约
+
+- 将异常分为 `BUSINESS` / `SYSTEM` / `PROGRAM` 三类，并返回结构化错误对象：`{ code, message, source, retryable, context, traceId }`。
+- 严禁裸抛 `Error` 作为模块级输出；严禁空 `catch {}`、静默吞错、或仅 `console.log(err)` 后不处理。
+- 所有外部依赖（DB / S3 / 第三方 API / AI）必须显式设置 `timeout`；写操作必须携带稳定 `idempotencyKey`。
+- `idempotencyKey` 应由业务关键参数哈希生成，或由前端生成后透传；禁止每次重试生成新 ID。
+- 仅对 `retryable: true` 的错误重试，最多 3 次，必须使用指数退避 + 随机抖动。
+- 每个关键链路必须定义失败后的表现：返回 `503`、占位资源、或明确业务提示；严禁返回 `undefined`、空对象伪成功。
+- 外部数据进入系统第一步必须做 Schema 校验，推荐使用 `Zod` / `Valibot` / `Joi`；禁止直接解构未校验对象。
+- 所有请求必须携带并透传 `traceId`，日志必须包含模块名、动作、关键参数、原始错误、`traceId`。
+- 复杂流程必须打阶段日志：`start`、`upload:ok`、`fetch:ok`、`thumbnail:done`、`reference:done`、`failed`。
+- `BUSINESS` 错误使用 `WARN`；`SYSTEM` / `PROGRAM` 错误必须使用 `ERROR` 并进入追踪或告警。
+- UI 只展示可执行的安全提示：可重试错误给【重试】，不可恢复错误给【联系管理员】；禁止暴露 SQL、内网地址、堆栈。
+- 在 PR / 代码生成交付前必须自检是否满足上述要求；若不满足，必须明确说明缺口与原因。

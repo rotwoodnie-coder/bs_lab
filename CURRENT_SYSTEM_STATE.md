@@ -253,3 +253,29 @@
 - `org delete`
 - `teacher class sync`
 - `permission guard`
+
+### 4.8 前端媒体上传转发兼容层
+
+- `frontend/src/app/api/media/upload/route.ts`
+  - 浏览器 multipart 上传统一先进入前端 Route Handler，再转发到后端 `/v2/file/upload`
+  - 原样透传 `cookie`，确保后端继续以 `v2_access_token` 识别登录态
+  - 兼容前端两类上传客户端字段：`title`、`mediaKind`、`teacherMaterialKind`、`userId`、`orgId`、`userName`、`role`、`uploadKey`
+  - 对后端返回进行统一封装，补齐 `registryId` / `assetId` / `viewUrl` / `reviewStatus` / `reused` / `storageMode` / `fileUrl` / `registration`
+  - 当前优先级：Done
+
+### 4.8 前端媒体上传转发路由
+
+- `frontend/src/app/api/media/upload/route.ts`
+  - 浏览器 multipart 上传统一先进入前端 Route Handler，再转发到后端 `/v2/file/upload`
+  - 原样透传 `cookie`，确保后端继续以 `v2_access_token` 识别登录态
+  - 仅转发后端关心的字段：`file`、`teacherMaterialKind`
+  - 对后端返回进行统一封装，补齐 `registryId` / `assetId` / `viewUrl` / `reviewStatus` / `reused` / `storageMode`
+  - 当前优先级：Done
+
+### 4.9 v2-file 对象存储读取定位增强
+
+- `backend/src/http/routes/v2-file.ts`
+  - `thumbnail/ensure` 与去重后的封面回填都打出结构化日志，便于区分错误来源
+  - 日志包含 `fileId`、`storageKey`、`code`、`name`、`message`、`retryable`
+  - `ECONNRESET` / `TimeoutError` 会被标记为可重试，方便开发环境快速定位对象存储抖动
+  - 当前优先级：Done

@@ -1,6 +1,7 @@
 ---
 description: 管理页 UI 交互母版（标准实验目录 + 教学框架管理）
 globs: frontend/src/app/(dashboard)/console/**/*.{ts,tsx}
+alwaysApply: false
 ---
 
 # 管理页 UI 交互母版与统一化
@@ -50,6 +51,14 @@ globs: frontend/src/app/(dashboard)/console/**/*.{ts,tsx}
 - **原子组件**：仅 `@bs-lab/ui`；语义色与 Dark 模式遵守 `ui-source-of-truth.mdc`。
 - **提炼通用能力**：应从上述双母版抽取并复用，禁止复制后各自维护一套等价布局。
 
+## 结构化错误交互规范
+
+- 后端返回的结构化错误必须按 `retryable` 自动决定 UI 行为：`true` 时展示【重试】入口，`false` 时展示明确的修复/联系管理员提示。
+- 400 类错误必须精确定位到表单字段或局部区域，不得只弹全局 Toast 代替。
+- 503 类错误必须引导用户刷新、重试或稍后再试，并保留当前输入上下文。
+- 严禁将原始堆栈、SQL 报错、内网地址或依赖库全文错误直接透传到 Toast / Dialog。
+- UI 只能展示经过清洗后的安全错误信息；必要时在高级调试面板中展示脱敏后的 `code`、`traceId`、`source`。
+
 ## 联调、运维、中台类面板
 
 登记 ID、审核策略、版本/引用升级等**面向联调或运维**的区块：**不得**作为列表页默认首屏大块常驻；须采用以下至少一种：**默认折叠**、**独立控制台路由**、**权限可见**、或与主列表**明确分区**且不抢占主内容首屏。与 `reuse-first-ui-and-pages.mdc` 一致。
@@ -63,6 +72,7 @@ globs: frontend/src/app/(dashboard)/console/**/*.{ts,tsx}
 - [ ] 对话框与 Toast 是否为简体中文且符合产品文案相关规则。
 - [ ] 单文件行数与函数长度是否满足 `single-file-300-lines-max.mdc`。
 - [ ] 联调/运维类面板是否未默认挤压主列表首屏。
+- [ ] 结构化错误是否按 `retryable`、400 / 503 语义正确渲染。
 
 ## 例外
 

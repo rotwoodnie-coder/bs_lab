@@ -48,6 +48,7 @@ type RecoveredUploadEntry = {
   size: number;
   type: string;
   lastModified: number;
+  traceId?: string;
   state: UploadState;
 };
 type PersistedUploadSnapshot = {
@@ -163,22 +164,42 @@ export function TeacherMaterialCreateDialog(props: Props) {
 
     const snapshot = readUploadSnapshot(UPLOAD_SNAPSHOT_KEY);
     if (snapshot && snapshot.entries.length > 0) {
+      const normalizedEntries = snapshot.entries.map((entry) => ({
+        ...entry,
+        state:
+          entry.state.status === "uploading"
+            ? {
+                status: "failed" as const,
+                progress: entry.state.progress || 0,
+                message: entry.state.message || "上传已中断，请重新选择文件后重试",
+              }
+            : entry.state,
+      }));
+      const hasLostFiles = normalizedEntries.some((entry) => entry.state.status === "failed" && entry.size <= 0);
+      const lostFileKeys = new Set(normalizedEntries.filter((entry) => entry.state.status === "failed" && entry.size <= 0).map((entry) => entry.key));
+      const actionableRecoveredEntries = normalizedEntries.filter((entry) => !lostFileKeys.has(entry.key));
       setTitle(snapshot.title);
       setKind(snapshot.kind);
       setExperimentId(snapshot.experimentId ?? null);
       setLinkedExperimentTitle(snapshot.linkedExperimentTitle ?? null);
       setDragging(false);
       setSelectedFiles([]);
-      setRecoveredEntries(snapshot.entries);
+      setRecoveredEntries(actionableRecoveredEntries);
       setSubmitting(false);
-      setUploadStates(Object.fromEntries(snapshot.entries.map((entry) => [entry.key, entry.state])));
+      setUploadStates(Object.fromEntries(actionableRecoveredEntries.map((entry) => [entry.key, entry.state])));
       setPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return "";
       });
       sonnerToast.message("已恢复上次上传记录", {
-        description: `检测到 ${snapshot.entries.length} 条队列记录，可重新选择失败文件继续上传`,
+        description: hasLostFiles
+          ? `检测到 ${normalizedEntries.length} 条队列记录，其中部分文件已丢失，请重新上传。`
+          : `检测到 ${normalizedEntries.length} 条队列记录，可逐条移除，或重新选择失败文件继续上传`,
       });
+      if (hasLostFiles) {
+        setSelectedFiles([]);
+        setUploadStates({});
+      }
       return;
     }
 
@@ -256,12 +277,13 @@ export function TeacherMaterialCreateDialog(props: Props) {
 
   const removeRecoveredEntry = React.useCallback((key: string) => {
     setRecoveredEntries((prev) => prev.filter((e) => e.key !== key));
+    setSelectedFiles((prev) => prev.filter((file) => fileKey(file) !== key));
     setUploadStates((prev) => {
       const next = { ...prev };
       delete next[key];
       return next;
     });
-  }, []);
+  }, [fileKey]);
 
   const removeAt = React.useCallback((index: number) => {
     setSelectedFiles((prev) => {
@@ -320,7 +342,13 @@ export function TeacherMaterialCreateDialog(props: Props) {
   const submit = React.useCallback(async (targetFiles?: File[]) => {
     const filesToUpload = targetFiles ?? selectedFiles;
     if (filesToUpload.length === 0) {
-      sonnerToast.error("请先选择要上传的文件");
+      const recoveredFailed = recoveredEntries.filter((entry) => entry.state.status === "failed");
+      if (recoveredFailed.length > 0) {
+        const traceId = recoveredFailed[0]?.traceId;
+        sonnerToast.error(traceId ? `文件已丢失，请重新上传（traceId: ${traceId}）` : "文件已丢失，请重新上传");
+      } else {
+        sonnerToast.error("请先选择要上传的文件");
+      }
       return;
     }
     if (selectedFiles.length === 1 && !title.trim()) {
@@ -357,10 +385,12 @@ export function TeacherMaterialCreateDialog(props: Props) {
         },
         onFileError: (file, message) => {
           const key = fileKey(file);
+          const traceId = /traceId:\s*([^\)\s]+)/i.exec(message)?.[1];
           setUploadStates((prev) => ({
             ...prev,
             [key]: { status: "failed", progress: 100, message },
           }));
+          setRecoveredEntries((prev) => prev.map((entry) => (entry.key === key ? { ...entry, traceId } : entry)));
         },
       });
       if (result.failureCount === 0 && filesToUpload.length === selectedFiles.length) {
@@ -444,7 +474,9 @@ export function TeacherMaterialCreateDialog(props: Props) {
             onClick={() => void submit(failedFiles)}
             disabled={submitting || failedFiles.length === 0 || hasUnrecognizedFiles}
           >
-            重试失败项{failedFiles.length > 0 ? `（${failedFiles.length}）` : ""}
+            {recoveredEntries.some((entry) => entry.state.status === "failed" && entry.size <= 0)
+              ? "文件已丢失，请重新上传"
+              : `重试失败项${failedFiles.length > 0 ? `（${failedFiles.length}）` : ""}`}
           </Button>
           <Button type="button" variant="outline" onClick={() => props.onOpenChange(false)} disabled={submitting}>
             取消

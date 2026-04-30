@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Badge, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bs-lab/ui";
+import { Badge, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, sonnerToast } from "@bs-lab/ui";
 import type { TeacherMaterialKind } from "@/lib/teacher-materials-api";
 import { TeacherMaterialExperimentField } from "./TeacherMaterialExperimentField";
 
@@ -66,6 +66,9 @@ export function TeacherMaterialCreateMetaPanel(props: Props) {
         <div className="flex flex-wrap gap-1">
           <Badge variant="secondary">{props.kindOptions.find((option) => option.value === props.kind)?.label ?? props.kind}</Badge>
         </div>
+        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+          上传过程若返回 503 / 可重试错误，会保留当前输入；若恢复队列中的文件已丢失，请重新选择原文件后再继续。
+        </p>
       </div>
     </div>
   );

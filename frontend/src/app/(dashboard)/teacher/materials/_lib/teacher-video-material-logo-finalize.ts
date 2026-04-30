@@ -8,6 +8,26 @@ import {
   postV2FileThumbnailEnsure,
 } from "@/lib/v2/v2-file-api";
 
+function traceIdFromActor(actor: ApiActor): string {
+  return [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/");
+}
+
+function logVideoPosterError(
+  stage: string,
+  actor: ApiActor,
+  videoFileId: string,
+  error: unknown,
+  context: Record<string, unknown> = {},
+): void {
+  const traceId = traceIdFromActor(actor);
+  console.error(`[teacher-materials] ${stage}`, {
+    traceId,
+    videoFileId,
+    ...context,
+    error,
+  });
+}
+
 const POLL_INTERVAL_MS = 450;
 const POLL_BUDGET_MS = 22_000;
 
@@ -24,8 +44,14 @@ function hasRenderableLogo(raw: string | null | undefined): boolean {
 async function waitForLogoUrl(actor: CoreApiActor, fileId: string): Promise<string | null> {
   const deadline = Date.now() + POLL_BUDGET_MS;
   while (Date.now() < deadline) {
-    const row = await fetchV2FileById(actor, fileId);
-    if (hasRenderableLogo(row.logoUrl)) return row.logoUrl!.trim();
+    try {
+      const row = await fetchV2FileById(actor, fileId);
+      if (hasRenderableLogo(row.logoUrl)) return row.logoUrl!.trim();
+    } catch (error) {
+      logVideoPosterError("teacher-materials:create:thumbnail:poll", actor as ApiActor, fileId, error, {
+        stage: "fetchV2FileById",
+      });
+    }
     await sleep(POLL_INTERVAL_MS);
   }
   return null;
@@ -39,8 +65,10 @@ export async function finalizeTeacherVideoMaterialLogo(actor: ApiActor, videoFil
   const core = actor as CoreApiActor;
   try {
     await postV2FileThumbnailEnsure(core, videoFileId, {});
-  } catch {
-    /* 补任务触发失败不阻断 */
+  } catch (error) {
+    logVideoPosterError("teacher-materials:create:thumbnail:start", actor, videoFileId, error, {
+      stage: "postV2FileThumbnailEnsure",
+    });
   }
   const ok = await waitForLogoUrl(core, videoFileId);
   if (ok) return;
@@ -51,13 +79,29 @@ export async function finalizeTeacherVideoMaterialLogo(actor: ApiActor, videoFil
   try {
     const up = await uploadMediaFileToPlatform(actor, posterFile, { kind: "image", title: "视频封面" }, { ui: "silent" });
     fileUrl = up.fileUrl?.trim() || undefined;
-  } catch {
+    console.info("[teacher-materials] create:thumbnail:upload:ok", {
+      traceId: traceIdFromActor(actor),
+      videoFileId,
+      fileUrl,
+    });
+  } catch (error) {
+    logVideoPosterError("teacher-materials:create:thumbnail:upload", actor, videoFileId, error, {
+      stage: "uploadMediaFileToPlatform",
+    });
     return;
   }
   if (!fileUrl) return;
   try {
     await patchV2FileRecord(core, videoFileId, { logoUrl: fileUrl });
-  } catch {
-    /* PATCH 失败保留无封面，由列表端 Canvas 兜底 */
+    console.info("[teacher-materials] create:thumbnail:done", {
+      traceId: traceIdFromActor(actor),
+      videoFileId,
+      fileUrl,
+    });
+  } catch (error) {
+    logVideoPosterError("teacher-materials:create:thumbnail:patch", actor, videoFileId, error, {
+      stage: "patchV2FileRecord",
+      fileUrl,
+    });
   }
 }

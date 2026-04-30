@@ -13,7 +13,7 @@ import {
 import type { MediaKind } from "./types";
 import { startMediaUploadProgressToast } from "./media-upload-toast-progress";
 import type { MediaUploadProgressEvent, MediaUploadXhrPayload } from "./upload-form-xhr";
-import { postMediaUploadForm } from "./upload-form-xhr";
+import { extractMediaUploadError, postMediaUploadForm } from "./upload-form-xhr";
 import type { MediaStorageMode } from "./media-upload-destination-copy";
 
 export type UploadToMediaPlatformResult = {
@@ -57,7 +57,7 @@ async function postUploadEnvelope(
       },
     });
     if (!payload.ok || !payload.data) {
-      throw new Error(payload.error ?? "上传失败");
+      throw new Error(errorMessageFromPayload(payload));
     }
     toastCtl?.finishSuccess(payload.data.storageMode, payload.data.reused);
     return payload;
@@ -66,6 +66,13 @@ async function postUploadEnvelope(
     toastCtl?.finishError(msg);
     throw e instanceof Error ? new Error(`[上传接口] ${e.message}`) : new Error(`[上传接口] ${msg}`);
   }
+}
+
+function errorMessageFromPayload(payload: MediaUploadXhrPayload): string {
+  const err = extractMediaUploadError(payload);
+  const code = err.code ? ` [${err.code}]` : "";
+  const trace = err.traceId ? ` (traceId: ${err.traceId})` : "";
+  return `${err.message}${code}${trace}`;
 }
 
 function mapData(payload: MediaUploadXhrPayload): UploadToMediaPlatformResult {

@@ -44,6 +44,20 @@ function itemWantsServerThumbnail(item: TeacherMaterialItem): boolean {
  * - 缺 hash / file_type_id → `POST …/data-repair`
  * - 视频且无主图 → `POST …/thumbnail/ensure`（服务端写 `logo_url`；滚动即可触发，无需客户端截帧成功）
  */
+function traceIdFromActor(actor: ApiActor): string {
+  return [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/");
+}
+
+function logRepairError(stage: string, actor: ApiActor, item: TeacherMaterialItem, error: unknown): void {
+  console.error(`[teacher-materials] ${stage}`, {
+    traceId: traceIdFromActor(actor),
+    materialId: item.materialId,
+    fileId: resolvedTeacherMaterialDataFileId(item) ?? item.materialId,
+    kind: item.kind,
+    error,
+  });
+}
+
 export function useTeacherMaterialDataFileRepairOnVisible(
   actor: ApiActor | null | undefined,
   item: TeacherMaterialItem | null | undefined,
@@ -94,8 +108,9 @@ export function useTeacherMaterialDataFileRepairOnVisible(
               console.info(`[DataRepair] Material ID: ${itemRef.current?.materialId ?? id}, Hash/TypeID Updated.`);
             }
           })
-          .catch(() => {
+          .catch((error) => {
             touchedRepairKeys.delete(id);
+            logRepairError("teacher-materials:data-repair:failed", actor, live, error);
           });
       }
 
@@ -109,8 +124,9 @@ export function useTeacherMaterialDataFileRepairOnVisible(
               );
             }
           })
-          .catch(() => {
+          .catch((error) => {
             touchedThumbKeys.delete(id);
+            logRepairError("teacher-materials:thumbnail:ensure:failed", actor, live, error);
           });
       }
     };

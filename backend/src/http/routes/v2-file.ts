@@ -84,6 +84,35 @@ function mimeTypeHintForThumbnail(record: DataFileRecord, clientMime?: string): 
  * 已有行但 `logo_url` 为空时，从对象存储拉回字节再跑 `finalizeDataFileThumbnail`（与「补封面」接口同源逻辑）。
  * 用于：内容去重命中旧行、或历史上传时异步封面失败。
  */
+function isRetryableStorageReadError(err: unknown): boolean {
+  const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code ?? "") : "";
+  const name = typeof err === "object" && err !== null && "name" in err ? String((err as { name?: unknown }).name ?? "") : "";
+  const message = err instanceof Error ? err.message : String(err);
+  return code === "ECONNRESET" || name === "TimeoutError" || /ECONNRESET|socket hang up|timed? out/i.test(message);
+}
+
+function storageReadErrorContext(source: string, recordId: string, storageKey: string, err: unknown) {
+  const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code ?? "") : "";
+  const name = typeof err === "object" && err !== null && "name" in err ? String((err as { name?: unknown }).name ?? "") : "";
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    source,
+    fileId: recordId,
+    storageKey,
+    code,
+    name,
+    message,
+    retryable: isRetryableStorageReadError(err),
+  };
+}
+
+function logStorageReadError(source: string, recordId: string, storageKey: string, err: unknown): void {
+  console.error(`[v2/file] ${source} storage read failed`, {
+    ...storageReadErrorContext(source, recordId, storageKey, err),
+    error: err,
+  });
+}
+
 function scheduleThumbnailFinalizeFromStorageIfNoLogo(record: DataFileRecord, clientMime?: string): void {
   if (dataFileHasRenderableLogoUrl(record.logoUrl)) return;
   const fileUrl = record.fileUrl?.trim();
@@ -92,9 +121,21 @@ function scheduleThumbnailFinalizeFromStorageIfNoLogo(record: DataFileRecord, cl
   if (!looksLikeVideo(mime, record.fileName) && !looksLikeImage(mime, record.fileName)) return;
   const storageKey = tryStorageKeyFromFileUrl(fileUrl);
   if (!storageKey) return;
+  console.info("[v2/file] thumbnail backfill scheduled", {
+    fileId: record.fileId,
+    storageKey,
+    ownerUserId: record.ownerUserId ?? "anon",
+    fileName: record.fileName,
+    mime,
+  });
   void (async () => {
     try {
       const buffer = await getObjectBuffer(storageKey);
+      console.info("[v2/file] thumbnail backfill storage read ok", {
+        fileId: record.fileId,
+        storageKey,
+        bytes: buffer.length,
+      });
       await finalizeDataFileThumbnail({
         fileId: record.fileId,
         fileUrl,
@@ -104,7 +145,7 @@ function scheduleThumbnailFinalizeFromStorageIfNoLogo(record: DataFileRecord, cl
         ownerSegment: record.ownerUserId ?? "anon",
       });
     } catch (e) {
-      console.error("[v2/file] thumbnail backfill from storage", record.fileId, e);
+      logStorageReadError("thumbnail backfill", record.fileId, storageKey, e);
     }
   })();
 }
@@ -332,13 +373,20 @@ export async function routeV2File(req: Request): Promise<Response> {
         return fail("data_file.file_url 不在当前 S3 存储中，无法读取源文件生成封面", 400);
       }
       let buffer: Buffer | null = null;
+      let readErr: unknown;
       try {
         buffer = await getObjectBuffer(storageKey);
+        console.info("[v2/file/thumbnail/ensure] storage read ok", {
+          fileId,
+          storageKey,
+          bytes: buffer.length,
+        });
       } catch (e) {
-        console.error("[v2/file/thumbnail/ensure] read object failed", fileId, e);
+        readErr = e;
+        logStorageReadError("thumbnail/ensure", fileId, storageKey, e);
       }
       if (!buffer) {
-        return fail("从 S3 读取源文件失败，无法生成封面", 400);
+        return fail("从 S3 读取源文件失败，无法生成封面", isRetryableStorageReadError(readErr) ? 503 : 400);
       }
       const ensureMime = mimeTypeHintForThumbnail(record, "");
       void finalizeDataFileThumbnail({

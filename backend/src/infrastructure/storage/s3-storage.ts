@@ -4,6 +4,14 @@
  */
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+
+function isRetryableStorageReadError(err: unknown): boolean {
+  const code = typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code ?? "") : "";
+  const name = typeof err === "object" && err !== null && "name" in err ? String((err as { name?: unknown }).name ?? "") : "";
+  const message = err instanceof Error ? err.message : String(err);
+  return code === "ECONNRESET" || name === "TimeoutError" || /ECONNRESET|socket hang up|timed? out/i.test(message);
+}
 
 function requiredEnv(name: string): string {
   const value = process.env[name]?.trim();
@@ -30,22 +38,58 @@ function getConfig() {
   };
 }
 
-function createClient(): S3Client {
+/** 单例 S3Client，复用 TCP 连接池 */
+let _s3Client: S3Client | null = null;
+
+function getClient(): S3Client {
+  if (_s3Client) return _s3Client;
   const cfg = getConfig();
-  return new S3Client({
+  _s3Client = new S3Client({
     region: cfg.region,
     endpoint: cfg.endpoint,
     forcePathStyle: true,
     credentials: cfg.credentials,
+    requestHandler: new NodeHttpHandler({
+      connectionTimeout: 10_000,
+      requestTimeout: 60_000,
+    }),
+    retryMode: "adaptive",
+    maxAttempts: 3,
   });
+  return _s3Client;
 }
 
 export async function putObject(storageKey: string, body: Buffer, contentType: string): Promise<void> {
   const cfg = getConfig();
-  const client = createClient();
-  await client.send(
-    new PutObjectCommand({ Bucket: cfg.bucket, Key: normalizeKey(storageKey), Body: body, ContentType: contentType }),
-  );
+  const client = getClient();
+  const key = normalizeKey(storageKey);
+  const startedAt = Date.now();
+  try {
+    await client.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key, Body: body, ContentType: contentType }));
+    console.info("[s3-storage] putObject ok", {
+      bucket: cfg.bucket,
+      endpoint: cfg.endpoint,
+      key,
+      bytes: body.length,
+      contentType,
+      elapsedMs: Date.now() - startedAt,
+    });
+  } catch (err) {
+    console.error("[s3-storage] putObject failed", {
+      bucket: cfg.bucket,
+      endpoint: cfg.endpoint,
+      key,
+      bytes: body.length,
+      contentType,
+      elapsedMs: Date.now() - startedAt,
+      code: typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code ?? "") : "",
+      name: typeof err === "object" && err !== null && "name" in err ? String((err as { name?: unknown }).name ?? "") : "",
+      message: err instanceof Error ? err.message : String(err),
+      retryable: isRetryableStorageReadError(err),
+      error: err,
+    });
+    throw err;
+  }
 }
 
 export function getDirectUrl(storageKey: string): string {
@@ -54,18 +98,46 @@ export function getDirectUrl(storageKey: string): string {
 
 export async function deleteObject(storageKey: string): Promise<void> {
   const cfg = getConfig();
-  const client = createClient();
+  const client = getClient();
   await client.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: normalizeKey(storageKey) }));
 }
 
 export async function getObjectBuffer(storageKey: string): Promise<Buffer> {
   const cfg = getConfig();
-  const client = createClient();
-  const res = await client.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: normalizeKey(storageKey) }));
-  if (!res.Body) throw new Error("EMPTY_S3_BODY");
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of res.Body as AsyncIterable<Uint8Array>) chunks.push(chunk);
-  return Buffer.concat(chunks);
+  const client = getClient();
+  const key = normalizeKey(storageKey);
+  const startedAt = Date.now();
+  try {
+    const res = await client.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key }));
+    if (!res.Body) throw new Error("EMPTY_S3_BODY");
+    const chunks: Uint8Array[] = [];
+    let bytes = 0;
+    for await (const chunk of res.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+      bytes += chunk.byteLength;
+    }
+    console.info("[s3-storage] getObjectBuffer ok", {
+      bucket: cfg.bucket,
+      endpoint: cfg.endpoint,
+      key,
+      bytes,
+      elapsedMs: Date.now() - startedAt,
+    });
+    return Buffer.concat(chunks);
+  } catch (err) {
+    console.error("[s3-storage] getObjectBuffer failed", {
+      bucket: cfg.bucket,
+      endpoint: cfg.endpoint,
+      key,
+      elapsedMs: Date.now() - startedAt,
+      code: typeof err === "object" && err !== null && "code" in err ? String((err as { code?: unknown }).code ?? "") : "",
+      name: typeof err === "object" && err !== null && "name" in err ? String((err as { name?: unknown }).name ?? "") : "",
+      message: err instanceof Error ? err.message : String(err),
+      retryable: isRetryableStorageReadError(err),
+      error: err,
+    });
+    throw err;
+  }
 }
 
 export async function createPresignedReadUrl(
@@ -73,7 +145,7 @@ export async function createPresignedReadUrl(
   options?: { action?: "view" | "download"; expiresInSeconds?: number },
 ): Promise<string> {
   const cfg = getConfig();
-  const client = createClient();
+  const client = getClient();
   const action = options?.action ?? "view";
   const command = new GetObjectCommand({
     Bucket: cfg.bucket,
