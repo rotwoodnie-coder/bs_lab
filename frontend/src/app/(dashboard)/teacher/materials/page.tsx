@@ -56,7 +56,7 @@ export default function TeacherMaterialsPage() {
       ) : null}
 
       {/* main: 撑满剩余空间 */}
-      <div className="flex flex-1 min-h-0 flex-col gap-4 md:flex-row md:items-start">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start" style={{ flex: 1, minHeight: 0 }}>
         <TeacherMaterialsFiltersSection
           kindFilter={st.kindFilter}
           kindOptions={st.kindOptions}
