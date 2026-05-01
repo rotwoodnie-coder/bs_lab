@@ -3,10 +3,9 @@ import { NextResponse } from "next/server";
 
 import { createMediaS3Client, getMediaS3Config, normalizeMediaS3ObjectKey } from "@/lib/media-s3";
 
-/** 与 backend s3-storage.getPublicObjectUrl 一致 */
+/** 与 backend s3-storage.getPublicObjectUrl 一致，使用 MINIO_ENDPOINT 作为前缀校验 */
 function minioStoredUrlPrefix(): string {
-  const publicUrl = (process.env.MINIO_PUBLIC_URL ?? "").trim();
-  const endpoint = ((publicUrl || process.env.MINIO_ENDPOINT) ?? "http://localhost:9000").trim().replace(/\/+$/, "");
+  const endpoint = (process.env.MINIO_ENDPOINT ?? "http://localhost:9000").trim().replace(/\/+$/, "");
   const bucket = (process.env.MINIO_BUCKET ?? "bslab-media").trim();
   return `${endpoint}/${bucket}/`;
 }
