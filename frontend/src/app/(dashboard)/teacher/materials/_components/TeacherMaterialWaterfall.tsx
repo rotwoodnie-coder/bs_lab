@@ -139,7 +139,7 @@ export function TeacherMaterialWaterfall(props: Props) {
               {/* 上传人头像（左）+ 标题（右），合并一行 */}
               <div className="flex gap-2">
                 {item.ownerUserName ? (
-                  <Avatar className="mt-0.5 size-7 shrink-0 border border-border">
+                  <Avatar className="mt-0.5 size-9 shrink-0 border border-border">
                     {item.ownerAvatarUrl ? (
                       <AvatarImage
                         src={materialStorageBrowserHref(item.ownerAvatarUrl)}
