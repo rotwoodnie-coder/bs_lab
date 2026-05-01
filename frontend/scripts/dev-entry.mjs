@@ -63,6 +63,15 @@ function mergeRepoRootEnvLocal(baseEnv) {
 function spawnNextDev() {
   const childEnv = mergeRepoRootEnvLocal(spawnEnvForNodeChild());
 
+  // 透传 MINIO_ENDPOINT → NEXT_PUBLIC_MINIO_ENDPOINT、MINIO_PUBLIC_URL → NEXT_PUBLIC_MINIO_PUBLIC_URL
+  if (childEnv.MINIO_ENDPOINT?.trim()) {
+    childEnv.NEXT_PUBLIC_MINIO_ENDPOINT = childEnv.MINIO_ENDPOINT.trim();
+  }
+  if (childEnv.MINIO_PUBLIC_URL?.trim()) {
+    childEnv.NEXT_PUBLIC_MINIO_PUBLIC_URL = childEnv.MINIO_PUBLIC_URL.trim();
+  }
+  const childEnv = mergeRepoRootEnvLocal(spawnEnvForNodeChild());
+
   if (existsSync(nextCli)) {
     return spawn(process.execPath, [nextCli, "dev", "-p", String(port)], {
       stdio: "inherit",
