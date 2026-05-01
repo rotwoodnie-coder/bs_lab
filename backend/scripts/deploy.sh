@@ -32,22 +32,6 @@ set -a
 source "$DEPLOY_DIR/.env.local" 2>/dev/null || echo ">>> WARN: 未找到 .env.local，使用系统环境变量" | tee -a "$DEPLOY_LOG"
 set +a
 
-# ── 数据库初始化（首次部署：保留字典/用户，清空业务数据） ──
-# 使用初始化标记表 _prod_init_done 是否存在来判断是否需清理
-if ! mysql -h "${DB_HOST:-10.0.181.204}" -P "${DB_PORT:-3306}" -u "${DB_USER:-root}" $([[ -z "${DB_PASSWORD:-}" ]] && echo "" || echo "-p${DB_PASSWORD}") "${DB_NAME:-bs_exp_data}" -e "SELECT 1 FROM _prod_init_done LIMIT 1" 2>/dev/null; then
-  echo ">>> ⏳ 首次部署检测，执行业务数据清零..." | tee -a "$DEPLOY_LOG"
-  cd "$DEPLOY_DIR/backend"
-  node --env-file "$DEPLOY_DIR/.env.local" --experimental-strip-types scripts/init-prod-db.ts 2>&1 | tee -a "$DEPLOY_LOG"
-  cd "$DEPLOY_DIR"
-
-  # 创建标记表，避免重复清理
-  mysql -h "${DB_HOST:-10.0.181.204}" -P "${DB_PORT:-3306}" -u "${DB_USER:-root}" $([[ -z "${DB_PASSWORD:-}" ]] && echo "" || echo "-p${DB_PASSWORD}") "${DB_NAME:-bs_exp_data}" -e "CREATE TABLE IF NOT EXISTS _prod_init_done (id INT PRIMARY KEY, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB; INSERT INTO _prod_init_done (id) VALUES (1);" 2>/dev/null
-
-  echo ">>> ✅ 业务数据清零完成，标记表 _prod_init_done 已创建" | tee -a "$DEPLOY_LOG"
-else
-  echo ">>> ✅ 数据库已初始化，跳过清零" | tee -a "$DEPLOY_LOG"
-fi
-
 # ── 数据库迁移 ──
 # 从 .env.local 或系统环境读取数据库信息——同 start-with-env.sh 的加载方式
 # 优先使用 DATABASE_URL（完整连接字符串），否则逐字段拼
