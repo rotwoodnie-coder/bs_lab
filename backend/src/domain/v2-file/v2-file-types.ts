@@ -75,6 +75,8 @@ export type FileListQuery = {
   status?: string;
   page?: number;
   pageSize?: number;
+  /** true 时不过滤 `file_type_id IS NULL` 的私有资源；默认 false 仅展示媒体库资源 */
+  includePrivate?: boolean;
 };
 
 export type FileListPage = {

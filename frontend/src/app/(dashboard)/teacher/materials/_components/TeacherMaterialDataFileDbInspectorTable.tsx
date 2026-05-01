@@ -105,6 +105,7 @@ export function TeacherMaterialDataFileDbInspectorTable(props: {
     void fetchV2FilesAll(core, {
       ...teacherMaterialsDataFileListBaseQuery(props.actor),
       keyword: props.keyword.trim() || undefined,
+      includePrivate: true, // 开发者工具，展示全量行
     })
       .then(setRows)
       .catch((e) => {

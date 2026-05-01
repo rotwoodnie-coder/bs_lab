@@ -4,17 +4,19 @@ import { getMysqlPool } from "../mysql/mysql-client.ts";
 import { recalculateSubjectTags } from "../../services/SubjectTagService.ts";
 import type {
   SubjectGroupStatus,
+  SubjectGroupReviewStatus,
   SubjectGroupType,
   SubjectGroupRecord,
   SubjectGroupMemberRecord,
   SubjectGroupMembership,
   CreateSubjectGroupInput,
   PatchSubjectGroupInput,
+  PatchSubjectGroupReviewInput,
   SubjectGroupManagerCheck,
 } from "../../domain/v2-group/v2-group-types.ts";
 
 // 向下兼容导出
-export type { SubjectGroupStatus, SubjectGroupType, SubjectGroupRecord, SubjectGroupMemberRecord, SubjectGroupMembership, CreateSubjectGroupInput, PatchSubjectGroupInput, SubjectGroupManagerCheck };
+export type { SubjectGroupStatus, SubjectGroupReviewStatus, SubjectGroupType, SubjectGroupRecord, SubjectGroupMemberRecord, SubjectGroupMembership, CreateSubjectGroupInput, PatchSubjectGroupInput, PatchSubjectGroupReviewInput, SubjectGroupManagerCheck };
 
 function rowToGroup(row: RowDataPacket): SubjectGroupRecord {
   return {
@@ -22,6 +24,11 @@ function rowToGroup(row: RowDataPacket): SubjectGroupRecord {
     groupName: String(row.groupName ?? ""),
     comments: row.comments ? String(row.comments) : null,
     status: (String(row.status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as SubjectGroupStatus,
+    reviewStatus: (String(row.reviewStatus ?? "t") as SubjectGroupReviewStatus),
+    reviewUserId: row.reviewUserId ? String(row.reviewUserId) : null,
+    reviewTime: row.reviewTime ? String(row.reviewTime) : null,
+    reviewComments: row.reviewComments ? String(row.reviewComments) : null,
+    rejectReason: row.rejectReason ? String(row.rejectReason) : null,
     subjectId: row.subjectId ? String(row.subjectId) : null,
     ownerId: row.ownerId ? String(row.ownerId) : null,
     createUserId: row.createUserId ? String(row.createUserId) : null,
@@ -44,7 +51,10 @@ function rowToMember(row: RowDataPacket): SubjectGroupMemberRecord {
 export async function listSubjectGroups(): Promise<SubjectGroupRecord[]> {
   const pool = getMysqlPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT group_id AS groupId, group_name AS groupName, comments, status, subject_id AS subjectId,
+    `SELECT group_id AS groupId, group_name AS groupName, comments, status,
+            review_status AS reviewStatus, review_user_id AS reviewUserId,
+            review_time AS reviewTime, review_comments AS reviewComments,
+            reject_reason AS rejectReason, subject_id AS subjectId,
             owner_id AS ownerId, create_user_id AS createUserId, create_time AS createTime
      FROM subject_group
      ORDER BY create_time DESC`,
@@ -55,7 +65,10 @@ export async function listSubjectGroups(): Promise<SubjectGroupRecord[]> {
 export async function getSubjectGroupById(groupId: string): Promise<SubjectGroupRecord | null> {
   const pool = getMysqlPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT group_id AS groupId, group_name AS groupName, comments, status, subject_id AS subjectId,
+    `SELECT group_id AS groupId, group_name AS groupName, comments, status,
+            review_status AS reviewStatus, review_user_id AS reviewUserId,
+            review_time AS reviewTime, review_comments AS reviewComments,
+            reject_reason AS rejectReason, subject_id AS subjectId,
             owner_id AS ownerId, create_user_id AS createUserId, create_time AS createTime
      FROM subject_group WHERE group_id = ? LIMIT 1`,
     [groupId],
@@ -200,6 +213,9 @@ export async function listSubjectGroupsByMember(userId: string): Promise<Subject
   const pool = getMysqlPool();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.group_id AS groupId, g.group_name AS groupName, g.status AS status,
+            g.review_status AS reviewStatus, g.review_user_id AS reviewUserId,
+            g.review_time AS reviewTime, g.review_comments AS reviewComments,
+            g.reject_reason AS rejectReason,
             g.owner_id AS ownerId, g.subject_id AS subjectId, g.comments,
             g.create_time AS createTime,
             ou.user_name AS ownerUserName
@@ -218,6 +234,11 @@ export async function listSubjectGroupsByMember(userId: string): Promise<Subject
       groupName: String(row.groupName ?? ""),
       comments: row.comments ? String(row.comments) : null,
       status: (String(row.status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as SubjectGroupStatus,
+      reviewStatus: (String(row.reviewStatus ?? "t") as SubjectGroupReviewStatus),
+      reviewUserId: row.reviewUserId ? String(row.reviewUserId) : null,
+      reviewTime: row.reviewTime ? String(row.reviewTime) : null,
+      reviewComments: row.reviewComments ? String(row.reviewComments) : null,
+      rejectReason: row.rejectReason ? String(row.rejectReason) : null,
       ownerId: row.ownerId ? String(row.ownerId) : null,
       ownerName: ownerRaw != null ? String(ownerRaw).trim() || null : null,
       subjectId: row.subjectId ? String(row.subjectId) : null,
@@ -233,6 +254,9 @@ export async function listSubjectGroupsNotJoined(userId: string): Promise<Subjec
   const pool = getMysqlPool();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.group_id AS groupId, g.group_name AS groupName, g.status AS status,
+            g.review_status AS reviewStatus, g.review_user_id AS reviewUserId,
+            g.review_time AS reviewTime, g.review_comments AS reviewComments,
+            g.reject_reason AS rejectReason,
             g.owner_id AS ownerId, g.subject_id AS subjectId, g.comments,
             g.create_time AS createTime,
             ou.user_name AS ownerUserName
@@ -252,6 +276,11 @@ export async function listSubjectGroupsNotJoined(userId: string): Promise<Subjec
       groupName: String(row.groupName ?? ""),
       comments: row.comments ? String(row.comments) : null,
       status: (String(row.status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as SubjectGroupStatus,
+      reviewStatus: (String(row.reviewStatus ?? "t") as SubjectGroupReviewStatus),
+      reviewUserId: row.reviewUserId ? String(row.reviewUserId) : null,
+      reviewTime: row.reviewTime ? String(row.reviewTime) : null,
+      reviewComments: row.reviewComments ? String(row.reviewComments) : null,
+      rejectReason: row.rejectReason ? String(row.rejectReason) : null,
       ownerId: row.ownerId ? String(row.ownerId) : null,
       ownerName: ownerRaw != null ? String(ownerRaw).trim() || null : null,
       subjectId: row.subjectId ? String(row.subjectId) : null,
@@ -415,4 +444,84 @@ export function canJoinSubjectGroup(args: { groupType: SubjectGroupType; userRol
   const role = args.userRole.trim().toUpperCase();
   if (args.groupType === "research_group") return role === "STUDENT" || role === "TEACHER" || role === "RESEARCHER";
   return role === "TEACHER" || role === "RESEARCHER";
+}
+
+/**
+ * 教研审核：将 subject_group 的 review_status 由 t 更新为 y/n，并写入审核人、时间与驳回理由。
+ */
+export async function patchSubjectGroupForReview(
+  groupId: string,
+  input: PatchSubjectGroupReviewInput,
+  actorId?: string,
+): Promise<SubjectGroupRecord> {
+  const pool = getMysqlPool();
+
+  // 检查当前状态必须为待审核
+  const cur = await getSubjectGroupById(groupId);
+  if (!cur) throw new Error("NOT_FOUND");
+  if (cur.reviewStatus !== "t") throw new Error("NOT_PENDING_REVIEW");
+
+  if (input.reviewStatus === "n") {
+    const raw = (input.rejectReason ?? "").trim();
+    if (raw.length < 4) throw new Error("REJECT_REASON_TOO_SHORT");
+    await pool.query(
+      `UPDATE subject_group SET
+         review_status = ?, review_user_id = ?, review_time = NOW(),
+         reject_reason = ?, review_comments = ?,
+         status = 'NORMAL'
+       WHERE group_id = ?`,
+      [input.reviewStatus, actorId ?? null, raw, raw, groupId],
+    );
+  } else {
+    // 通过：只标记 review_status，status 保持 NORMAL
+    await pool.query(
+      `UPDATE subject_group SET
+         review_status = ?, review_user_id = ?, review_time = NOW(),
+         reject_reason = NULL, review_comments = NULL
+       WHERE group_id = ?`,
+      [input.reviewStatus, actorId ?? null, groupId],
+    );
+  }
+
+  const row = await getSubjectGroupById(groupId);
+  if (!row) throw new Error("NOT_FOUND");
+  return row;
+}
+
+/**
+ * 查询待审核/已通过/已驳回的课题组列表（审核工作台专用）。
+ */
+export async function listSubjectGroupsForReview(): Promise<SubjectGroupMembership[]> {
+  const pool = getMysqlPool();
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT g.group_id AS groupId, g.group_name AS groupName, g.status AS status,
+            g.review_status AS reviewStatus, g.review_user_id AS reviewUserId,
+            g.review_time AS reviewTime, g.review_comments AS reviewComments,
+            g.reject_reason AS rejectReason,
+            g.owner_id AS ownerId, g.subject_id AS subjectId, g.comments,
+            g.create_time AS createTime,
+            ou.user_name AS ownerUserName
+     FROM subject_group g
+     LEFT JOIN sys_user ou ON ou.user_id = g.owner_id AND ou.is_deleted = 0
+     ORDER BY g.create_time DESC`,
+  );
+  return rows.map((r) => {
+    const row = r as RowDataPacket;
+    const ownerRaw = row.ownerUserName ?? row.owner_user_name;
+    return {
+      groupId: String(row.groupId),
+      groupName: String(row.groupName ?? ""),
+      comments: row.comments ? String(row.comments) : null,
+      status: (String(row.status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as SubjectGroupStatus,
+      reviewStatus: (String(row.reviewStatus ?? "t") as SubjectGroupReviewStatus),
+      reviewUserId: row.reviewUserId ? String(row.reviewUserId) : null,
+      reviewTime: row.reviewTime ? String(row.reviewTime) : null,
+      reviewComments: row.reviewComments ? String(row.reviewComments) : null,
+      rejectReason: row.rejectReason ? String(row.rejectReason) : null,
+      ownerId: row.ownerId ? String(row.ownerId) : null,
+      ownerName: ownerRaw != null ? String(ownerRaw).trim() || null : null,
+      subjectId: row.subjectId ? String(row.subjectId) : null,
+      createTime: row.createTime ? String(row.createTime) : null,
+    };
+  });
 }

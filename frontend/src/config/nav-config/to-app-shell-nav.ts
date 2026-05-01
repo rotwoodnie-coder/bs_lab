@@ -63,7 +63,9 @@ export function toAppShellNavItems(
     "console-social-dynamics",
     "console-social-court",
     "console-social-topics",
+    "console-review-student-works",
     "console-review-project-groups",
+    "console-review-research-groups",
   ]);
 
   const EXP_RELATED_IDS = new Set([
@@ -75,6 +77,8 @@ export function toAppShellNavItems(
     "admin-simulation-dev", // 实验模拟（模拟开发管理）
     "console-res-textbooks",
     "console-res-experiments",
+    "console-review-research-groups",
+    "console-review-student-works",
     "console-review-experiments",
     "console-ai-strategies",
     "console-reports-templates",
@@ -129,7 +133,7 @@ export function toAppShellNavItems(
 
   const orgChildrenMerged = mergeSimilar(orgChildrenRaw, [
     ["console-social-court", "community-court"],
-    ["console-review-project-groups", "research-project-groups-console"],
+    ["console-review-research-groups", "console-review-project-groups", "research-project-groups-console"],
   ]);
   const ORG_CHILD_ORDER: string[] = [
     "mgmt-class",
@@ -137,7 +141,9 @@ export function toAppShellNavItems(
     "mgmt-grade",
     "admin-subject-config",
     "teacher-research-project-groups",
+    "console-review-research-groups",
     "console-review-project-groups",
+    "console-review-student-works",
     "research-project-groups-console",
     "console-social-review",
     "console-social-dynamics",
@@ -180,6 +186,8 @@ export function toAppShellNavItems(
     "researcher-teaching-research-groups",
     "console-res-textbooks",
     "console-res-experiments",
+    "console-review-research-groups",
+    "console-review-student-works",
     "console-review-experiments",
     "exp-question-bank",
     "console-ai-strategies",
@@ -202,7 +210,7 @@ export function toAppShellNavItems(
     { id: "__section__exp-production", label: "生产", icon: React.createElement(Layers, { className: "size-4" }) },
     ...pickExp(["teacher-materials", "mgmt-materials-lib", "exp-mgmt", "admin-simulation-dev"]),
     { id: "__section__exp-review", label: "测评与质控", icon: React.createElement(ClipboardCheck, { className: "size-4" }) },
-    ...pickExp(["researcher-teaching-research-groups", "console-review-experiments", "exp-question-bank"]),
+    ...pickExp(["researcher-teaching-research-groups", "console-review-research-groups", "console-review-student-works", "console-review-experiments", "exp-question-bank"]),
     { id: "__section__exp-data", label: "数据", icon: React.createElement(BarChart3, { className: "size-4" }) },
     ...pickExp(["console-ai-strategies", "console-reports-templates", "console-analytics-district"]),
   ];

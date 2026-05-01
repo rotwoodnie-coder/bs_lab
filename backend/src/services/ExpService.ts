@@ -170,6 +170,7 @@ export async function getExpList(query: ExpMsgListQuery) {
   if (query.difficultyId) { where.push("e.difficulty_id = ?"); params.push(query.difficultyId); }
   if (query.status) { where.push("e.status = ?"); params.push(query.status); }
   if (query.createUserId) { where.push("e.create_user_id = ?"); params.push(query.createUserId); }
+  if (query.createUserType) { where.push("e.create_user_type = ?"); params.push(query.createUserType); }
   if (query.expTaskType) { where.push("e.exp_task_type = ?"); params.push(query.expTaskType); }
   if (query.unitId) { where.push("e.unit_id = ?"); params.push(query.unitId); }
   if (query.chapterId) { where.push("e.unit_id IN (SELECT unit_id FROM data_coursebook_unit WHERE chapter_id = ?)"); params.push(query.chapterId); }

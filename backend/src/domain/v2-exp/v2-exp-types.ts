@@ -268,6 +268,8 @@ export type ExpMsgListQuery = {
   gradeIds?: string[];
   difficultyId?: string;
   status?: ExpLibraryStatus;
+  /** 按创建人类型过滤：Teacher / Student */
+  createUserType?: ExpCreateUserType;
   createUserId?: string;
   expTaskType?: ExpTaskType;
   /** 按章节 ID 过滤：仅返回 unit_id 属于该章的实验 */

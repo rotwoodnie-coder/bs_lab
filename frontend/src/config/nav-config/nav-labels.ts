@@ -34,6 +34,8 @@ export const NAV_LABELS = {
   "console-res-subject": "教学架构管理",
   "console-res-experiments": "实验列表",
   "console-review-experiments": "实验评审",
+  "console-review-student-works": "作品审核",
+  "console-review-research-groups": "课题组审核",
   "console-ai-strategies": "AI 引导语与策略",
   "console-reports-templates": "实验报告模板",
   "console-analytics-district": "做实验数据一览",

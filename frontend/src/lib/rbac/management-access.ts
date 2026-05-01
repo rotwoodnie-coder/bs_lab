@@ -35,7 +35,8 @@ export function isManagementPathAllowedForRole(pathname: string, role: UserRole)
 
   if (role === "Role_School_Admin") {
     if (path.startsWith("/researcher")) return false;
-    if (path.startsWith("/console/review")) return false;
+    // 校管可审核学生作品，不可审核实验/课题组（05 方案）
+    if (path.startsWith("/console/review/") && !path.startsWith("/console/review/student-works")) return false;
     return true;
   }
 

@@ -4,33 +4,50 @@ import * as React from "react";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, ScrollArea, Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, sonnerToast, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from "@bs-lab/ui";
 import { PageHeader } from "@/components/layout/page-header";
 import { withPermission } from "@/lib/permissions/with-permission";
+import { useStudentWorksReview } from "./page.hooks";
 
-type WorkRow = { id: string; student: string; className: string; title: string; status: "待审核" | "已通过" | "已驳回"; summary: string };
-
-const ROWS: WorkRow[] = Array.from({ length: 18 }).map((_, i) => ({
-  id: `work-${2000 + i}`,
-  student: `学生_${(i % 8) + 1}`,
-  className: `三年级 ${(i % 4) + 1} 班`,
-  title: `实验作品 ${(i % 6) + 1}`,
-  status: i % 3 === 0 ? "待审核" : i % 3 === 1 ? "已通过" : "已驳回",
-  summary: ["结构完整", "数据缺失", "图文清晰", "安全说明不足", "过程记录完整"][i % 5]!,
-}));
+const STATUS_LABEL: Record<string, string> = { t: "待审核", y: "已通过", n: "已驳回" };
+const STATUS_VARIANT: Record<string, "secondary" | "default" | "destructive"> = { t: "secondary", y: "default", n: "destructive" };
 
 function StudentWorksReviewPage() {
-  const [selected, setSelected] = React.useState<Set<string>>(new Set());
-  const [rejectOpen, setRejectOpen] = React.useState(false);
-  const [rejectReason, setRejectReason] = React.useState("");
-  const [pendingIds, setPendingIds] = React.useState<string[]>([]);
+  const {
+    list,
+    total,
+    page,
+    pageSize,
+    loading,
+    error,
+    selected,
+    allSelected,
+    someSelected,
+    rejectOpen,
+    rejectReason,
+    pendingIds,
+    toggleAll,
+    toggleOne,
+    handleApprove,
+    openReject,
+    setRejectOpen,
+    setRejectReason,
+    handleReject,
+    load,
+  } = useStudentWorksReview();
 
-  const allIds = ROWS.map((r) => r.id);
-  const allSelected = selected.size === allIds.length && allIds.length > 0;
-  const someSelected = selected.size > 0 && !allSelected;
+  const totalPages = Math.ceil(total / pageSize);
 
-  const toggleAll = (next: boolean) => setSelected(next ? new Set(allIds) : new Set());
-  const toggleOne = (id: string, next: boolean) => setSelected((prev) => { const n = new Set(prev); next ? n.add(id) : n.delete(id); return n; });
-  const openReject = (ids: string[]) => { if (ids.length === 0) return sonnerToast.error("请先选择作品"); setPendingIds(ids); setRejectReason(""); setRejectOpen(true); };
-  const approve = () => { const ids = [...selected]; if (!ids.length) return sonnerToast.error("请先选择作品"); sonnerToast.success(`已通过 ${ids.length} 条`); setSelected(new Set()); };
-  const confirmReject = () => { if (!rejectReason.trim()) return sonnerToast.error("必须填写驳回理由"); sonnerToast.success(`已驳回 ${pendingIds.length} 条`, { description: rejectReason }); setSelected(new Set()); setRejectOpen(false); };
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="作品审核" description="校级管理员审核学生上传的实验作品，通过后进入实验广场。" />
+        <Card className="border-border shadow-none">
+          <CardContent className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+            <p className="text-destructive">{error}</p>
+            <Button variant="outline" onClick={() => load(page)}>重试</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -45,25 +62,78 @@ function StudentWorksReviewPage() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Checkbox checked={allSelected ? true : someSelected ? "indeterminate" : false} onCheckedChange={(v) => toggleAll(v === true)} />
               <span>已选 {selected.size} 条</span>
+              {loading && <span className="text-xs italic">加载中…</span>}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={approve}>批量通过</Button>
-              <Button variant="destructive" onClick={() => openReject([...selected])}>批量驳回</Button>
+              <Button variant="secondary" disabled={selected.size === 0} onClick={handleApprove}>批量通过</Button>
+              <Button variant="destructive" disabled={selected.size === 0} onClick={() => openReject([...selected])}>批量驳回</Button>
             </div>
           </div>
           <ScrollArea className="h-[min(70vh,560px)] rounded-md border border-border">
             <Table>
-              <TableHeader><TableRow><TableHead className="w-10" /><TableHead>作品ID</TableHead><TableHead>学生</TableHead><TableHead>班级</TableHead><TableHead>标题</TableHead><TableHead>状态</TableHead><TableHead>摘要</TableHead><TableHead className="w-[100px] text-right">操作</TableHead></TableRow></TableHeader>
-              <TableBody>{ROWS.map((r) => (<TableRow key={r.id}><TableCell><Checkbox checked={selected.has(r.id)} onCheckedChange={(v) => toggleOne(r.id, v === true)} /></TableCell><TableCell className="font-mono text-xs">{r.id}</TableCell><TableCell>{r.student}</TableCell><TableCell>{r.className}</TableCell><TableCell>{r.title}</TableCell><TableCell><Badge variant={r.status === "待审核" ? "secondary" : r.status === "已通过" ? "default" : "destructive"}>{r.status}</Badge></TableCell><TableCell>{r.summary}</TableCell><TableCell className="text-right"><Button size="sm" variant="outline" onClick={() => openReject([r.id])}>驳回</Button></TableCell></TableRow>))}</TableBody>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10" />
+                  <TableHead>作品ID</TableHead>
+                  <TableHead>学生</TableHead>
+                  <TableHead>标题</TableHead>
+                  <TableHead>状态</TableHead>
+                  <TableHead>创建时间</TableHead>
+                  <TableHead className="w-[100px] text-right">操作</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {list.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">暂无作品</TableCell>
+                  </TableRow>
+                )}
+                {list.map((r) => (
+                  <TableRow key={r.expId}>
+                    <TableCell>
+                      <Checkbox checked={selected.has(r.expId)} onCheckedChange={(v) => toggleOne(r.expId, v === true)} disabled={r.status !== "t"} />
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{r.expId}</TableCell>
+                    <TableCell>{r.displayOwnerName ?? r.createUserId}</TableCell>
+                    <TableCell>{r.expName}</TableCell>
+                    <TableCell>
+                      <Badge variant={STATUS_VARIANT[r.status ?? "t"]}>
+                        {STATUS_LABEL[r.status ?? "t"]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{r.createTime}</TableCell>
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" disabled={r.status !== "t"} onClick={() => openReject([r.expId])}>驳回</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
             </Table>
           </ScrollArea>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 text-sm text-muted-foreground">
+              <span>共 {total} 条，第 {page}/{totalPages} 页</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => load(page - 1)}>上一页</Button>
+                <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => load(page + 1)}>下一页</Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       <Sheet open={rejectOpen} onOpenChange={setRejectOpen}>
         <SheetContent side="right" className="flex w-full flex-col sm:max-w-md">
-          <SheetHeader><SheetTitle>驳回作品</SheetTitle><p className="text-sm text-muted-foreground">将处理 {pendingIds.length} 条，必须输出理由。</p></SheetHeader>
-          <div className="flex flex-1 flex-col gap-3 py-4"><Textarea rows={8} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="填写驳回原因…" /></div>
-          <SheetFooter className="gap-2 sm:justify-end"><Button variant="outline" onClick={() => setRejectOpen(false)}>取消</Button><Button variant="destructive" onClick={confirmReject}>确认驳回</Button></SheetFooter>
+          <SheetHeader>
+            <SheetTitle>驳回作品</SheetTitle>
+            <p className="text-sm text-muted-foreground">将处理 {pendingIds.length} 条，必须输出理由。</p>
+          </SheetHeader>
+          <div className="flex flex-1 flex-col gap-3 py-4">
+            <Textarea rows={8} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="填写驳回原因…" />
+          </div>
+          <SheetFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setRejectOpen(false)}>取消</Button>
+            <Button variant="destructive" onClick={handleReject}>确认驳回</Button>
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>

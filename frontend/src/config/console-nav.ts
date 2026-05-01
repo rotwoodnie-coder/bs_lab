@@ -32,9 +32,14 @@ export const CONSOLE_OPS_NAV_GROUPS: readonly ConsoleNavGroup[] = [
         href: "/console/review/experiments",
       },
       {
+        id: "student-works-review",
+        label: "作品审核",
+        href: "/console/review/student-works",
+      },
+      {
         id: "project-group-review",
-        label: "课题组校验",
-        href: "/console/review/project-groups",
+        label: "课题组审核",
+        href: "/console/review/research-groups",
       },
       {
         id: "teaching-research-groups",
@@ -176,7 +181,7 @@ const RESEARCHER_OPS_GROUP_IDS = new Set([
 ]);
 const RESEARCHER_SYSTEM_GROUP_IDS = new Set(["resources", "platform"]);
 
-const SCHOOL_ADMIN_OPS_GROUP_IDS = new Set(["ai", "community", "reports", "analytics", "assessment"]);
+const SCHOOL_ADMIN_OPS_GROUP_IDS = new Set(["governance", "ai", "community", "reports", "analytics", "assessment"]);
 const SCHOOL_ADMIN_SYSTEM_GROUP_IDS = new Set(["resources", "system", "platform"]);
 
 export function getConsoleFacetFromPathname(pathname: string): ConsoleFacet {
@@ -215,6 +220,17 @@ function applySchoolAdminCommunityFilter(groups: ConsoleNavGroup[]): ConsoleNavG
   });
 }
 
+/** 校管在「教研与评审」组仅可见作品审核 */
+function applySchoolAdminGovernanceFilter(groups: ConsoleNavGroup[]): ConsoleNavGroup[] {
+  return groups.map((g) => {
+    if (g.id !== "governance") return g;
+    return {
+      ...g,
+      items: g.items.filter((i) => i.id === "student-works-review"),
+    };
+  });
+}
+
 export function getConsoleNavGroupsForRole(
   role: UserRole,
   facet: ConsoleFacet,
@@ -241,6 +257,7 @@ export function getConsoleNavGroupsForRole(
         : pick(CONSOLE_SYSTEM_NAV_GROUPS, SCHOOL_ADMIN_SYSTEM_GROUP_IDS);
     if (facet === "ops") {
       out = applySchoolAdminCommunityFilter(out);
+      out = applySchoolAdminGovernanceFilter(out);
     }
   } else {
     out = facet === "ops" ? [...CONSOLE_OPS_NAV_GROUPS] : [...CONSOLE_SYSTEM_NAV_GROUPS];

@@ -26,6 +26,12 @@ import { runV2DataFileMetadataRepair } from "../../domain/v2-file/v2-file-data-r
 import { persistClientPosterFile } from "../../domain/v2-file/v2-file-poster-upload.ts";
 import type { DataFileRecord } from "../../domain/v2-file/v2-file-types.ts";
 import { putObject, deleteObject, createPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
+import {
+  s3CreateMultipartUpload,
+  s3PresignUploadPartUrl,
+  s3CompleteMultipartUpload,
+  s3AbortMultipartUpload,
+} from "../../infrastructure/storage/s3-multipart.ts";
 
 function isHttpUrl(s: string): boolean {
   const t = s.trim();
@@ -159,6 +165,8 @@ const fileQuerySchema = z.object({
   status: z.string().optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
+  /** 1/true 时不过滤 file_type_id IS NULL 的私有资源 */
+  includePrivate: z.coerce.boolean().optional(),
 });
 
 const updateFileSchema = z.object({
@@ -176,6 +184,37 @@ const ensureThumbSchema = z.object({
 
 const fileLookupSchema = z.object({
   fileIds: z.array(z.string().min(1)).min(1).max(80),
+});
+
+// ── 分片上传 schema ─────────────────────────────────
+const multipartInitSchema = z.object({
+  sha256: z.string().length(64),
+  fileName: z.string().min(1),
+  title: z.string().optional(),
+  teacherMaterialKind: z.string().optional(),
+  totalSize: z.number().int().positive().max(2 * 1024 * 1024 * 1024),
+  totalParts: z.number().int().min(1).max(1000),
+});
+
+const multipartPartSchema = z.object({
+  ETag: z.string().min(1),
+  PartNumber: z.number().int().min(1),
+});
+
+const multipartCompleteSchema = z.object({
+  uploadId: z.string().min(1),
+  storageKey: z.string().min(1),
+  parts: z.array(multipartPartSchema).min(1),
+  sha256: z.string().length(64),
+  fileName: z.string().min(1),
+  title: z.string().optional(),
+  teacherMaterialKind: z.string().optional(),
+  totalSize: z.number().int().positive().max(2 * 1024 * 1024 * 1024),
+});
+
+const multipartAbortSchema = z.object({
+  uploadId: z.string().min(1),
+  storageKey: z.string().min(1),
 });
 
 /** 去掉末尾 `/`，避免 `GET /v2/file/` 与 `GET /v2/file` 不一致导致整链 404 → NOT_FOUND */
@@ -201,7 +240,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       const formData = await req.formData();
       const file = formData.get("file") as File | null;
       if (!file) return fail("缺少 file 字段");
-      if (file.size > 500 * 1024 * 1024) return fail("文件大小不能超过 500MB");
+      if (file.size > 2 * 1024 * 1024 * 1024) return fail("文件大小不能超过 2GB");
 
       const buffer = Buffer.from(await file.arrayBuffer());
       const contentSha256 = createHash("sha256").update(buffer).digest("hex");
@@ -270,6 +309,80 @@ export async function routeV2File(req: Request): Promise<Response> {
         console.error("[v2/file/upload] thumbnail finalize", record.fileId, err);
       });
       return ok({ ...materializeRecordFileUrls(record), contentDeduped: false });
+    }
+
+    // ── 分片上传：init ───────────────────────────────────
+    if (req.method === "POST" && path === "/v2/file/multipart/init") {
+      const body = multipartInitSchema.parse(await req.json());
+
+      // SHA-256 去重检查
+      const dup = await findActiveFileByContentSha(body.sha256);
+      if (dup) {
+        return ok({ deduped: true, fileRecord: materializeRecordFileUrls(dup) });
+      }
+
+      const fileExt = (body.fileName.includes(".") ? body.fileName.split(".").pop()! : "").toLowerCase();
+      const storageKey = getStorageKey(`v2/${actorId ?? "anon"}/${randomUUID()}${fileExt ? `.${fileExt}` : ""}`);
+      const { uploadId } = await s3CreateMultipartUpload(storageKey, `application/octet-stream`);
+
+      // 为每个分片预签名 URL（批量生成）
+      const parts: { partNumber: number; presignedUrl: string }[] = [];
+      for (let i = 1; i <= body.totalParts; i++) {
+        const presignedUrl = await s3PresignUploadPartUrl(storageKey, uploadId, i);
+        parts.push({ partNumber: i, presignedUrl });
+      }
+
+      return ok({ deduped: false, uploadId, storageKey, parts });
+    }
+
+    // ── 分片上传：complete ──────────────────────────────
+    if (req.method === "POST" && path === "/v2/file/multipart/complete") {
+      const body = multipartCompleteSchema.parse(await req.json());
+
+      await s3CompleteMultipartUpload(body.storageKey, body.uploadId, body.parts);
+
+      const fileExt = (body.fileName.includes(".") ? body.fileName.split(".").pop()! : "").toLowerCase();
+      const teacherKindRaw = (body.teacherMaterialKind ?? "").trim().toLowerCase();
+      const fileTypeId = teacherKindRaw
+        ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
+        : undefined;
+
+      const record = await createFileRecord({
+        fileName: body.title || body.fileName,
+        fileUrl: body.storageKey,
+        fileExt: fileExt || undefined,
+        fileSize: body.totalSize,
+        ownerUserId: actorId,
+        fileTypeId,
+        contentSha256: body.sha256,
+      });
+
+      // 异步触发缩略图
+      void (async () => {
+        try {
+          const mimeType = mimeTypeHintForThumbnail(record, "");
+          const buf = await getObjectBuffer(body.storageKey);
+          await finalizeDataFileThumbnail({
+            fileId: record.fileId,
+            fileUrl: record.fileUrl,
+            buffer: buf,
+            mimeType,
+            fileName: body.fileName,
+            ownerSegment: actorId ?? "anon",
+          });
+        } catch (err) {
+          console.error("[v2/file/multipart/complete] thumbnail finalize", record.fileId, err);
+        }
+      })();
+
+      return ok({ deduped: false, fileRecord: materializeRecordFileUrls(record) });
+    }
+
+    // ── 分片上传：abort ─────────────────────────────────
+    if (req.method === "POST" && path === "/v2/file/multipart/abort") {
+      const body = multipartAbortSchema.parse(await req.json());
+      await s3AbortMultipartUpload(body.storageKey, body.uploadId);
+      return ok({ ok: true });
     }
 
     // ── 列表 ─────────────────────────────────────────────

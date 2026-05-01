@@ -51,6 +51,8 @@ export type V2FileListQuery = {
   status?: string;
   page?: number;
   pageSize?: number;
+  /** 1/true 时不过滤 file_type_id IS NULL 的私有资源 */
+  includePrivate?: boolean;
 };
 
 async function v2DeleteJson<T>(path: string, actor: CoreApiActor): Promise<T> {

@@ -171,6 +171,11 @@ export async function listFiles(query: FileListQuery): Promise<FileListPage> {
   const where: string[] = [WHERE_NOT_LOGICAL_DELETED, WHERE_MAIN_FILE_ONLY];
   const params: unknown[] = [];
 
+  // 默认仅展示媒体库资源（有正确 file_type_id）；includePrivate=true 时不过滤
+  if (!query.includePrivate) {
+    where.push("df.file_type_id IS NOT NULL");
+  }
+
   if (query.keyword?.trim()) {
     where.push("df.file_name LIKE ?");
     params.push(`%${query.keyword.trim()}%`);

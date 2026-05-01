@@ -44,6 +44,8 @@ export const SCHOOL_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   { id: "console-cfg-dictionaries", label: "字典设置", href: "/console/settings/dictionaries", Icon: Database },
   { id: "console-cfg-incentives", label: getNavLabel("console-cfg-incentives", "积分与激励"), href: "/console/settings/incentives", Icon: Medal },
   { id: "console-review-experiments", label: getNavLabel("console-review-experiments", "实验评审"), href: "/console/review/experiments", Icon: ClipboardCheck },
+  { id: "console-review-student-works", label: "作品审核", href: "/console/review/student-works", Icon: ClipboardCheck },
+  { id: "console-review-research-groups", label: "课题组审核", href: "/console/review/research-groups", Icon: ClipboardCheck },
   { id: "console-ai-strategies", label: getNavLabel("console-ai-strategies", "AI 配置"), href: "/console/operations/ai-strategies", Icon: Layers },
   { id: "console-reports-templates", label: getNavLabel("console-reports-templates", "报告模板"), href: "/console/reports/templates", Icon: ScrollText },
   { id: "console-social-review", label: getNavLabel("console-social-review", "评价与审核"), href: "/console/social/review", Icon: ClipboardCheck },
@@ -79,6 +81,8 @@ export const SUPER_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
 
   // ── 评审与质控 ──
   { id: "console-review-experiments", label: getNavLabel("console-review-experiments", "实验评审"), href: "/console/review/experiments", Icon: ClipboardCheck },
+  { id: "console-review-student-works", label: "作品审核", href: "/console/review/student-works", Icon: ClipboardCheck },
+  { id: "console-review-research-groups", label: "课题组审核", href: "/console/review/research-groups", Icon: ClipboardCheck },
   { id: "console-reports-templates", label: getNavLabel("console-reports-templates", "报告模板"), href: "/console/reports/templates", Icon: ScrollText },
   { id: "console-ai-strategies", label: getNavLabel("console-ai-strategies", "AI 引导语与策略"), href: "/console/operations/ai-strategies", Icon: Layers },
 

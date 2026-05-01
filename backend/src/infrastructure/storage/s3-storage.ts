@@ -19,13 +19,13 @@ function requiredEnv(name: string): string {
   return value;
 }
 
-function normalizeKey(storageKey: string): string {
+export function normalizeKey(storageKey: string): string {
   const normalized = storageKey.replace(/\\/g, "/").trim().replace(/^\/+/, "");
   if (!normalized || normalized.includes("..")) throw new Error("INVALID_STORAGE_KEY");
   return normalized;
 }
 
-function getConfig() {
+export function getConfig() {
   return {
     endpoint: (process.env.MINIO_ENDPOINT ?? "http://localhost:9000").trim(),
     publicUrl: (process.env.MINIO_PUBLIC_URL ?? "").trim(),
@@ -41,7 +41,7 @@ function getConfig() {
 /** 单例 S3Client，复用 TCP 连接池 */
 let _s3Client: S3Client | null = null;
 
-function getClient(): S3Client {
+export function getClient(): S3Client {
   if (_s3Client) return _s3Client;
   const cfg = getConfig();
   _s3Client = new S3Client({

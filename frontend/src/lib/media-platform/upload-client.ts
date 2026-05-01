@@ -11,6 +11,8 @@ import {
 } from "@/lib/media/infer-media-kind-from-filename";
 
 import type { MediaKind } from "./types";
+import type { MultipartProgressEvent } from "./multipart-upload";
+import { uploadFileViaMultipart } from "./multipart-upload";
 import { startMediaUploadProgressToast } from "./media-upload-toast-progress";
 import type { MediaUploadProgressEvent, MediaUploadXhrPayload } from "./upload-form-xhr";
 import { extractMediaUploadError, postMediaUploadForm } from "./upload-form-xhr";
@@ -116,6 +118,13 @@ export async function uploadTeacherMaterialFileToPlatform(
   input: { materialKind: TeacherMaterialKind; title: string },
   options?: MediaPlatformUploadOptions,
 ): Promise<UploadToMediaPlatformResult> {
+  // ── 大文件走 multipart 分片上传 ──────────────────────────
+  const MULTIPART_THRESHOLD = 100 * 1024 * 1024; // 100MB
+  if (file.size >= MULTIPART_THRESHOLD) {
+    return uploadTeacherMaterialViaMultipart(actor, file, input, options);
+  }
+
+  // ── 小文件继续走原 XHR 管道 ──────────────────────────────
   const form = new FormData();
   form.append("file", file);
   const title =
@@ -130,6 +139,40 @@ export async function uploadTeacherMaterialFileToPlatform(
 
   const payload = await postUploadEnvelope(form, options);
   return mapData(payload);
+}
+
+/** 大文件走 multipart 分片上传，返回兼容 UploadToMediaPlatformResult 的结构 */
+async function uploadTeacherMaterialViaMultipart(
+  actor: ApiActor,
+  file: File,
+  input: { materialKind: TeacherMaterialKind; title: string },
+  options?: MediaPlatformUploadOptions,
+): Promise<UploadToMediaPlatformResult> {
+  const title =
+    input.title.trim() || defaultMaterialTitleFromFileName(file.name) || file.name.trim() || "未命名素材";
+
+  const onProgress = options?.onProgress
+    ? (e: MultipartProgressEvent) =>
+        options.onProgress!({ loaded: e.loadedBytes, total: e.totalBytes, percent: e.percent })
+    : undefined;
+
+  const { reused, fileRecord } = await uploadFileViaMultipart(actor, file, {
+    fileName: file.name,
+    title,
+    teacherMaterialKind: reconcileTeacherMaterialKindFromFilename(input.materialKind, file.name),
+    onProgress,
+  });
+
+  return {
+    assetId: fileRecord.fileId,
+    registryId: "",
+    viewUrl: fileRecord.fileUrl ?? "",
+    reviewStatus: fileRecord.status ?? "",
+    reused,
+    storageMode: "minio",
+    fileUrl: fileRecord.fileUrl ?? null,
+    registration: "v2",
+  };
 }
 
 export function viewUrlForRegistryId(registryId: string, actor?: ApiActor): string {

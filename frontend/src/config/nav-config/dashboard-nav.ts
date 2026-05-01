@@ -85,6 +85,8 @@ export function resolveDashboardNavId(
   if (pathname.startsWith("/console/settings/incentives")) return "console-cfg-incentives";
   if (pathname.startsWith("/console/settings/experiments")) return "console-res-experiments";
   if (pathname.startsWith("/console/review/experiments")) return "console-review-experiments";
+  if (pathname.startsWith("/console/review/student-works")) return "console-review-student-works";
+  if (pathname.startsWith("/console/review/research-groups")) return "console-review-research-groups";
   if (pathname.startsWith("/console/operations/ai-strategies")) return "console-ai-strategies";
   if (pathname.startsWith("/console/reports/templates")) return "console-reports-templates";
   if (pathname.startsWith("/console/analytics/district")) return "console-analytics-district";
@@ -93,7 +95,7 @@ export function resolveDashboardNavId(
   if (pathname.startsWith("/console/social/dynamics")) return "console-social-dynamics";
   if (pathname.startsWith("/console/social/court")) return "console-social-court";
   if (pathname.startsWith("/console/social/topics-challenges")) return "console-social-topics";
-  if (pathname.startsWith("/console/review/project-groups")) return "console-review-project-groups";
+  if (pathname.startsWith("/console/review/project-groups")) return "console-review-research-groups";
   if (pathname.startsWith("/district/overview")) return "dist-overview";
   if (pathname.startsWith("/admin/subject-config")) return "admin-subject-config";
   if (pathname.startsWith("/admin/simulation-dev")) return "admin-simulation-dev";

@@ -686,3 +686,24 @@ export async function patchExpMsgForReview(
   if (rows.length === 0) throw new Error("NOT_FOUND_AFTER_PATCH");
   return rowToExpMsg(rows[0]!);
 }
+
+/**
+ * 查询学生作品列表（审核工作台专用，只含 create_user_type = 'Student' 的记录）。
+ * 含分页，默认按创建时间降序。
+ */
+export async function listStudentWorksForReview(page = 1, pageSize = 20): Promise<{ items: ExpMsgRecord[]; total: number; page: number; pageSize: number }> {
+  const pool = getMysqlPool();
+  const where = "e.is_deleted = 0 AND e.create_user_type = 'Student'";
+  const [cnt] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) AS total FROM exp_msg e WHERE ${where}`, []);
+  const total = Number(cnt[0]?.total ?? 0);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT e.*, owner.user_name AS display_owner_name
+     FROM exp_msg e
+     LEFT JOIN sys_user owner ON owner.user_id = e.create_user_id
+     WHERE ${where}
+     ORDER BY e.create_time DESC, e.exp_id DESC
+     LIMIT ? OFFSET ?`,
+    [pageSize, (page - 1) * pageSize],
+  );
+  return { items: rows.map(rowToExpMsg), total, page, pageSize };
+}
