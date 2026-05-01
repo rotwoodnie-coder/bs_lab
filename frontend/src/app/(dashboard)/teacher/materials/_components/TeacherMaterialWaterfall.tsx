@@ -136,45 +136,38 @@ export function TeacherMaterialWaterfall(props: Props) {
             </div>
 
             <div className="space-y-2 p-3">
-              {/* 两行标题 + 日期行占位，减少单行标题时与双行卡片底边不齐 */}
-              <div className="min-h-[3.5rem] space-y-1">
-                <div className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{item.title}</div>
-                <div className="text-xs text-muted-foreground">更新 {item.updatedAt}</div>
-              </div>
-
-              {/* 上传人信息：头像 + 姓名（职称）+ 单位 */}
-              {item.ownerUserName ? (
-                <div className="flex items-center gap-2 border-t border-border/40 pt-2">
-                  <Avatar className="size-8 shrink-0 border border-border">
+              {/* 上传人头像（左）+ 标题（右），合并一行 */}
+              <div className="flex gap-2">
+                {item.ownerUserName ? (
+                  <Avatar className="mt-0.5 size-7 shrink-0 border border-border">
                     {item.ownerAvatarUrl ? (
                       <AvatarImage
                         src={materialStorageBrowserHref(item.ownerAvatarUrl)}
                         alt=""
                       />
                     ) : null}
-                    <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                    <AvatarFallback className="bg-primary/10 text-[10px] font-medium text-primary">
                       {item.ownerUserName.trim().slice(0, 1).toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1">
-                      <span className="truncate text-xs font-medium text-foreground">
+                ) : null}
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{item.title}</div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {item.ownerUserName ? (
+                      <span>
                         {item.ownerUserName}
+                        {item.ownerTitleName ? <span className="opacity-60"> {item.ownerTitleName}</span> : null}
+                        <span className="mx-1.5 opacity-30">·</span>
                       </span>
-                      {item.ownerTitleName ? (
-                        <span className="shrink-0 text-[10px] text-muted-foreground">
-                          {item.ownerTitleName}
-                        </span>
-                      ) : null}
-                    </div>
-                    {item.ownerOrgName ? (
-                      <div className="truncate text-[10px] text-muted-foreground">
-                        {item.ownerOrgName}
-                      </div>
                     ) : null}
+                    {item.ownerOrgName ? (
+                      <span className="opacity-60">{item.ownerOrgName} </span>
+                    ) : null}
+                    <span>更新 {item.updatedAt}</span>
                   </div>
                 </div>
-              ) : null}
+              </div>
 
               {/* 与 size="sm" 按钮同高，避免仅有 Word 预览入口时卡片被拉高 */}
               <div className="h-9 w-full shrink-0">
