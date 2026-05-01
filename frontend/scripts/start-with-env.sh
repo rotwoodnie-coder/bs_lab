@@ -8,17 +8,13 @@ export PATH="/www/server/nodejs/v22.22.2/bin:/usr/local/sbin:/usr/local/bin:/usr
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-set -a
-# 用 tr -d '\r' 处理 Windows 换行符，防止 \r 污染变量值
-source <(tr -d '\r' < "$PROJECT_ROOT/.env.local") 2>/dev/null \
-  || echo "[start-with-env] WARN: .env.local not found at $PROJECT_ROOT/.env.local"
-set +a
-
-# 清除 PORT 变量，防止 .env.local 中的 PORT=4100 被 Next.js 当作监听端口
-unset PORT
-
-# 强制生产模式：.env.local 中可能写 NODE_ENV=development，会覆盖 PM2 设置
-export NODE_ENV=production
+# 从根目录 .env.local 提取 MinIO 相关变量，避免全量 source 污染 NODE_ENV 等
+if [[ -f "$PROJECT_ROOT/.env.local" ]]; then
+  # 用 grep+sed 提取指定行，tr -d '\r' 剥离 CRLF
+  eval "$(grep -E '^(MINIO_|MEDIA_APP_)' "$PROJECT_ROOT/.env.local" | tr -d '\r' | sed 's/^/export /')"
+else
+  echo "[start-with-env] WARN: .env.local not found at $PROJECT_ROOT/.env.local"
+fi
 
 echo "[start-with-env] MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-UNSET}"
 echo "[start-with-env] MINIO_BUCKET=${MINIO_BUCKET:-UNSET}"
