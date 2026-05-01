@@ -39,14 +39,11 @@ export function materialStorageBrowserHref(rawUrl: string): string {
   const t = rawUrl.trim();
   if (!t) return "";
 
-  // 生产桶已是 Nginx 直连，直接转为同源相对路径
-  const internalMinioMarker = "10.0.181.204:19000/bslab-media-prod/";
-  const bucketPath = "/bslab-media-prod/";
-  if (t.includes(internalMinioMarker)) {
-    const pathAfterBucket = t.split(internalMinioMarker)[1];
-    if (pathAfterBucket !== undefined) {
-      return `${bucketPath}${pathAfterBucket}`;
-    }
+  // MinIO 内网直链（10.0.181.204:19000），直接截取 /桶名/... 由 Nginx 直连
+  const MINIO_INTERNAL = "10.0.181.204:19000";
+  if (t.includes(MINIO_INTERNAL)) {
+    const idx = t.indexOf(MINIO_INTERNAL) + MINIO_INTERNAL.length;
+    return t.slice(idx); // → /桶名/剩余路径
   }
 
   // 非生产 MinIO 内网地址，走后端代理
