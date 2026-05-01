@@ -12,5 +12,8 @@ set -a
 source "$PROJECT_ROOT/.env.local" 2>/dev/null || echo "[start-with-env] WARN: .env.local not found"
 set +a
 
+# 清除 PORT 变量，防止 .env.local 中的 PORT=4100 被 Next.js 当作监听端口
+unset PORT
+
 cd "$SCRIPT_DIR/.."
-exec npx next start
+exec npx next start -p 4200
