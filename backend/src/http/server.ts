@@ -1,3 +1,5 @@
+import { config } from "dotenv";
+config({ path: "../.env.local" });
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
