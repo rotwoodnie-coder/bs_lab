@@ -34,10 +34,25 @@ export function shouldProxyMaterialStorageUrl(href: string): boolean {
   }
 }
 
-/** 将库内 MinIO 直链转为同源代理路径；其它 URL 原样返回（含 `/` 开头的站内路径）。 */
-export function materialStorageBrowserHref(href: string): string {
-  const t = href.trim();
-  if (!t) return t;
-  if (!shouldProxyMaterialStorageUrl(t)) return t;
-  return `/api/materials/open?${new URLSearchParams({ u: t }).toString()}`;
+/** 将库内 MinIO 直链转为同源可访问路径；其它 URL 原样返回（含 `/` 开头的站内路径）。 */
+export function materialStorageBrowserHref(rawUrl: string): string {
+  const t = rawUrl.trim();
+  if (!t) return "";
+
+  // 生产桶已是 Nginx 直连，直接转为同源相对路径
+  const internalMinioMarker = "10.0.181.204:19000/bslab-media-prod/";
+  const bucketPath = "/bslab-media-prod/";
+  if (t.includes(internalMinioMarker)) {
+    const pathAfterBucket = t.split(internalMinioMarker)[1];
+    if (pathAfterBucket !== undefined) {
+      return `${bucketPath}${pathAfterBucket}`;
+    }
+  }
+
+  // 非生产 MinIO 内网地址，走后端代理
+  if (shouldProxyMaterialStorageUrl(t)) {
+    return `/api/materials/open?${new URLSearchParams({ u: t }).toString()}`;
+  }
+
+  return t;
 }
