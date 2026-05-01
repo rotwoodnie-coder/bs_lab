@@ -14,6 +14,29 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const TOKEN_COOKIE = "v2_access_token";
 
+/**
+ * base64url 解码（纯 JS，不依赖 atob / Buffer，兼容 Edge Runtime）。
+ */
+function base64UrlDecode(str: string): string {
+  const base64 = str.replace(/-/g, "+").replace(/_/g, "/") + "====".slice(str.length % 4 || 4);
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let output = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const char of base64) {
+    if (char === "=") break;
+    const val = chars.indexOf(char);
+    if (val === -1) continue;
+    buffer = (buffer << 6) | val;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      output += String.fromCharCode((buffer >> bits) & 0xff);
+    }
+  }
+  return output;
+}
+
 /** 从 v2_access_token cookie 中提取 role_id（不验证签名，仅 base64 解码 payload） */
 function decodeRoleFromCookie(req: NextRequest): string | null {
   const cookie = req.cookies.get(TOKEN_COOKIE);
@@ -22,7 +45,7 @@ function decodeRoleFromCookie(req: NextRequest): string | null {
   if (dotIdx <= 0) return null;
   const payloadB64 = cookie.value.slice(0, dotIdx);
   try {
-    const json = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    const json = JSON.parse(base64UrlDecode(payloadB64));
     return typeof json.role_id === "string" && json.role_id.length > 0 ? json.role_id : null;
   } catch {
     return null;
