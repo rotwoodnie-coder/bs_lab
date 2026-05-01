@@ -59,7 +59,6 @@ type Props = {
   setSelectedStandardId: (v: string | null) => void;
   setUseCustomExperiment: (v: boolean) => void;
   setCurriculum: (v: string) => void;
-  autoSetParticipation: (v: "required" | "optional") => void;
   attachExperimentFromList: (expId: string) => void | Promise<void>;
   setPhase: (v: EducationPhase) => void;
   setDiscipline: (v: SubjectDiscipline) => void;
@@ -262,7 +261,6 @@ export function ExperimentPickerDialog(props: Props) {
                     onCheckedChange={(next) => {
                       props.setUseCustomExperiment(next);
                       if (next) {
-                        props.autoSetParticipation("optional");
                         props.setSelectedStandardId(null);
                         props.setCurriculum("老师拓展实验（未关联实验列表）");
                       }

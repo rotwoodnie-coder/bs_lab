@@ -1,7 +1,7 @@
 {
   "name": "new-core-frontend",
   "private": true,
-  "version": "0.1.015",
+  "version": "0.1.016",
   "scripts": {
     "dev": "node scripts/dev-entry.mjs",
     "build": "node scripts/build-with-feedback.mjs",
@@ -73,6 +73,7 @@
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
+    "tesseract.js": "^7.0.0",
     "vaul": "^1.1.2",
     "zod": "^4.3.6",
     "zustand": "^5.0.12"

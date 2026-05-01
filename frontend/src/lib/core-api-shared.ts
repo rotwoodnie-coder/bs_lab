@@ -1,12 +1,15 @@
 import { UserRole } from "@/types/auth";
 
 function resolveApiBase(): string {
+  // 浏览器端优先使用同源基址：开发环境靠 Next.js rewrites 代理 /v2/* → 后端，
+  // 生产环境靠 Nginx 反代 /v2/* → 后端，均不需要硬编码 localhost 地址。
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  // SSR / 构建时：从环境变量读取后端地址（开发默认 http://localhost:4100）
   const env = process.env.NEXT_PUBLIC_NEW_CORE_API_BASE?.trim();
   if (env) return env;
-  // 本地开发默认走“同源”基址，配合 next.config rewrites 将 /v2/* 代理到后端，
-  // 避免跨域 + credentials 导致的 Cookie/CORS 问题。
-  if (typeof window !== "undefined" && window.location?.origin) return window.location.origin;
-  return process.env.NEXT_PUBLIC_NEW_CORE_API_BASE?.trim() || "http://localhost:4100";
+  return "http://localhost:4100";
 }
 
 const apiBase = resolveApiBase();

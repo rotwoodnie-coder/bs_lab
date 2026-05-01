@@ -20,6 +20,8 @@ export type EditorHydrationFromV2Payload = {
   expName: string;
   /** 对齐 exp_msg.choose_type */
   chooseType: "y" | "n" | null;
+  /** 对齐 exp_msg.exp_task_type */
+  expTaskType: "hw" | "tk" | "self" | null;
   /** 对齐 exp_msg.subject_id */
   subjectId: string | null;
   /** 对齐 exp_msg.school_level_id */
@@ -54,9 +56,6 @@ export type EditorHydrationFromV2Payload = {
   steps: ExperimentStepDraft[];
   resultEntries: ExperimentResultEntryDraft[];
   creatorName: string;
-  teachingRefTextbookVersion: string;
-  teachingRefUnit: string;
-  teachingRefLessonPeriod: string;
   coursebookId: string;
   unitId: string;
 };
@@ -188,6 +187,7 @@ export function buildEditorHydrationFromV2Detail(
   return {
     expName: (detail.expName ?? "").trim() || "未命名实验",
     chooseType: detail.chooseType ?? null,
+    expTaskType: detail.expTaskType ?? null,
     subjectId: (detail.subjectId ?? "").trim() || null,
     schoolLevelId: (detail.schoolLevelId ?? "").trim() || null,
     gradeId: (detail.gradeId ?? "").trim() || null,
@@ -217,9 +217,6 @@ export function buildEditorHydrationFromV2Detail(
     steps,
     resultEntries,
     creatorName: (detail.displayOwnerName ?? ctx.userName).trim() || ctx.userName,
-    teachingRefTextbookVersion: "",
-    teachingRefUnit: "",
-    teachingRefLessonPeriod: "",
     coursebookId: (detail.coursebookId ?? "").trim(),
     unitId: (detail.unitId ?? "").trim(),
   };

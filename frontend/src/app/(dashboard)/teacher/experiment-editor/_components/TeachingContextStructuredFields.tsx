@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bs-lab/ui";
+import { Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@bs-lab/ui";
 
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import type { ApiActor } from "@/lib/new-core-api";
@@ -8,8 +8,6 @@ import { fetchEduTextbookTree, fetchEduTextbooks, type CoursebookTreeChapter } f
 import type { SubjectDiscipline } from "@/types/subject";
 
 import type { PhaseKey } from "../types";
-
-const LESSON_PERIOD_PRESETS = ["0.5课时", "1课时", "1.5课时", "2课时", "2.5课时", "3课时", "4课时", "5课时", "6课时"] as const;
 
 type Props = {
   actor: ApiActor;
@@ -20,23 +18,11 @@ type Props = {
   setDiscipline: (v: SubjectDiscipline) => void;
   selectedGradeCodes: string[];
   setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
-  textbookVersion: string;
-  setTextbookVersion: (v: string) => void;
-  teachingUnit: string;
-  setTeachingUnit: (v: string) => void;
-  lessonPeriod: string;
-  setLessonPeriod: (v: string) => void;
   coursebookId: string;
   setCoursebookId: (v: string) => void;
   unitId: string;
   setUnitId: (v: string) => void;
 };
-
-function lessonPeriodSelectValue(lesson: string): string {
-  const t = lesson.trim();
-  if (!t) return "__none__";
-  return (LESSON_PERIOD_PRESETS as readonly string[]).includes(t) ? t : "__custom__";
-}
 
 export function TeachingContextStructuredFields(props: Props) {
   const phaseOption = React.useMemo(() => SUBJECT_CASCADE.find((item) => item.phase === props.phase), [props.phase]);
@@ -50,6 +36,8 @@ export function TeachingContextStructuredFields(props: Props) {
 
   const [coursebooks, setCoursebooks] = React.useState<Array<{ id: string; title: string }>>([]);
   const [chapters, setChapters] = React.useState<CoursebookTreeChapter[]>([]);
+  // 当前选中的 chapterId（仅 UI 中间态，不持久化到 DB）
+  const [selectedChapterId, setSelectedChapterId] = React.useState("");
 
   React.useEffect(() => {
     let cancelled = false;
@@ -72,6 +60,7 @@ export function TeachingContextStructuredFields(props: Props) {
     const bid = props.coursebookId.trim();
     if (!bid) {
       setChapters([]);
+      setSelectedChapterId("");
       return;
     }
     void (async () => {
@@ -79,6 +68,16 @@ export function TeachingContextStructuredFields(props: Props) {
         const tree = await fetchEduTextbookTree(props.actor, bid);
         if (cancelled) return;
         setChapters(tree);
+        // 如果当前选中的 unitId 对应某个 chapter，自动选中该 chapter
+        if (props.unitId.trim()) {
+          for (const ch of tree) {
+            const hasUnit = (ch.units ?? []).some((u) => u.unitId === props.unitId);
+            if (hasUnit) {
+              setSelectedChapterId(ch.chapterId);
+              break;
+            }
+          }
+        }
       } catch {
         if (!cancelled) setChapters([]);
       }
@@ -86,30 +85,23 @@ export function TeachingContextStructuredFields(props: Props) {
     return () => {
       cancelled = true;
     };
-  }, [props.actor, props.coursebookId]);
+  }, [props.actor, props.coursebookId, props.unitId]);
 
-  const unitOptions = React.useMemo(() => {
-    const out: Array<{ id: string; label: string }> = [];
-    for (const ch of chapters) {
-      for (const u of ch.units ?? []) {
-        out.push({ id: u.unitId, label: `${ch.chapterName} · ${u.unitName}` });
-      }
-    }
-    return out;
-  }, [chapters]);
-
-  const onLessonSelect = React.useCallback(
-    (v: string) => {
-      if (v === "__none__") props.setLessonPeriod("");
-      else if (v === "__custom__") props.setLessonPeriod("");
-      else props.setLessonPeriod(v);
-    },
-    [props.setLessonPeriod],
+  const chapterOptions = React.useMemo(
+    () => chapters.map((ch) => ({ id: ch.chapterId, label: ch.chapterName })),
+    [chapters],
   );
+
+  // 当前选中章下的节
+  const unitOptions = React.useMemo(() => {
+    if (!selectedChapterId) return [];
+    const ch = chapters.find((c) => c.chapterId === selectedChapterId);
+    return (ch?.units ?? []).map((u) => ({ id: u.unitId, label: u.unitName }));
+  }, [chapters, selectedChapterId]);
 
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <div className="grid gap-2">
           <Label>学段</Label>
           <Select
@@ -174,33 +166,8 @@ export function TeachingContextStructuredFields(props: Props) {
             <p className="text-xs text-muted-foreground">基本信息中为多选年级时，此处以下拉首项展示；在此重选后将改为单年级。</p>
           ) : null}
         </div>
-        <div className="grid gap-2">
-          <Label>课时</Label>
-          <Select value={lessonPeriodSelectValue(props.lessonPeriod)} onValueChange={onLessonSelect} disabled={props.disabled}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="选择课时" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">请选择课时</SelectItem>
-              {LESSON_PERIOD_PRESETS.map((p) => (
-                <SelectItem key={p} value={p}>
-                  {p}
-                </SelectItem>
-              ))}
-              <SelectItem value="__custom__">其他（手填）</SelectItem>
-            </SelectContent>
-          </Select>
-          {lessonPeriodSelectValue(props.lessonPeriod) === "__custom__" ? (
-            <Input
-              value={props.lessonPeriod}
-              onChange={(e) => props.setLessonPeriod(e.target.value)}
-              disabled={props.disabled}
-              placeholder="请输入课时说明"
-            />
-          ) : null}
-        </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         <div className="grid gap-2">
           <Label>教材（落库）</Label>
           <Select
@@ -208,7 +175,8 @@ export function TeachingContextStructuredFields(props: Props) {
             onValueChange={(v) => {
               const next = v === "__none__" ? "" : v;
               props.setCoursebookId(next);
-              // 切换教材后，小节选择清空，避免跨教材脏数据
+              // 切换教材后，章节和小节选择清空
+              setSelectedChapterId("");
               props.setUnitId("");
             }}
             disabled={props.disabled}
@@ -228,17 +196,42 @@ export function TeachingContextStructuredFields(props: Props) {
           <p className="text-xs text-muted-foreground">保存到 exp_msg.coursebook_id。</p>
         </div>
         <div className="grid gap-2">
-          <Label>教材小节（落库）</Label>
+          <Label>章（落库）</Label>
           <Select
-            value={props.unitId.trim() ? props.unitId : "__none__"}
-            onValueChange={(v) => props.setUnitId(v === "__none__" ? "" : v)}
+            value={selectedChapterId || "__none__"}
+            onValueChange={(v) => {
+              setSelectedChapterId(v === "__none__" ? "" : v);
+              // 切换章后，节清空
+              props.setUnitId("");
+            }}
             disabled={props.disabled || !props.coursebookId.trim()}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder={props.coursebookId.trim() ? "选择小节（/v2/coursebook/:id/tree）" : "请先选择教材"} />
+              <SelectValue placeholder={props.coursebookId.trim() ? "选择章" : "请先选择教材"} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">请选择小节</SelectItem>
+              <SelectItem value="__none__">请选择章</SelectItem>
+              {chapterOptions.map((ch) => (
+                <SelectItem key={ch.id} value={ch.id}>
+                  {ch.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">中间层级，辅助筛选节。</p>
+        </div>
+        <div className="grid gap-2">
+          <Label>节（落库）</Label>
+          <Select
+            value={props.unitId.trim() ? props.unitId : "__none__"}
+            onValueChange={(v) => props.setUnitId(v === "__none__" ? "" : v)}
+            disabled={props.disabled || !selectedChapterId}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={selectedChapterId ? "选择节" : "请先选择章"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">请选择节</SelectItem>
               {unitOptions.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
                   {u.label}
@@ -247,28 +240,6 @@ export function TeachingContextStructuredFields(props: Props) {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">保存到 exp_msg.unit_id。</p>
-        </div>
-      </div>
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="grid gap-2">
-          <Label htmlFor="tc-textbook-version">教材版本</Label>
-          <Input
-            id="tc-textbook-version"
-            value={props.textbookVersion}
-            onChange={(e) => props.setTextbookVersion(e.target.value)}
-            disabled={props.disabled}
-            placeholder="如：人教版高中物理必修第三册"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="tc-unit">单元</Label>
-          <Input
-            id="tc-unit"
-            value={props.teachingUnit}
-            onChange={(e) => props.setTeachingUnit(e.target.value)}
-            disabled={props.disabled}
-            placeholder="如：第九章第2节"
-          />
         </div>
       </div>
     </div>

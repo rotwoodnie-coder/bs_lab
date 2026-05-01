@@ -99,23 +99,24 @@ export function useEditorBootstrap() {
   const [durationMin, setDurationMin] = React.useState("45");
   const [simulatorUrl, setSimulatorUrl] = React.useState("");
   const [difficultyId, setDifficultyId] = React.useState("");
-  const [difficulty, setDifficulty] = React.useState<"basic" | "intermediate" | "advanced">("intermediate");
-  const [participation, setParticipation] = React.useState<"required" | "optional">("required");
-  // 真源字段（对齐 exp_msg）：先在不动 UI 的前提下引入，逐步替换旧别名状态
+  // 校验：确保 difficultyId 存在于当前学段的 difficultyOptions 中
+  const setDifficultyIdSafe = React.useCallback(
+    (v: string) => {
+      // 如果为空串或不是有效 UUID，重置为空
+      if (!v.trim() || !/^[a-f0-9-]{32,36}$/i.test(v.trim())) {
+        setDifficultyId("");
+        return;
+      }
+      setDifficultyId(v.trim());
+    },
+    [],
+  );
   const [expName, setExpName] = React.useState("校本拓展 · 单摆与计时");
   const [chooseType, setChooseType] = React.useState<"y" | "n" | null>("y");
+  const [expTaskType, setExpTaskType] = React.useState<"hw" | "tk" | "self" | null>(null);
   const [subjectId, setSubjectId] = React.useState<string | null>(null);
   const [schoolLevelId, setSchoolLevelId] = React.useState<string | null>(null);
   const [gradeId, setGradeId] = React.useState<string | null>(null);
-  const participationTouchedRef = React.useRef(false);
-  const setParticipationUser = React.useCallback((v: "required" | "optional") => {
-    participationTouchedRef.current = true;
-    setParticipation(v);
-  }, []);
-  const autoSetParticipation = React.useCallback((v: "required" | "optional") => {
-    if (participationTouchedRef.current) return;
-    setParticipation(v);
-  }, []);
   const [mainVideoId, setMainVideoId] = React.useState<string | null>(null);
   const [mainVideoUrl, setMainVideoUrl] = React.useState("");
   const [mainVideoPoster, setMainVideoPoster] = React.useState("");
@@ -124,9 +125,6 @@ export function useEditorBootstrap() {
   const [creatorName, setCreatorName] = React.useState("");
   const [teachingContextContent, setTeachingContextContent] = React.useState("");
   const [teachingContextEmbeds, setTeachingContextEmbeds] = React.useState<RichMediaEmbed[]>([]);
-  const [teachingRefTextbookVersion, setTeachingRefTextbookVersion] = React.useState("");
-  const [teachingRefUnit, setTeachingRefUnit] = React.useState("");
-  const [teachingRefLessonPeriod, setTeachingRefLessonPeriod] = React.useState("");
   const [coursebookId, setCoursebookId] = React.useState("");
   const [unitId, setUnitId] = React.useState("");
   const setTeachingContextRich = React.useCallback((next: RichMediaValue) => {
@@ -169,9 +167,19 @@ export function useEditorBootstrap() {
     [phaseDisciplines],
   );
   const gradeOptions = React.useMemo(() => {
-    const d = phaseDisciplines.find((x) => x.discipline === discipline);
-    return Array.isArray(d?.grades) ? [...d!.grades] : [];
-  }, [discipline, phaseDisciplines]);
+    // 跨学段、学科对应的所有年级（不与选段绑定）
+    if (!discipline) return [];
+    const gradesMap = new Map<string, string>();
+    for (const phase of SUBJECT_CASCADE) {
+      const disc = phase.disciplines.find((d) => d.discipline === discipline);
+      if (disc?.grades) {
+        for (const g of disc.grades) {
+          if (!gradesMap.has(g.code)) gradesMap.set(g.code, g.label);
+        }
+      }
+    }
+    return [...gradesMap.entries()].map(([code, label]) => ({ code, label }));
+  }, [discipline]);
 
   useEditorBootstrapPhaseSync(phaseDisciplines, gradeOptions, setDiscipline, setSelectedGradeCodes);
 
@@ -183,15 +191,6 @@ export function useEditorBootstrap() {
     const map = new Map(gradeOptions.map((g) => [g.code, g.label] as const));
     return selectedGradeCodes.map((code) => map.get(code) ?? code);
   }, [gradeOptions, selectedGradeCodes]);
-
-  React.useEffect(() => {
-    if (!chooseType) return;
-    const nextParticipation = chooseType === "y" ? ("required" as const) : ("optional" as const);
-    if (participation !== nextParticipation) {
-      // 不覆盖用户手动选择；仅在未触碰时同步展示字段
-      if (!participationTouchedRef.current) setParticipation(nextParticipation);
-    }
-  }, [chooseType, participation]);
 
   const listDisciplineOptions = React.useMemo(() => {
     const phs = listFilterPhases.length ? listFilterPhases : SUBJECT_CASCADE.map((p) => p.phase);
@@ -324,9 +323,6 @@ export function useEditorBootstrap() {
         setCurriculum(p.curriculum);
         setTeachingContextContent(p.teachingContextContent);
         setTeachingContextEmbeds(p.teachingContextEmbeds);
-        setTeachingRefTextbookVersion(p.teachingRefTextbookVersion);
-        setTeachingRefUnit(p.teachingRefUnit);
-        setTeachingRefLessonPeriod(p.teachingRefLessonPeriod);
 
         setPrinciple(p.principle);
         setPrincipleEmbeds(p.principleEmbeds);
@@ -354,7 +350,6 @@ export function useEditorBootstrap() {
       }
     },
     [
-      autoSetParticipation,
       auxiliaryReference,
       setCreatorName,
       setDangerEmbeds,
@@ -377,9 +372,6 @@ export function useEditorBootstrap() {
       setSummary,
       setTeachingContextContent,
       setTeachingContextEmbeds,
-      setTeachingRefLessonPeriod,
-      setTeachingRefTextbookVersion,
-      setTeachingRefUnit,
       setUseCustomExperiment,
       setCurriculum,
       setDurationMin,
@@ -392,15 +384,12 @@ export function useEditorBootstrap() {
   );
   const { completionPct, anchorsWithStatus } = useEditorBootstrapChecklist({
     subjectId,
-    schoolLevelId,
-    gradeId,
     chooseType,
     expName,
     phase,
     discipline,
     creatorName,
     selectedGradeCodes,
-    participation,
     curriculum,
     teachingContextContent,
     teachingContextEmbeds,
@@ -445,6 +434,7 @@ export function useEditorBootstrap() {
     user.userName,
     setExpName,
     setChooseType,
+    setExpTaskType,
     setSubjectId,
     setSchoolLevelId,
     setGradeId,
@@ -474,9 +464,6 @@ export function useEditorBootstrap() {
     setCreatorName,
     setMaterials,
     setSteps,
-    setTeachingRefTextbookVersion,
-    setTeachingRefUnit,
-    setTeachingRefLessonPeriod,
     setCoursebookId,
     setUnitId,
     auxiliaryReference.setReferenceCitations,
@@ -523,6 +510,8 @@ export function useEditorBootstrap() {
   // 超级管理员允许跨作者编辑；研究员角色默认只读，但不应影响超级管理员。
   const fieldDisabled = !contentEditable || (!superUser && isResearcher) || (!superUser && !isOwner && Boolean(expId));
   const materialsStepsDisabled = !materialsStepsEditable;
+  // 如果该实验已被布置为作业（taskInfo 非空），禁止修改任务类型
+  const expTaskTypeDisabled = Boolean(hydratedV2Detail?.taskInfo?.targetClassId);
   const {
     workflowLabel,
     lifecycleLabel,
@@ -543,6 +532,7 @@ export function useEditorBootstrap() {
     superUser,
     expName,
     chooseType,
+    expTaskType,
     subjectId,
     schoolLevelId,
     gradeId,
@@ -557,8 +547,6 @@ export function useEditorBootstrap() {
     durationMin,
     simulatorUrl,
     difficultyId,
-    difficulty,
-    participation,
     mainVideoId,
     mainVideoPoster,
     mainVideoUrl,
@@ -567,9 +555,6 @@ export function useEditorBootstrap() {
     creatorName,
     teachingContextContent,
     teachingContextEmbeds,
-    teachingRefTextbookVersion,
-    teachingRefUnit,
-    teachingRefLessonPeriod,
     coursebookId,
     unitId,
     principle,
@@ -611,6 +596,7 @@ export function useEditorBootstrap() {
     anchorsWithStatus,
     fieldDisabled,
     materialsStepsDisabled,
+    expTaskTypeDisabled,
     workflowLabel,
     lifecycleLabel,
     showResearcherReviewBar,
@@ -638,12 +624,10 @@ export function useEditorBootstrap() {
     setSummary,
     setDurationMin,
     setSimulatorUrl,
-    setDifficultyId,
-    setDifficulty,
-    setParticipation: setParticipationUser,
-    autoSetParticipation,
+    setDifficultyId: setDifficultyIdSafe,
     setExpName,
     setChooseType,
+    setExpTaskType,
     setSubjectId,
     setSchoolLevelId,
     setGradeId,
@@ -655,9 +639,6 @@ export function useEditorBootstrap() {
     setTeachingContextRich,
     setTeachingContextContent,
     setTeachingContextEmbeds,
-    setTeachingRefTextbookVersion,
-    setTeachingRefUnit,
-    setTeachingRefLessonPeriod,
     setCoursebookId,
     setUnitId,
     setPrinciple,
@@ -691,6 +672,8 @@ export function useEditorBootstrap() {
     v2Subjects: v2Peer.subjects,
     v2Grades: v2Peer.grades,
     v2Difficulties: v2Peer.difficulties,
+    v2Securities: v2Peer.securities,
+    v2Loading: v2Peer.loading,
     refreshV2PeerList: v2Peer.refresh,
   };
 }

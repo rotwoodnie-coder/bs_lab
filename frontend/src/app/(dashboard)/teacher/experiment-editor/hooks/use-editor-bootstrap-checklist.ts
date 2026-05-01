@@ -17,15 +17,12 @@ import { EDITOR_ANCHORS } from "./editor-bootstrap-utils";
 
 type ChecklistInput = {
   subjectId: string | null;
-  schoolLevelId: string | null;
-  gradeId: string | null;
   chooseType: "y" | "n" | null;
   expName: string;
   phase: EducationPhase;
   discipline: SubjectDiscipline;
   creatorName: string;
   selectedGradeCodes: string[];
-  participation: "required" | "optional";
   curriculum: string;
   teachingContextContent: string;
   teachingContextEmbeds: RichMediaEmbed[];
@@ -56,7 +53,7 @@ export function useEditorBootstrapChecklist(p: ChecklistInput) {
     () => [
       { label: "实验名称", ok: p.expName.trim().length > 0 },
       { label: "学科", ok: Boolean(p.subjectId?.trim()) },
-      { label: "年级", ok: Boolean(p.gradeId?.trim()) },
+      { label: "年级", ok: p.selectedGradeCodes.length > 0 },
       { label: "选做/必做", ok: Boolean(p.chooseType) },
       { label: "对照课标", ok: p.curriculum.trim().length > 0 },
       {
@@ -99,9 +96,8 @@ export function useEditorBootstrapChecklist(p: ChecklistInput) {
       p.creatorName,
       p.curriculum,
       p.expName,
-      p.gradeId,
+      p.selectedGradeCodes,
       p.materials,
-      p.participation,
       p.principle,
       p.principleEmbeds,
       p.referenceCitations,
@@ -124,7 +120,7 @@ export function useEditorBootstrapChecklist(p: ChecklistInput) {
   const completionPct = Math.round((checklistDone / checklist.length) * 100);
 
   const sectionStatusMap = React.useMemo(() => {
-    const subjectDone = Boolean(p.subjectId?.trim()) && Boolean(p.schoolLevelId?.trim()) && Boolean(p.gradeId?.trim());
+    const subjectDone = Boolean(p.subjectId?.trim()) && p.selectedGradeCodes.length > 0;
     const basicDone =
       p.expName.trim().length > 0 &&
       p.summary.trim().length > 0 &&
@@ -164,7 +160,7 @@ export function useEditorBootstrapChecklist(p: ChecklistInput) {
     p.chooseType,
     p.curriculum,
     p.durationMin,
-    p.gradeId,
+    p.selectedGradeCodes,
     p.materials,
     p.principle,
     p.principleEmbeds,
@@ -176,11 +172,10 @@ export function useEditorBootstrapChecklist(p: ChecklistInput) {
     p.safetyEmbeds,
     p.dangerNotes,
     p.dangerEmbeds,
+    p.subjectId,
     p.scienceStory,
     p.scienceStoryEmbeds,
-    p.schoolLevelId,
     p.steps,
-    p.subjectId,
     p.summary,
     p.teachingContextContent,
     p.teachingContextEmbeds,

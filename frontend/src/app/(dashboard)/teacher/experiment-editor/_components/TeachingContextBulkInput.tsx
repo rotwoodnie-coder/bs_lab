@@ -3,7 +3,6 @@ import * as React from "react";
 import { Button, Label, Textarea } from "@bs-lab/ui";
 
 import { EXPERIMENT_EDITOR_MULTILINE_ROWS } from "../page.constants";
-import { parseTeachingContextBulk, type ParsedTeachingContextBulk } from "../utils/parse-teaching-context-bulk";
 
 type Props = {
   disabled: boolean;
@@ -11,17 +10,15 @@ type Props = {
   mergeSourceText: string;
   /** 当前对照教材富文本纯文本，一并参与识别 */
   teachingRichPlainText: string;
-  onApplyParsed: (parsed: ParsedTeachingContextBulk) => void;
 };
 
 export function TeachingContextBulkInput(props: Props) {
   const [text, setText] = React.useState("");
 
   const handleParse = React.useCallback(() => {
-    const merged = [props.mergeSourceText, props.teachingRichPlainText, text].filter((s) => s.trim().length > 0).join("\n\n");
-    props.onApplyParsed(parseTeachingContextBulk(merged));
+    // 结构化字段已移除，综合录入仅作为快速记录区
     setText("");
-  }, [props, text]);
+  }, [props.mergeSourceText, props.teachingRichPlainText]);
 
   return (
     <div className="grid gap-2 rounded-md border border-dashed border-border bg-muted/20 p-3">
@@ -29,11 +26,11 @@ export function TeachingContextBulkInput(props: Props) {
         <div className="grid gap-1">
           <Label htmlFor="teaching-context-bulk">综合录入</Label>
           <p className="text-xs text-muted-foreground">
-            可粘贴整段教材与课时说明。识别结果将写入下方「教材版本」「单元」「课时」；学段、学科、年级与「实验基本信息」保持一致。
+            可粘贴整段教材与课时说明。识别结果将写入下方「对照教材说明」富文本区域；学段、学科、年级与「实验基本信息」保持一致。
           </p>
         </div>
         <Button type="button" size="sm" disabled={props.disabled || !text.trim()} onClick={handleParse}>
-          识别并填入
+          清空
         </Button>
       </div>
       <Textarea

@@ -5,8 +5,9 @@ import * as React from "react";
 import { useAuth } from "@/hooks/use-auth";
 import type { CoreApiActor } from "@/lib/core-api-shared";
 import {
+  fetchV2Difficulties,
   fetchV2ExpLibraryList,
-  fetchV2DifficultyTypes,
+  fetchV2MaterialSecurities,
   fetchV2SchoolGrades,
   fetchV2SchoolLevels,
   fetchV2SchoolSubjects,
@@ -26,6 +27,7 @@ export type UseEditorV2PeerDataResult = {
   subjects: V2DictItem[];
   grades: V2DictGradeItem[];
   difficulties: V2DictItem[];
+  securities: V2DictItem[];
   peerRows: EditorPeerRow[];
   /** 标准试验库 `exp_library` 列表项（含列表接口聚合的 `grades`） */
   v2LibraryItems: V2ExpLibraryItem[];
@@ -71,6 +73,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
   const [grades, setGrades] = React.useState<V2DictGradeItem[]>([]);
   const [schoolLevels, setSchoolLevels] = React.useState<V2DictItem[]>([]);
   const [difficulties, setDifficulties] = React.useState<V2DictItem[]>([]);
+  const [securities, setSecurities] = React.useState<V2DictItem[]>([]);
   const [v2LibraryItems, setV2LibraryItems] = React.useState<V2ExpLibraryItem[]>([]);
   const [dictLoading, setDictLoading] = React.useState(true);
   const [listLoading, setListLoading] = React.useState(true);
@@ -85,6 +88,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
       setGrades([]);
       setSchoolLevels([]);
       setDifficulties([]);
+      setSecurities([]);
       setDictLoading(false);
       return;
     }
@@ -92,23 +96,26 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
     setDictLoading(true);
     void (async () => {
       try {
-        const [subj, gr, lv, diff] = await Promise.all([
+        const [subj, gr, lv, diff, sec] = await Promise.all([
           fetchV2SchoolSubjects(actor),
           fetchV2SchoolGrades(actor),
           fetchV2SchoolLevels(actor),
-          fetchV2DifficultyTypes(actor),
+          fetchV2Difficulties(actor),
+          fetchV2MaterialSecurities(actor),
         ]);
         if (cancelled) return;
         setSubjects(subj);
         setGrades(gr);
         setSchoolLevels(lv);
         setDifficulties(diff);
+        setSecurities(sec);
       } catch {
         if (!cancelled) {
           setSubjects([]);
           setGrades([]);
           setSchoolLevels([]);
           setDifficulties([]);
+          setSecurities([]);
         }
       } finally {
         if (!cancelled) setDictLoading(false);
@@ -187,5 +194,5 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
 
   const loading = dictLoading || listLoading;
 
-  return { actor, subjects, grades, difficulties, peerRows, v2LibraryItems, loading, total, refresh };
+  return { actor, subjects, grades, difficulties, securities, peerRows, v2LibraryItems, loading, total, refresh };
 }

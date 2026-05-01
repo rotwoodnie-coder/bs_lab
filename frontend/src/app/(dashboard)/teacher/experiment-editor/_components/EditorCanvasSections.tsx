@@ -73,6 +73,7 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
       fieldDisabled: vm.fieldDisabled,
       mediaActor,
       userId: vm.user.userId,
+      securities: vm.v2Securities,
       resultEntries: vm.resultEntries,
       addResultEntry: vm.addResultEntry,
       removeResultEntry: vm.removeResultEntry,
@@ -231,16 +232,20 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               simulatorUrl={vm.simulatorUrl}
               setSimulatorUrl={vm.setSimulatorUrl}
               difficultyId={vm.difficultyId}
-              setDifficultyId={vm.setDifficultyId}
-              difficultyOptions={vm.v2Difficulties}
-              subjectOptions={vm.v2Subjects}
-              gradeDictOptions={vm.v2Grades}
-              difficulty={vm.difficulty}
-              setDifficulty={vm.setDifficulty}
-              participation={vm.participation}
-              setParticipation={vm.setParticipation}
+              onDifficultyIdChange={vm.setDifficultyId}
+              difficultyOptions={vm.v2Difficulties?.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name })) ?? []}
+              difficultyLoading={vm.v2Loading}
               chooseType={vm.chooseType}
               setChooseType={vm.setChooseType}
+              subjectOptions={vm.v2Subjects}
+              gradeDictOptions={vm.v2Grades}
+              selectedGradeCodes={vm.selectedGradeCodes}
+              setSelectedGradeCodes={vm.setSelectedGradeCodes}
+              gradeOptions={vm.gradeOptions}
+              disciplineLabel={vm.disciplineLabel}
+              expTaskType={vm.expTaskType}
+              onExpTaskTypeChange={vm.setExpTaskType}
+              expTaskTypeDisabled={vm.expTaskTypeDisabled}
               mainVideoUrl={vm.mainVideoUrl}
               setMainVideoUrl={vm.setMainVideoUrl}
               mainVideoEmbeds={mainVideoEmbeds}
@@ -269,7 +274,6 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               onPickerSetSelectedStandardId={vm.setSelectedStandardId}
               onPickerSetUseCustomExp={vm.setUseCustomExperiment}
               onPickerSetCurriculum={vm.setCurriculum}
-              onPickerAutoSetParticipation={vm.autoSetParticipation}
               onPickerAttach={vm.attachExperimentFromList}
               onPickerSetPhase={vm.setPhase}
               onPickerSetDiscipline={vm.setDiscipline}
@@ -332,12 +336,6 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
                 teachingContextContent={vm.teachingContextContent}
                 teachingContextEmbeds={vm.teachingContextEmbeds}
                 onTeachingContextRichChange={vm.setTeachingContextRich}
-                teachingRefTextbookVersion={vm.teachingRefTextbookVersion}
-                setTeachingRefTextbookVersion={vm.setTeachingRefTextbookVersion}
-                teachingRefUnit={vm.teachingRefUnit}
-                setTeachingRefUnit={vm.setTeachingRefUnit}
-                teachingRefLessonPeriod={vm.teachingRefLessonPeriod}
-                setTeachingRefLessonPeriod={vm.setTeachingRefLessonPeriod}
                 coursebookId={vm.coursebookId}
                 setCoursebookId={vm.setCoursebookId}
                 unitId={vm.unitId}

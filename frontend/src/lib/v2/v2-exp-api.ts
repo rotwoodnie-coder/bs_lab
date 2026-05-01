@@ -15,7 +15,9 @@ export type V2ExpLibraryQuery = V2ExpLibraryListQuery;
 export type V2ExpFileType = V2DictItem;
 export type V2ExpOrgType = V2DictItem;
 export type V2ExpPrefTitle = V2DictItem;
-export function fetchV2Difficulties(actor: CoreApiActor): Promise<V2DictItem[]> { return fetchV2DifficultyTypes(actor); }
+export function fetchV2Difficulties(actor: CoreApiActor): Promise<V2DictItem[]> {
+  return createV2ApiService(actor).get<V2DictItem[]>("/v2/dict/difficulties");
+}
 /** `/v2/dict/file-types` — 真正的 `data_file_type` 字典，与静态映射 `FILE_KIND_MAP` 一致 */
 export function fetchV2FileTypes(actor: CoreApiActor): Promise<V2DictItem[]> {
   return createV2ApiService(actor).get<V2DictItem[]>("/v2/dict/file-types");
@@ -310,6 +312,7 @@ export type V2ExpDraftPutBody = {
   exp_danger: string | null;
   class_hour: number | null;
   simulator_url: string | null;
+  exp_task_type: "hw" | "tk" | "self" | null;
   materials: V2ExpDraftMaterialRowPut[];
   steps: V2ExpDraftStepRowPut[];
   results: V2ExpDraftResultRowPut[];

@@ -30,7 +30,6 @@ type Props = {
   onPickerSetSelectedStandardId: (v: string | null) => void;
   onPickerSetUseCustomExp: (v: boolean) => void;
   onPickerSetCurriculum: (v: string) => void;
-  onPickerAutoSetParticipation: (v: "required" | "optional") => void;
   onPickerAttach: (expId: string) => void | Promise<void>;
   onPickerSetPhase: (v: EducationPhase) => void;
   onPickerSetDiscipline: (v: SubjectDiscipline) => void;
@@ -88,7 +87,6 @@ export function EditorExpPickerBar(props: Props) {
         setSelectedStandardId={props.onPickerSetSelectedStandardId}
         setUseCustomExperiment={props.onPickerSetUseCustomExp}
         setCurriculum={props.onPickerSetCurriculum}
-        autoSetParticipation={props.onPickerAutoSetParticipation}
         attachExperimentFromList={props.onPickerAttach}
         setPhase={props.onPickerSetPhase}
         setDiscipline={props.onPickerSetDiscipline}

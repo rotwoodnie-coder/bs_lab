@@ -40,11 +40,11 @@ export async function POST(req: Request) {
   }
 
   // 封面图片校验通过，但 OCR 识别服务尚未接入
-  // TODO: 替换为真实 OCR / 多模态模型服务（预期返回 MediaCoverOcrResult）
+  // 注：当前已改用客户端 Tesseract.js 方案（@/lib/ai/media-ocr.ts），
+  //     此 API 路由保留仅用于降级回退。前端不会主动调用此路由。
+  // TODO: 后续可对接真实 OCR AI 服务增强精度
   return NextResponse.json(
-    {
-      error: "OCR 文字识别服务未就绪，暂无法从视频封面提取文字信息。",
-    },
+    { error: "OCR 文字识别服务已迁移至客户端，此服务端接口已废弃。" },
     { status: 503 },
   );
 }

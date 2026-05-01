@@ -49,6 +49,8 @@ export type EditorActionsInput = {
   expName: string;
   /** 对齐 exp_msg.choose_type */
   chooseType: "y" | "n" | null;
+  /** 对齐 exp_msg.exp_task_type */
+  expTaskType: "hw" | "tk" | "self" | null;
   /** 对齐 exp_msg.subject_id */
   subjectId: string | null;
   /** 对齐 exp_msg.school_level_id */
@@ -80,9 +82,6 @@ export type EditorActionsInput = {
   mainVideoId: string | null;
   mainVideoUrl: string;
   mainVideoEmbeds: RichMediaEmbed[];
-  teachingRefTextbookVersion: string;
-  teachingRefUnit: string;
-  teachingRefLessonPeriod: string;
   referenceCitations: ExperimentReferenceCitationDraft[];
   referenceRichText: string;
   referenceRichEmbeds: RichMediaEmbed[];
@@ -188,10 +187,10 @@ export function useEditorActions(a: EditorActionsInput) {
         if (!options?.silent) sonnerToast.error("未登录", { description: "请先登录后再保存。" });
         return false;
       }
-      if (!a.subjectId?.trim() || !a.gradeId?.trim() || !a.schoolLevelId?.trim()) {
+      if (!a.subjectId?.trim()) {
         if (!options?.silent) {
-          sonnerToast.error("请先选择学科和年级", {
-            description: "在「基础信息」中补齐学科和年级后再保存。",
+          sonnerToast.error("请先选择学科", {
+            description: "在「基础信息」中补齐学科后再保存。",
           });
         }
         return false;
@@ -207,6 +206,7 @@ export function useEditorActions(a: EditorActionsInput) {
       const body = buildV2ExpDraftPutBody({
         expName: a.expName,
         chooseType: a.chooseType,
+        expTaskType: a.expTaskType,
         subjectId: a.subjectId,
         schoolLevelId: a.schoolLevelId,
         gradeId: a.gradeId,
@@ -296,9 +296,9 @@ export function useEditorActions(a: EditorActionsInput) {
   );
 
   const publish = React.useCallback(async () => {
-    if (!a.subjectId?.trim() || !a.gradeId?.trim() || !a.schoolLevelId?.trim()) {
+    if (!a.subjectId?.trim()) {
       sonnerToast.error("无法提交审核", {
-        description: "请先在「基础信息」中选择学科和年级。",
+        description: "请先在「基础信息」中选择学科。",
       });
       return;
     }

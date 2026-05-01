@@ -3,6 +3,7 @@ import * as React from "react";
 import { Card, CardContent, CardHeader, CardTitle, type RichMediaValue } from "@bs-lab/ui";
 
 import type { ApiActor } from "@/lib/new-core-api";
+import type { V2DictItem } from "@/lib/v2/v2-exp-api";
 import { plainTextFromHtml } from "@/components/business/rich-html-editor/word-html-sanitize";
 
 import { EXPERIMENT_EDITOR_MULTILINE_ROWS } from "../../page.constants";
@@ -10,12 +11,14 @@ import type { ExperimentReferenceCitationDraft, ExperimentResultEntryDraft, Expe
 import { EditorExperimentReferencePanel } from "./EditorExperimentReferencePanel";
 import { EditorScientistStoryPanel } from "./EditorScientistStoryPanel";
 import { ResultEntryList } from "../ResultEntryList";
+import { SafetyPresetChips } from "../SafetyPresetChips";
 import { StepContentRichEditor } from "../StepContentRichEditor";
 
 export function EditorTailSections(props: {
   fieldDisabled: boolean;
   mediaActor: ApiActor;
   userId?: string;
+  securities: V2DictItem[];
   resultEntries: ExperimentResultEntryDraft[];
   addResultEntry: () => void;
   removeResultEntry: (id: string) => void;
@@ -101,6 +104,21 @@ export function EditorTailSections(props: {
                   </span>
                 )}
               </div>
+              {props.securities.length > 0 ? (
+                <div className="mt-2">
+                  <SafetyPresetChips
+                    securities={props.securities}
+                    currentText={plainTextFromHtml(props.safetyNotes)}
+                    onChange={(next) =>
+                      props.onSafetyRichChange({
+                        text: next,
+                        embeds: props.safetyEmbeds,
+                      })
+                    }
+                    disabled={props.fieldDisabled}
+                  />
+                </div>
+              ) : null}
             </div>
             <div>
               <StepContentRichEditor
@@ -123,6 +141,21 @@ export function EditorTailSections(props: {
                   </span>
                 )}
               </div>
+              {props.securities.length > 0 ? (
+                <div className="mt-2">
+                  <SafetyPresetChips
+                    securities={props.securities}
+                    currentText={plainTextFromHtml(props.dangerNotes)}
+                    onChange={(next) =>
+                      props.onDangerRichChange({
+                        text: next,
+                        embeds: props.dangerEmbeds,
+                      })
+                    }
+                    disabled={props.fieldDisabled}
+                  />
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>

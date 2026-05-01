@@ -81,10 +81,12 @@ export function MediaRegistryStreamPreview({
   }
 
   if (previewKind === "image") {
+    // 有 logoUrl 时用 materialStorageBrowserHref 转为 Nginx 直连路径（绕过 /api/media/registry-stream）
+    const imageSrc = rawLogo ? materialStorageBrowserHref(rawLogo) : streamUrl;
     return (
       <MediaPreview
         kind="image"
-        src={streamUrl}
+        src={imageSrc}
         alt={title}
         className={cn("size-full object-cover", className)}
         imageLoading="lazy"

@@ -2,29 +2,43 @@
 
 import * as React from "react";
 
-import { Button, Input, Label, RadioGroup, RadioGroupItem } from "@bs-lab/ui";
+import { Button, Input, Label, RadioGroup, RadioGroupItem, Skeleton } from "@bs-lab/ui";
 import { ExternalLink } from "@bs-lab/ui/icons";
+
+type DifficultyOption = {
+  id: string;
+  name: string;
+};
 
 type Props = {
   chooseType: "y" | "n" | null;
-  participation: "required" | "optional";
   fieldDisabled: boolean;
   onChooseTypeChange: (v: "y" | "n" | null) => void;
-  difficulty: "basic" | "intermediate" | "advanced";
-  onDifficultyChange: (v: "basic" | "intermediate" | "advanced") => void;
+  expTaskType: "hw" | "tk" | "self" | null;
+  expTaskTypeDisabled: boolean;
+  onExpTaskTypeChange: (v: "hw" | "tk" | "self" | null) => void;
+  difficultyId: string;
+  onDifficultyIdChange: (v: string) => void;
+  difficultyOptions: DifficultyOption[];
+  difficultyLoading: boolean;
   simulatorUrl: string;
   onSimulatorUrlChange: (v: string) => void;
 };
 
 export function EditorBasicSettingsRow(props: Props) {
-  const { chooseType, participation, fieldDisabled, onChooseTypeChange, difficulty, onDifficultyChange, simulatorUrl, onSimulatorUrlChange } = props;
+  const {
+    chooseType, fieldDisabled, onChooseTypeChange,
+    expTaskType, expTaskTypeDisabled, onExpTaskTypeChange,
+    difficultyId, onDifficultyIdChange, difficultyOptions, difficultyLoading,
+    simulatorUrl, onSimulatorUrlChange,
+  } = props;
 
   return (
-    <div className="grid gap-4 lg:col-span-12 lg:grid-cols-3">
+    <div className="grid gap-4 lg:col-span-12 lg:grid-cols-4">
       <div className="grid gap-2">
         <Label>实验类型</Label>
         <RadioGroup
-          value={chooseType === "y" ? "required" : chooseType === "n" ? "optional" : participation}
+          value={chooseType === "y" ? "required" : "optional"}
           onValueChange={(v) => onChooseTypeChange(v === "required" ? "y" : "n")}
           className="flex flex-wrap gap-4"
         >
@@ -38,15 +52,49 @@ export function EditorBasicSettingsRow(props: Props) {
       </div>
       <div className="grid gap-2">
         <Label>实验难度</Label>
+        {difficultyLoading ? (
+          <div className="flex flex-wrap gap-4">
+            <Skeleton className="h-8 w-16 rounded-lg" />
+            <Skeleton className="h-8 w-16 rounded-lg" />
+            <Skeleton className="h-8 w-16 rounded-lg" />
+          </div>
+        ) : difficultyOptions.length === 0 ? (
+          <p className="text-xs text-muted-foreground">暂无可选难度</p>
+        ) : (
+          <RadioGroup
+            value={difficultyId}
+            onValueChange={(v) => onDifficultyIdChange(v)}
+            className="flex flex-wrap gap-4"
+          >
+            {difficultyOptions.map((opt) => (
+              <label key={opt.id} className="flex items-center gap-2 text-sm">
+                <RadioGroupItem value={opt.id} disabled={fieldDisabled} />
+                {opt.name}
+              </label>
+            ))}
+          </RadioGroup>
+        )}
+      </div>
+      <div className="grid gap-2">
+        <Label>任务类型</Label>
         <RadioGroup
-          value={difficulty}
-          onValueChange={(v) => onDifficultyChange(v as "basic" | "intermediate" | "advanced")}
+          value={expTaskType ?? "self"}
+          onValueChange={(v) => onExpTaskTypeChange(v as "hw" | "tk" | "self")}
           className="flex flex-wrap gap-4"
         >
-          <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="basic" disabled={fieldDisabled} />基础</label>
-          <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="intermediate" disabled={fieldDisabled} />进阶</label>
-          <label className="flex items-center gap-2 text-sm"><RadioGroupItem value="advanced" disabled={fieldDisabled} />挑战</label>
+          <label className="flex items-center gap-2 text-sm">
+            <RadioGroupItem value="self" disabled={fieldDisabled || expTaskTypeDisabled} />自主探究
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <RadioGroupItem value="hw" disabled={fieldDisabled || expTaskTypeDisabled} />作业
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <RadioGroupItem value="tk" disabled={fieldDisabled || expTaskTypeDisabled} />同做
+          </label>
         </RadioGroup>
+        {expTaskTypeDisabled ? (
+          <p className="text-xs text-muted-foreground">该实验已被布置为作业，不可修改任务类型。</p>
+        ) : null}
       </div>
       <div className="grid gap-2">
         <Label htmlFor="simulator-url">模拟器地址</Label>

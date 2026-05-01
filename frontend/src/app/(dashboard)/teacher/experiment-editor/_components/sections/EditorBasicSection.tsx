@@ -25,6 +25,11 @@ import { EditorExpPickerBar } from "./EditorExpPickerBar";
 import { EditorMainVideoSection } from "./EditorMainVideoSection";
 import { EditorPrincipleSection } from "./EditorPrincipleSection";
 
+type DifficultyOption = {
+  id: string;
+  name: string;
+};
+
 export function EditorBasicSection(props: {
   mediaActor: ApiActor;
   expandedSectionId: string;
@@ -71,19 +76,25 @@ export function EditorBasicSection(props: {
   onPickerSetSelectedStandardId: (v: string | null) => void;
   onPickerSetUseCustomExp: (v: boolean) => void;
   onPickerSetCurriculum: (v: string) => void;
-  onPickerAutoSetParticipation: (v: "required" | "optional") => void;
   onPickerAttach: (expId: string) => void | Promise<void>;
   onPickerSetPhase: (v: EducationPhase) => void;
   onPickerSetDiscipline: (v: SubjectDiscipline) => void;
   onPickerSetSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
   subjectOptions?: V2DictItem[];
   gradeDictOptions?: V2DictGradeItem[];
-  difficulty: "basic" | "intermediate" | "advanced";
-  setDifficulty: (v: "basic" | "intermediate" | "advanced") => void;
-  participation: "required" | "optional";
-  setParticipation: (v: "required" | "optional") => void;
+  selectedGradeCodes: string[];
+  setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
+  gradeOptions: Array<{ code: string; label: string }>;
+  disciplineLabel: string;
+  difficultyId: string;
+  onDifficultyIdChange: (v: string) => void;
+  difficultyOptions: DifficultyOption[];
+  difficultyLoading: boolean;
   chooseType: "y" | "n" | null;
   setChooseType: (v: "y" | "n" | null) => void;
+  expTaskType: "hw" | "tk" | "self" | null;
+  onExpTaskTypeChange: (v: "hw" | "tk" | "self" | null) => void;
+  expTaskTypeDisabled: boolean;
   mainVideoUrl: string;
   setMainVideoUrl: (v: string) => void;
   mainVideoEmbeds: Array<{ id: string; kind: "video"; src: string; caption?: string }>;
@@ -91,28 +102,11 @@ export function EditorBasicSection(props: {
   onMainVideoIdChange?: (registryId: string | null) => void;
   userId: string;
   expId: string | null;
-  /** @deprecated 保留兼容，后续清理调用方 */
-  difficultyId?: string;
-  /** @deprecated 保留兼容 */
-  setDifficultyId?: (v: string) => void;
-  /** @deprecated 保留兼容 */
-  difficultyOptions?: V2DictItem[];
 }) {
   const subjectOptionValue = React.useMemo(() => (props.subjectId?.trim() ? props.subjectId.trim() : "__none__"), [props.subjectId]);
-  const gradeOptionValue = React.useMemo(() => (props.gradeId?.trim() ? props.gradeId.trim() : "__none__"), [props.gradeId]);
 
   const onPickSubjectId = React.useCallback(
     (next: string) => props.setSubjectId(next === "__none__" ? null : next),
-    [props],
-  );
-
-  const onPickGradeId = React.useCallback(
-    (next: string) => {
-      const id = next === "__none__" ? null : next;
-      props.setGradeId(id);
-      const g = id ? (props.gradeDictOptions ?? []).find((x) => x.id === id) : undefined;
-      props.setSchoolLevelId(g?.levelId?.trim() ? g.levelId.trim() : null);
-    },
     [props],
   );
 
@@ -174,7 +168,6 @@ export function EditorBasicSection(props: {
           onPickerSetSelectedStandardId={props.onPickerSetSelectedStandardId}
           onPickerSetUseCustomExp={props.onPickerSetUseCustomExp}
           onPickerSetCurriculum={props.onPickerSetCurriculum}
-          onPickerAutoSetParticipation={props.onPickerAutoSetParticipation}
           onPickerAttach={props.onPickerAttach}
           onPickerSetPhase={props.onPickerSetPhase}
           onPickerSetDiscipline={props.onPickerSetDiscipline}
@@ -205,27 +198,40 @@ export function EditorBasicSection(props: {
             placeholder="请输入实验名称"
           />
         </div>
-        <div className="grid gap-2 lg:col-span-4">
-          <Label className="sr-only">创建人</Label>
-          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-            创建人：<span className="text-foreground">{props.creatorName}</span>
+        <div className="flex items-center gap-2 lg:col-span-4">
+          <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            {props.creatorName.charAt(0).toUpperCase() || "U"}
           </div>
+          <span className="text-sm text-muted-foreground">
+            创建人：<span className="text-foreground font-medium">{props.creatorName}</span>
+          </span>
         </div>
 
         <div className="grid gap-4 lg:col-span-12 lg:grid-cols-2">
           <div className="grid gap-2">
-            <Label>适用年级 / 年龄</Label>
+            <Label>适用年级 / 年龄（可多选）</Label>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {(props.gradeDictOptions ?? []).map((item) => {
-                const active = props.gradeId === item.id;
+              {(props.gradeOptions ?? []).map((g) => {
+                const active = props.selectedGradeCodes.includes(g.code);
                 return (
-                  <label key={item.id} className={active ? "flex cursor-pointer items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm" : "flex cursor-pointer items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-sm"}>
-                    <Checkbox checked={active} disabled={props.fieldDisabled} onCheckedChange={(checked) => {
-                      if (!checked) return;
-                      props.setGradeId(item.id);
-                      props.setSchoolLevelId(item.levelId?.trim() ? item.levelId.trim() : null);
-                    }} />
-                    <span>{item.name}</span>
+                  <label
+                    key={g.code}
+                    className={
+                      active
+                        ? "flex cursor-pointer items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm"
+                        : "flex cursor-pointer items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-sm"
+                    }
+                  >
+                    <Checkbox
+                      checked={active}
+                      disabled={props.fieldDisabled}
+                      onCheckedChange={() => {
+                        props.setSelectedGradeCodes((prev) =>
+                          active ? prev.filter((c) => c !== g.code) : [...prev, g.code],
+                        );
+                      }}
+                    />
+                    <span>{g.label}</span>
                   </label>
                 );
               })}
@@ -245,29 +251,19 @@ export function EditorBasicSection(props: {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-2">
-            <Label>年级</Label>
-            <Select value={gradeOptionValue} onValueChange={onPickGradeId} disabled={props.fieldDisabled}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="年级" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">未选择</SelectItem>
-                {(props.gradeDictOptions ?? []).map((item) => (
-                  <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <EditorBasicSettingsRow
           chooseType={props.chooseType}
-          participation={props.participation}
           fieldDisabled={props.fieldDisabled}
           onChooseTypeChange={props.setChooseType}
-          difficulty={props.difficulty}
-          onDifficultyChange={props.setDifficulty}
+          expTaskType={props.expTaskType}
+          expTaskTypeDisabled={props.expTaskTypeDisabled}
+          onExpTaskTypeChange={props.onExpTaskTypeChange}
+          difficultyId={props.difficultyId}
+          onDifficultyIdChange={props.onDifficultyIdChange}
+          difficultyOptions={props.difficultyOptions}
+          difficultyLoading={props.difficultyLoading}
           simulatorUrl={props.simulatorUrl}
           onSimulatorUrlChange={props.setSimulatorUrl}
         />

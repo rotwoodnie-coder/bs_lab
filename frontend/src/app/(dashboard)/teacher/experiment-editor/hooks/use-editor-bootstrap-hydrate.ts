@@ -46,6 +46,7 @@ export function useEditorExperimentHydration(
   userName: string,
   setExpName: (v: string) => void,
   setChooseType: (v: "y" | "n" | null) => void,
+  setExpTaskType: (v: "hw" | "tk" | "self" | null) => void,
   setSubjectId: (v: string | null) => void,
   setSchoolLevelId: (v: string | null) => void,
   setGradeId: (v: string | null) => void,
@@ -75,9 +76,6 @@ export function useEditorExperimentHydration(
   setCreatorName: (v: string) => void,
   setMaterials: (v: import("../types").ExperimentMaterialDraft[]) => void,
   setSteps: (v: import("../types").ExperimentStepDraft[]) => void,
-  setTeachingRefTextbookVersion: (v: string) => void,
-  setTeachingRefUnit: (v: string) => void,
-  setTeachingRefLessonPeriod: (v: string) => void,
   setCoursebookId: (v: string) => void,
   setUnitId: (v: string) => void,
   setReferenceCitations: (v: import("../types").ExperimentReferenceCitationDraft[]) => void,
@@ -139,6 +137,7 @@ export function useEditorExperimentHydration(
     const p = buildEditorHydrationFromV2Detail(v2Detail, { grades: g, subjects: s, userName });
     setExpName(p.expName);
     setChooseType(p.chooseType);
+    setExpTaskType(p.expTaskType);
     setSubjectId(p.subjectId);
     setSchoolLevelId(p.schoolLevelId);
     setGradeId(p.gradeId);
@@ -171,9 +170,6 @@ export function useEditorExperimentHydration(
     setSteps(p.steps);
     setResultEntries(p.resultEntries);
     setCreatorName(p.creatorName);
-    setTeachingRefTextbookVersion(p.teachingRefTextbookVersion);
-    setTeachingRefUnit(p.teachingRefUnit);
-    setTeachingRefLessonPeriod(p.teachingRefLessonPeriod);
     setCoursebookId(p.coursebookId);
     setUnitId(p.unitId);
   }, [
@@ -183,6 +179,7 @@ export function useEditorExperimentHydration(
     userName,
     v2Detail,
     setChooseType,
+    setExpTaskType,
     setCreatorName,
     setCurriculum,
     setDangerNotes,
@@ -211,9 +208,6 @@ export function useEditorExperimentHydration(
     setSummary,
     setTeachingContextContent,
     setTeachingContextEmbeds,
-    setTeachingRefLessonPeriod,
-    setTeachingRefTextbookVersion,
-    setTeachingRefUnit,
     setCoursebookId,
     setUnitId,
     setSafetyEmbeds,

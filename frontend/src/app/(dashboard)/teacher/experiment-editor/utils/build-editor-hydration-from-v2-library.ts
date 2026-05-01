@@ -102,6 +102,7 @@ export function buildEditorHydrationFromV2Library(
   return {
     expName: (item.libExpName ?? "").trim() || "未命名标准试验",
     chooseType: item.chooseType ?? null,
+    expTaskType: null,
     subjectId: (item.subjectId ?? "").trim() || null,
     schoolLevelId: (item.schoolLevelId ?? "").trim() || null,
     gradeId: (item.grades?.[0]?.gradeId ?? "").trim() || null,
@@ -135,9 +136,6 @@ export function buildEditorHydrationFromV2Library(
     steps,
     resultEntries,
     creatorName: ctx.userName,
-    teachingRefTextbookVersion: "",
-    teachingRefUnit: "",
-    teachingRefLessonPeriod: "",
     coursebookId: "",
     unitId: "",
   };
