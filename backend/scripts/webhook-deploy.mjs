@@ -53,20 +53,32 @@ function log(msg) {
  * 1. 不阻塞 webhook 响应（detached）
  * 2. 同一时间只运行一个部署（用锁文件）
  * 3. 部署日志定向到 deploy.log
+ * 4. 从 commit message 解析 [hot] / [build] 标记
  */
 let deploying = false;
-function runDeploy() {
+function runDeploy(commitMessage) {
   if (deploying) {
     log("部署进行中，跳过本次触发");
     return;
   }
   deploying = true;
-  log("触发部署");
+
+  // 解析部署模式：commit message 含 [hot] 则跳过前端构建
+  const env = { ...process.env };
+  if (commitMessage && /\[hot\]/i.test(commitMessage)) {
+    env.DEPLOY_MODE = "hot";
+    log("检测到 [hot] 标记，启用热部署模式（跳过前端构建）");
+  } else {
+    env.DEPLOY_MODE = "full";
+    log("触发完整部署" + (commitMessage ? `: ${commitMessage}` : ""));
+  }
+
   // deploy.sh 已通过 tee -a 自行写 deploy.log，不需要管道输出
   // 禁用管道可防止 pnpm build 的大流量造成 webhook 进程内存压力
   const child = spawn("bash", [DEPLOY_SCRIPT], {
     stdio: ["ignore", "ignore", "ignore"],
     detached: true,
+    env,
   });
   child.on("exit", (code) => {
     log(`部署退出码: ${code}`);
@@ -96,8 +108,9 @@ const server = createServer((req, res) => {
         const event = req.headers["x-github-event"];
         const payload = JSON.parse(body);
         if (event === "push" && payload?.ref === "refs/heads/main") {
-          log(`收到 push: ${payload.head_commit?.message ?? "无消息"}`);
-          runDeploy();
+          const msg = payload.head_commit?.message ?? "";
+          log(`收到 push: ${msg}`);
+          runDeploy(msg);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true, message: "部署已触发" }));
         } else {

@@ -2,16 +2,25 @@
 # 自动部署脚本 — 被 webhook 触发时调用
 # 项目目录已 chown 给 ubuntu 用户，PM2 以 ubuntu 运行，无需 sudo
 # 安全策略：构建失败不重启；尝试自动修复已知错误后重试；无法修复则回滚
+# 部署模式（由 webhook-deploy.mjs 设置）：
+#   DEPLOY_MODE=hot  → 跳过前端构建，仅重启后端（适合纯后端/配置/UI 文案修改）
+#   DEPLOY_MODE=full → 完整部署（默认）
 set -euo pipefail
 
 DEPLOY_LOG="/opt/bs-lab/deploy.log"
 DEPLOY_DIR="/opt/bs-lab"
 GIT_STASH_REF="/opt/bs-lab/.git-stash-ref"
 HEALTH_TIMEOUT=30   # 健康检查等待秒数
+DEPLOY_MODE="${DEPLOY_MODE:-full}"
 
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始部署..." | tee -a "$DEPLOY_LOG"
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 开始部署（模式: ${DEPLOY_MODE}）..." | tee -a "$DEPLOY_LOG"
 
 cd "$DEPLOY_DIR"
+
+# ── 清理工作区（防止本地修改干扰 pull） ──
+echo ">>> 清理工作区..." | tee -a "$DEPLOY_LOG"
+git reset --hard HEAD 2>/dev/null || true
+git clean -fd 2>/dev/null || true
 
 # ── 记录当前提交哈希，用于回滚 ──
 OLD_COMMIT=$(git rev-parse HEAD)
@@ -25,6 +34,21 @@ NEW_COMMIT=$(git rev-parse HEAD)
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then
   echo ">>> 无新提交，跳过构建。" | tee -a "$DEPLOY_LOG"
   exit 0
+fi
+
+# ── 安全检测：hot 模式下若有前端源码变更，给出醒目警告 ──
+if [ "$DEPLOY_MODE" = "hot" ]; then
+  FE_CHANGES=$(git diff --name-only "$OLD_COMMIT".."$NEW_COMMIT" | grep -E '^frontend/src/|^frontend/app/' || true)
+  if [ -n "$FE_CHANGES" ]; then
+    echo "" | tee -a "$DEPLOY_LOG"
+    echo "╔══════════════════════════════════════════════════════════════╗" | tee -a "$DEPLOY_LOG"
+    echo "║ ⚠️  [hot] 模式下检测到前端源文件变更！                    ║" | tee -a "$DEPLOY_LOG"
+    echo "║   如预期应构建前端，请重新提交并添加 [build] 标记再推送。 ║" | tee -a "$DEPLOY_LOG"
+    echo "╠══════════════════════════════════════════════════════════════╣" | tee -a "$DEPLOY_LOG"
+    echo "$FE_CHANGES" | tee -a "$DEPLOY_LOG"
+    echo "╚══════════════════════════════════════════════════════════════╝" | tee -a "$DEPLOY_LOG"
+    echo "" | tee -a "$DEPLOY_LOG"
+  fi
 fi
 
 # ── 加载环境变量（.env.local 不在 Git 中，服务器独立配置） ──
@@ -89,65 +113,79 @@ else
   echo ">>> ✅ 无需执行 0053 迁移" | tee -a "$DEPLOY_LOG"
 fi
 
-# ── 安装依赖 ──
-echo ">>> pnpm install..." | tee -a "$DEPLOY_LOG"
-pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
+# ── 安装依赖（仅 package.json / pnpm-lock.yaml 变更时执行） ──
+NEEDS_INSTALL=false
+CHANGED_FILES=$(git diff --name-only "$OLD_COMMIT".."$NEW_COMMIT" 2>/dev/null || echo "")
+if echo "$CHANGED_FILES" | grep -qE 'package\.json|pnpm-lock\.yaml'; then
+  NEEDS_INSTALL=true
+fi
+if [ "$NEEDS_INSTALL" = true ]; then
+  echo ">>> 检测到依赖变更，执行 pnpm install..." | tee -a "$DEPLOY_LOG"
+  pnpm install 2>&1 | tee -a "$DEPLOY_LOG"
+else
+  echo ">>> 无依赖变更，跳过 pnpm install" | tee -a "$DEPLOY_LOG"
+fi
 
-# ── 构建前端（失败时不重启，旧服务继续运行） ──
-echo ">>> pnpm build..." | tee -a "$DEPLOY_LOG"
-cd "$DEPLOY_DIR/frontend"
-# 清理 .next 和 next-env.d.ts（确保构建从零开始，不受旧缓存影响）
-rm -rf .next 2>/dev/null || true
-rm -f next-env.d.ts 2>/dev/null || true
-set +e  # 临时关闭 exit-on-error，捕获构建结果
-pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
-BUILD_EXIT=${PIPESTATUS[0]}
-set -e
-cd "$DEPLOY_DIR"
+# ── 构建前端（hot 模式下跳过；full 模式下失败不重启旧服务） ──
+BUILD_EXIT=0
+if [ "$DEPLOY_MODE" = "hot" ]; then
+  echo ">>> [hot] 模式：跳过前端构建" | tee -a "$DEPLOY_LOG"
+else
+  echo ">>> pnpm build..." | tee -a "$DEPLOY_LOG"
+  cd "$DEPLOY_DIR/frontend"
+  # 清理 .next 和 next-env.d.ts（确保构建从零开始，不受旧缓存影响）
+  rm -rf .next 2>/dev/null || true
+  rm -f next-env.d.ts 2>/dev/null || true
+  set +e  # 临时关闭 exit-on-error，捕获构建结果
+  pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
+  BUILD_EXIT=${PIPESTATUS[0]}
+  set -e
+  cd "$DEPLOY_DIR"
 
-if [ "$BUILD_EXIT" -ne 0 ]; then
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 构建失败（退出码 $BUILD_EXIT）" | tee -a "$DEPLOY_LOG"
+  if [ "$BUILD_EXIT" -ne 0 ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ❌ 构建失败（退出码 $BUILD_EXIT）" | tee -a "$DEPLOY_LOG"
 
-  # ── 嗅探错误模式并尝试自动修复 ──
-  BUILD_LOG=$(tail -50 "$DEPLOY_LOG")
-  AUTO_FIXED=false
+    # ── 嗅探错误模式并尝试自动修复 ──
+    BUILD_LOG=$(tail -50 "$DEPLOY_LOG")
+    AUTO_FIXED=false
 
-  if echo "$BUILD_LOG" | grep -qi "EACCES"; then
-    echo ">>> 🔧 检测到 EACCES 权限问题，尝试 chown 修复..." | tee -a "$DEPLOY_LOG"
-    chown -R ubuntu:ubuntu "$DEPLOY_DIR/frontend/.next" "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
-    rm -rf "$DEPLOY_DIR/frontend/.next" 2>/dev/null || true
-    rm -f "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
-    echo ">>> 重新构建..." | tee -a "$DEPLOY_LOG"
-    cd "$DEPLOY_DIR/frontend"
-    set +e
-    pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
-    BUILD_EXIT=${PIPESTATUS[0]}
-    set -e
-    cd "$DEPLOY_DIR"
-    if [ "$BUILD_EXIT" -eq 0 ]; then
-      AUTO_FIXED=true
-      echo ">>> ✅ 自动修复 EACCES 后构建成功" | tee -a "$DEPLOY_LOG"
+    if echo "$BUILD_LOG" | grep -qi "EACCES"; then
+      echo ">>> 🔧 检测到 EACCES 权限问题，尝试 chown 修复..." | tee -a "$DEPLOY_LOG"
+      chown -R ubuntu:ubuntu "$DEPLOY_DIR/frontend/.next" "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
+      rm -rf "$DEPLOY_DIR/frontend/.next" 2>/dev/null || true
+      rm -f "$DEPLOY_DIR/frontend/next-env.d.ts" 2>/dev/null || true
+      echo ">>> 重新构建..." | tee -a "$DEPLOY_LOG"
+      cd "$DEPLOY_DIR/frontend"
+      set +e
+      pnpm build 2>&1 | tee -a "$DEPLOY_LOG"
+      BUILD_EXIT=${PIPESTATUS[0]}
+      set -e
+      cd "$DEPLOY_DIR"
+      if [ "$BUILD_EXIT" -eq 0 ]; then
+        AUTO_FIXED=true
+        echo ">>> ✅ 自动修复 EACCES 后构建成功" | tee -a "$DEPLOY_LOG"
+      fi
     fi
-  fi
 
-  if ! $AUTO_FIXED; then
-    echo ">>> 停止部署。旧服务不受影响。" | tee -a "$DEPLOY_LOG"
-    # ── 打印可操作的修复指引 ──
-    if echo "$BUILD_LOG" | grep -qi "Cannot find module"; then
-      echo ">>> 💡 提示：模块未找到，尝试 pnpm install 后重试" | tee -a "$DEPLOY_LOG"
-    elif echo "$BUILD_LOG" | grep -qi "ts2304\|ts2307\|Type.*is not assignable"; then
-      echo ">>> 💡 提示：TypeScript 类型错误，请本地 pnpm run typecheck 排查" | tee -a "$DEPLOY_LOG"
-    elif echo "$BUILD_LOG" | grep -qi "SyntaxError\|Unexpected token"; then
-      echo ">>> 💡 提示：语法错误，请检查最近提交的代码" | tee -a "$DEPLOY_LOG"
-    elif echo "$BUILD_LOG" | grep -qi "EACCES\|permission denied"; then
-      echo ">>> 💡 提示：权限问题，尝试 chown -R ubuntu:ubuntu frontend/ 后重试" | tee -a "$DEPLOY_LOG"
-    elif echo "$BUILD_LOG" | grep -qi "ENOSPC\|no space left"; then
-      echo ">>> 💡 提示：磁盘空间不足，请清理服务器磁盘" | tee -a "$DEPLOY_LOG"
+    if ! $AUTO_FIXED; then
+      echo ">>> 停止部署。旧服务不受影响。" | tee -a "$DEPLOY_LOG"
+      # ── 打印可操作的修复指引 ──
+      if echo "$BUILD_LOG" | grep -qi "Cannot find module"; then
+        echo ">>> 💡 提示：模块未找到，尝试 pnpm install 后重试" | tee -a "$DEPLOY_LOG"
+      elif echo "$BUILD_LOG" | grep -qi "ts2304\|ts2307\|Type.*is not assignable"; then
+        echo ">>> 💡 提示：TypeScript 类型错误，请本地 pnpm run typecheck 排查" | tee -a "$DEPLOY_LOG"
+      elif echo "$BUILD_LOG" | grep -qi "SyntaxError\|Unexpected token"; then
+        echo ">>> 💡 提示：语法错误，请检查最近提交的代码" | tee -a "$DEPLOY_LOG"
+      elif echo "$BUILD_LOG" | grep -qi "EACCES\|permission denied"; then
+        echo ">>> 💡 提示：权限问题，尝试 chown -R ubuntu:ubuntu frontend/ 后重试" | tee -a "$DEPLOY_LOG"
+      elif echo "$BUILD_LOG" | grep -qi "ENOSPC\|no space left"; then
+        echo ">>> 💡 提示：磁盘空间不足，请清理服务器磁盘" | tee -a "$DEPLOY_LOG"
+      fi
+      echo ">>> 回滚代码到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
+      git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
+      echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
+      exit 1
     fi
-    echo ">>> 回滚代码到 $OLD_COMMIT..." | tee -a "$DEPLOY_LOG"
-    git reset --hard "$OLD_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
-    echo "----------------------------------------" | tee -a "$DEPLOY_LOG"
-    exit 1
   fi
 fi
 

@@ -48,6 +48,8 @@ module.exports = {
       env: {
         PATH: "/www/server/nodejs/v22.22.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
       },
+      // watch: false — deploy.sh 负责 git pull，webhook 自身无需 reload
+      // PM2 的 crash auto-restart 已保证 webhook 崩了自动拉起
       watch: false,
       max_memory_restart: "500M",
     },
