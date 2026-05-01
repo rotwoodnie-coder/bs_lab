@@ -62,12 +62,12 @@ function runDeploy() {
   }
   deploying = true;
   log("触发部署");
+  // deploy.sh 已通过 tee -a 自行写 deploy.log，不需要管道输出
+  // 禁用管道可防止 pnpm build 的大流量造成 webhook 进程内存压力
   const child = spawn("bash", [DEPLOY_SCRIPT], {
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "ignore", "ignore"],
     detached: true,
   });
-  child.stdout.on("data", (d) => process.stdout.write(d));
-  child.stderr.on("data", (d) => process.stderr.write(d));
   child.on("exit", (code) => {
     log(`部署退出码: ${code}`);
     deploying = false;
