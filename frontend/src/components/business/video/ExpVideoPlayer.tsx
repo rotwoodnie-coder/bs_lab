@@ -43,7 +43,7 @@ export function StandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
           />
         </div>
       ) : vm.status === "poster" ? (
-        <div className="absolute inset-0 z-0 bg-muted" aria-hidden>
+        <div className="absolute inset-0 z-0 animate-skeleton-shimmer" aria-hidden>
           {vm.capturePhase === "pending" ? (
             <div className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground">
               封面生成中…

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import type { StandardVideoExpPlayerProps } from "./exp-video-player.types";
 import { useExpVideoListInteractions } from "./exp-video-player-interaction";
 import { useExpVideoContentStartSeek } from "./exp-video-player-content-start";
@@ -39,9 +40,13 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   // 注：延时加载封面—未进入视口前不请求封面图，减少首屏并发请求数
   const [posterInView, setPosterInView] = React.useState(false);
   React.useEffect(() => {
-    setPosterInView(false);
     const el = st.rootRef.current;
     if (!el) return;
+    // 检查是否已经可见（避免 src 变化时闪一下再加载）
+    if (el.getBoundingClientRect().top < window.innerHeight + 200) {
+      setPosterInView(true);
+      return;
+    }
     const ob = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

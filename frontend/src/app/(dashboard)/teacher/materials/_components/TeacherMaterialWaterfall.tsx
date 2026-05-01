@@ -58,6 +58,7 @@ export function TeacherMaterialWaterfall(props: Props) {
           <article
             key={item.materialId}
             className="group mb-0.5 flex break-inside-avoid flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            style={{ contentVisibility: "auto" as any, containIntrinsicSize: "auto 280px" as any }}
           >
             <div
               className={`relative shrink-0 overflow-hidden rounded-t-xl bg-muted/30 ${isWaterfall ? "aspect-video w-full" : "h-40 w-full"}`}

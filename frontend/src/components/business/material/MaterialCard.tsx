@@ -23,6 +23,7 @@ export function MaterialCard({ item, actor, mode, onClick }: Props) {
   return (
     <article
       className="group mb-0.5 flex break-inside-avoid cursor-pointer flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+      style={{ contentVisibility: "auto" as any, containIntrinsicSize: "auto 280px" as any }}
       onClick={() => onClick?.(item)}
       role="button"
       tabIndex={0}
