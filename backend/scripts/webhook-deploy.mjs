@@ -13,7 +13,7 @@
  *
  * GitHub 仓库设置方法：
  *   1. 仓库 → Settings → Webhooks → Add webhook
- *   2. Payload URL: http://10.0.181.204:4300/deploy
+ *   2. Payload URL: https://lab.aliberg.cn/webhook/deploy
  *   3. Content type: application/json
  *   4. Secret: 留空（内网环境）
  *   5. 选择 "Just the push event"

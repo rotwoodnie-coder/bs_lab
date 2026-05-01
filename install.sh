@@ -330,6 +330,16 @@ server {
         proxy_read_timeout 120s;
     }
 
+    location /webhook/ {
+        proxy_pass http://127.0.0.1:4300/;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 30s;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:${FRONTEND_PORT:-$DEFAULT_FRONTEND_PORT};
         proxy_http_version 1.1;
