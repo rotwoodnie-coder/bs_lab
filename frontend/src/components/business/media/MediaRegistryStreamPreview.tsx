@@ -7,6 +7,7 @@ import type { ApiActor } from "@/lib/new-core-api";
 import { cn } from "@/lib/utils";
 import { IMAGE_FILE_EXTENSIONS, VIDEO_FILE_EXTENSIONS } from "@/lib/media/extension-groups";
 import { mediaRegistryStreamUrl } from "@/lib/media-platform/registry-ref";
+import { materialStorageBrowserHref } from "@/lib/material-asset-url";
 
 function extToken(fileExt: string | null | undefined, title: string): string {
   const fromCol = (fileExt ?? "").replace(/^\./, "").trim().toLowerCase();
@@ -56,7 +57,8 @@ export function MediaRegistryStreamPreview({
   const streamUrl = React.useMemo(() => mediaRegistryStreamUrl(fileId, "view", actor), [fileId, actor]);
   const previewKind = resolveRegistryStreamPreviewKind({ assetMediaType, fileExt, title });
 
-  const poster = logoUrl?.trim() ?? mediaRegistryStreamUrl(fileId, "view", actor, { variant: "thumb_sm" });
+  const rawLogo = logoUrl?.trim();
+  const poster = rawLogo ? materialStorageBrowserHref(rawLogo) : mediaRegistryStreamUrl(fileId, "view", actor, { variant: "thumb_sm" });
   const posterIsLikelyRaster =
     poster.length > 0 &&
     !/\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(poster) &&
