@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, ScrollArea, Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, sonnerToast, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from "@bs-lab/ui";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 
 type GroupRow = { id: string; teacher: string; title: string; members: number; status: "待审核" | "已通过" | "已驳回"; summary: string };
 
@@ -15,7 +16,7 @@ const ROWS: GroupRow[] = Array.from({ length: 14 }).map((_, i) => ({
   summary: ["面向实验改进", "结合课堂实践", "跨学科研究", "聚焦资源建设", "拟发布活动方案"][i % 5]!,
 }));
 
-export default function ResearchGroupsReviewPage() {
+function ResearchGroupsReviewPage() {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
@@ -68,3 +69,5 @@ export default function ResearchGroupsReviewPage() {
     </div>
   );
 }
+
+export default withPermission(ResearchGroupsReviewPage, "/console/review/research-groups");

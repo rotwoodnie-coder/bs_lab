@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 import { TeacherClassAdmin } from "./TeacherClassAdmin";
 
-export default function TeacherClassPage() {
+function TeacherClassPage() {
   return (
     <React.Suspense
       fallback={
@@ -24,3 +25,5 @@ export default function TeacherClassPage() {
     </React.Suspense>
   );
 }
+
+export default withPermission(TeacherClassPage, "/system-manage/teacher-class");

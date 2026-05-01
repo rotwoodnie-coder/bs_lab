@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, ScrollArea, Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, sonnerToast, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea } from "@bs-lab/ui";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 
 type WorkRow = { id: string; student: string; className: string; title: string; status: "待审核" | "已通过" | "已驳回"; summary: string };
 
@@ -15,7 +16,7 @@ const ROWS: WorkRow[] = Array.from({ length: 18 }).map((_, i) => ({
   summary: ["结构完整", "数据缺失", "图文清晰", "安全说明不足", "过程记录完整"][i % 5]!,
 }));
 
-export default function StudentWorksReviewPage() {
+function StudentWorksReviewPage() {
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [rejectReason, setRejectReason] = React.useState("");
@@ -68,3 +69,5 @@ export default function StudentWorksReviewPage() {
     </div>
   );
 }
+
+export default withPermission(StudentWorksReviewPage, "/console/review/student-works");

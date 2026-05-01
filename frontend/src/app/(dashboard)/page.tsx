@@ -1,9 +1,13 @@
 /**
  * 应用根路径 `/`：路由组 `(dashboard)` 不参与 URL，本文件即站点首页（带 `(dashboard)/layout` 壳层）。
- * 请勿同时添加 `src/app/page.tsx` 的 default export，否则会与 Next.js 根路由冲突。
+ *
+ * 默认渲染视频广场。原 HomeDashboardPage 逻辑保留在 `@/components/business/home/home-dashboard-page`，
+ * 可通过侧边栏「工作台」访问。
  */
-import { HomeDashboardPage } from "@/components/business/home/home-dashboard-page";
+"use client";
+
+import { VideoSquareView } from "@/components/business/material/VideoSquareView";
 
 export default function DashboardHomePage() {
-  return <HomeDashboardPage />;
+  return <VideoSquareView />;
 }

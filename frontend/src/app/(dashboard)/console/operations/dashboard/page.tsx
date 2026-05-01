@@ -6,6 +6,7 @@ import { Database, Monitor, RefreshCw, ShieldCheck } from "@bs-lab/ui/icons";
 
 import { DASHBOARD_MAIN_CONTAINER_CLASS } from "@/lib/layout-container-classes";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 import { cn } from "@/lib/utils";
 
 const OPS_ITEMS = [
@@ -15,7 +16,7 @@ const OPS_ITEMS = [
   { id: "consistency", label: "数据一致性检查", description: "扫描参照完整性、字典与表数据差异", href: "/console/operations/consistency", Icon: ShieldCheck },
 ] as const;
 
-export default function OpsDashboardPage() {
+function OpsDashboardPage() {
   return (
     <div className={cn(DASHBOARD_MAIN_CONTAINER_CLASS, "flex flex-col gap-6 py-4")}>
       <PageHeader
@@ -42,3 +43,5 @@ export default function OpsDashboardPage() {
     </div>
   );
 }
+
+export default withPermission(OpsDashboardPage, "/console/operations/dashboard");

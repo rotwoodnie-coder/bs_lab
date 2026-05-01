@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Badge, Button, sonnerToast, Avatar, AvatarImage, AvatarFallback } from "@bs-lab/ui";
-import { Download, Eye, Pencil, Share2, Trash2 } from "@bs-lab/ui/icons";
+import { Download, Eye, ImagePlus, Pencil, RefreshCw, RotateCcw, Share2, Trash2 } from "@bs-lab/ui/icons";
 import type { ApiActor } from "@/lib/new-core-api";
 import { resolveTeacherMaterialDownload, teacherMaterialDownloadHref, type TeacherMaterialItem } from "@/lib/teacher-materials-api";
 import { MaterialPreviewCard } from "./MaterialPreviewCard";
@@ -19,6 +19,10 @@ type Props = {
   onRequestEdit?: (item: TeacherMaterialItem) => void;
   onRequestDelete?: (item: TeacherMaterialItem) => void;
   onVideoPosterPersisted?: (fileId: string, displayHref: string) => void;
+  /** 触发服务端从对象存储补跑封面 */
+  onRepairThumbnail?: (item: TeacherMaterialItem) => void;
+  /** 打开手动上传封面弹窗 */
+  onRequestPosterUpload?: (item: TeacherMaterialItem) => void;
   /** 为 true 时隐藏编辑/删除/分享/下载等操作按钮 */
   readOnly?: boolean;
 };
@@ -73,6 +77,12 @@ export function TeacherMaterialWaterfall(props: Props) {
                 <Badge variant="outline" className="font-normal text-[10px]">
                   {materialMsgStatusLabel(item.materialStatus)}
                 </Badge>
+                {/* 封面待生成标记：图片/视频类型且无封面时显示 */}
+                {!item.materialMainPicUrl && (item.kind === "image" || item.kind === "video") ? (
+                  <Badge variant="outline" className="font-normal text-[9px] text-amber-600 border-amber-300 bg-amber-50/50">
+                    封面待生成
+                  </Badge>
+                ) : null}
               </div>
               {!props.readOnly ? (
                 <div className="absolute left-2 top-2 z-10 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
@@ -131,6 +141,37 @@ export function TeacherMaterialWaterfall(props: Props) {
                   >
                     <Trash2 className="size-3.5" />
                   </button>
+                  {/* 封面修复操作 */}
+                  {props.onRepairThumbnail && item.materialStatus === "n" ? (
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-full border border-border/70 bg-background/80 text-foreground backdrop-blur-sm hover:bg-background"
+                      aria-label="重新处理"
+                      onClick={() => props.onRepairThumbnail!(item)}
+                    >
+                      <RotateCcw className="size-3.5" />
+                    </button>
+                  ) : null}
+                  {props.onRepairThumbnail && (item.kind === "image" || item.kind === "video") && !item.materialMainPicUrl ? (
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-full border border-border/70 bg-background/80 text-foreground backdrop-blur-sm hover:bg-background"
+                      aria-label="生成封面"
+                      onClick={() => props.onRepairThumbnail!(item)}
+                    >
+                      <ImagePlus className="size-3.5" />
+                    </button>
+                  ) : null}
+                  {props.onRequestPosterUpload && (item.kind === "image" || item.kind === "video") ? (
+                    <button
+                      type="button"
+                      className="inline-flex size-7 items-center justify-center rounded-full border border-border/70 bg-background/80 text-foreground backdrop-blur-sm hover:bg-background"
+                      aria-label="上传封面"
+                      onClick={() => props.onRequestPosterUpload!(item)}
+                    >
+                      <RefreshCw className="size-3.5" />
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>

@@ -4,10 +4,11 @@ import * as React from "react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label, sonnerToast } from "@bs-lab/ui";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 import { useAuth } from "@/hooks/use-auth";
 import { fetchAuditPending, postAudit, type PendingBindingRow } from "@/lib/v2/v2-parent-binding-api";
 
-export default function ParentBindingsAuditPage() {
+function ParentBindingsAuditPage() {
   const auth = useAuth();
   const actor = React.useMemo(
     () => ({
@@ -155,3 +156,4 @@ export default function ParentBindingsAuditPage() {
   );
 }
 
+export default withPermission(ParentBindingsAuditPage, "/console/settings/system/parent-bindings");

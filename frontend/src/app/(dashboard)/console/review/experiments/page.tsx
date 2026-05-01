@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 
 import { ExperimentCurriculumReviewPageInner } from "./experiment-curriculum-review-screen";
 
 export { ExperimentCurriculumReviewPageInner };
 
-export default function ExperimentCurriculumReviewPage() {
+function ExperimentCurriculumReviewPage() {
   return (
     <React.Suspense
       fallback={<p className="px-1 py-4 text-sm text-muted-foreground">加载评审工作台…</p>}
@@ -22,3 +23,5 @@ export default function ExperimentCurriculumReviewPage() {
     </React.Suspense>
   );
 }
+
+export default withPermission(ExperimentCurriculumReviewPage, "/console/review/experiments");

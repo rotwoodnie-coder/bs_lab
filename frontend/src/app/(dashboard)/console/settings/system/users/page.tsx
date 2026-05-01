@@ -6,6 +6,7 @@ import { Button, Card, CardContent } from "@bs-lab/ui";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { LeftTreeRightTableLayout } from "@/components/layout/left-tree-right-table-layout";
+import { withPermission } from "@/lib/permissions/with-permission";
 import { can } from "@/lib/auth/role-permissions";
 import { PERMISSIONS } from "@/lib/auth/role-permissions";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,7 +18,7 @@ import { UserFormDialog } from "./_components/UserFormDialog";
 import { UserHeader } from "./_components/UserHeader";
 import { useUserManagement } from "./use-user-management";
 
-export default function ConsoleUsersPage() {
+function ConsoleUsersPage() {
   const searchParams = useSearchParams();
   const juryConfigFocus = searchParams.get("focus") === "jury";
 
@@ -150,3 +151,5 @@ export default function ConsoleUsersPage() {
     </div>
   );
 }
+
+export default withPermission(ConsoleUsersPage, "/console/settings/system/users");

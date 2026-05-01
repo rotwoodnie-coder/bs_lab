@@ -16,31 +16,37 @@ export type PermissionPresetRole =
   | "Role_Student"
   | "Role_Parent";
 
+/**
+ * 页面权限目录（系统级全量）
+ *
+ * path 统一使用实际 Next.js 文件路径，确保 withPermission() 守卫能正确匹配。
+ * 若页面尚不存在（NOT_FOUND），保留设计路径占位，待页面创建后更新。
+ */
 export const PAGE_PERMISSIONS: readonly PagePermissionDefinition[] = [
   { group: "通用", menuCode: "dashboard", path: "/dashboard", label: "工作台" },
   { group: "通用", menuCode: "profile", path: "/profile", label: "个人中心" },
-  { group: "治理层", menuCode: "user_management", path: "/user-management", label: "用户管理" },
-  { group: "治理层", menuCode: "role_management", path: "/role-management", label: "角色管理" },
-  { group: "治理层", menuCode: "org_management", path: "/org-management", label: "组织管理" },
-  { group: "治理层", menuCode: "parent_bindings", path: "/parent-bindings", label: "家长绑定审核" },
-  { group: "治理层", menuCode: "class_management", path: "/class-management", label: "班级管理" },
-  { group: "治理层", menuCode: "ops_dashboard", path: "/ops/dashboard", label: "运维中心" },
+  { group: "治理层", menuCode: "user_management", path: "/console/settings/system/users", label: "用户管理" },
+  { group: "治理层", menuCode: "role_management", path: "/console/settings/system/roles", label: "角色管理" },
+  { group: "治理层", menuCode: "org_management", path: "/console/settings/system/organizations", label: "组织管理" },
+  { group: "治理层", menuCode: "parent_bindings", path: "/console/settings/system/parent-bindings", label: "家长绑定审核" },
+  { group: "治理层", menuCode: "class_management", path: "/system-manage/teacher-class", label: "班级管理" },
+  { group: "治理层", menuCode: "ops_dashboard", path: "/console/operations/dashboard", label: "运维中心" },
   { group: "治理层", menuCode: "school_statistics", path: "/school-statistics", label: "学校统计" },
   { group: "治理层", menuCode: "district_statistics", path: "/district-statistics", label: "区域统计" },
-  { group: "业务层", menuCode: "teacher_experiment_manager", path: "/teacher-experiment-manager", label: "实验管理" },
-  { group: "业务层", menuCode: "textbook_management", path: "/textbook-management", label: "教材管理" },
+  { group: "业务层", menuCode: "teacher_experiment_manager", path: "/experiment-manage", label: "实验管理" },
+  { group: "业务层", menuCode: "textbook_management", path: "/console/settings/textbooks", label: "教材管理" },
   { group: "业务层", menuCode: "teacher_classroom", path: "/teacher-classroom", label: "我的教学班级" },
   { group: "业务层", menuCode: "teacher_tasks", path: "/teacher-tasks", label: "我的课堂 / 作业" },
-  { group: "使用层", menuCode: "student_tasks", path: "/student-tasks", label: "任务中心" },
-  { group: "使用层", menuCode: "student_growth", path: "/student-growth", label: "成长足迹" },
-  { group: "使用层", menuCode: "family_lab", path: "/family-lab", label: "家庭实验室" },
-  { group: "业务层", menuCode: "review_experiments", path: "/review/experiments", label: "实验审核" },
-  { group: "治理层", menuCode: "review_student_works", path: "/review/student-works", label: "作品审核" },
-  { group: "业务层", menuCode: "review_research_groups", path: "/review/research-groups", label: "课题组审核" },
-  { group: "业务层", menuCode: "resource_center", path: "/resource-center", label: "资源中心" },
+  { group: "使用层", menuCode: "student_tasks", path: "/experiments", label: "任务中心" },
+  { group: "使用层", menuCode: "student_growth", path: "/student/footprints", label: "成长足迹" },
+  { group: "使用层", menuCode: "family_lab", path: "/parent/lab", label: "家庭实验室" },
+  { group: "业务层", menuCode: "review_experiments", path: "/console/review/experiments", label: "实验审核" },
+  { group: "治理层", menuCode: "review_student_works", path: "/console/review/student-works", label: "作品审核" },
+  { group: "业务层", menuCode: "review_research_groups", path: "/console/review/research-groups", label: "课题组审核" },
+  { group: "业务层", menuCode: "resource_center", path: "/resources", label: "资源中心" },
   { group: "使用层", menuCode: "parent_reports", path: "/parent/reports", label: "实验报告" },
   { group: "通用", menuCode: "experiment_square", path: "/experiment-square", label: "实验广场" },
-  { group: "业务层", menuCode: "my_research_groups", path: "/my-research-groups", label: "我的课题组" },
+  { group: "业务层", menuCode: "my_research_groups", path: "/teacher/research-project-groups", label: "我的课题组" },
 ];
 
 export function buildPagePermissionCode(menuCode: string, mode: PagePermissionMode): string {

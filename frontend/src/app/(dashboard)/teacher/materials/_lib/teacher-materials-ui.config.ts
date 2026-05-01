@@ -51,3 +51,12 @@ export function materialMsgStatusLabel(raw: string | null | undefined): string {
   if (v === "n") return "停用";
   return raw?.trim() ? raw.trim() : "—";
 }
+
+/** 状态对应的 Badge variant */
+export function materialMsgStatusVariant(raw: string | null | undefined): "secondary" | "default" | "outline" | "destructive" {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "t") return "secondary";
+  if (v === "y") return "default";
+  if (v === "n") return "destructive";
+  return "outline";
+}

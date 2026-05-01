@@ -6,6 +6,7 @@ import { RefreshCw } from "@bs-lab/ui/icons";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { LeftTreeRightTableLayout } from "@/components/layout/left-tree-right-table-layout";
+import { withPermission } from "@/lib/permissions/with-permission";
 
 import { OrgCreateDialog } from "./_components/OrgCreateDialog";
 import { OrgDetailPanel } from "./_components/OrgDetailPanel";
@@ -14,7 +15,7 @@ import { OrgTypesPanel } from "./_components/OrgTypesPanel";
 import { useOrgTypesTab } from "./org-types-tab.hooks";
 import { useOrganizations } from "./page.hooks";
 
-export default function ConsoleOrganizationsPage() {
+function ConsoleOrganizationsPage() {
   const [mainTab, setMainTab] = React.useState("orgs");
   const {
     orgTree,
@@ -145,3 +146,5 @@ export default function ConsoleOrganizationsPage() {
     </div>
   );
 }
+
+export default withPermission(ConsoleOrganizationsPage, "/console/settings/system/organizations");

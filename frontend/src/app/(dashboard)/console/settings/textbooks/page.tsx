@@ -6,6 +6,7 @@ import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitl
 
 import { EduTextbookMixedList } from "@/components/business/edu-textbook-mixed-list";
 import { PageHeader } from "@/components/layout/page-header";
+import { withPermission } from "@/lib/permissions/with-permission";
 import { useDemoRole } from "@/components/layout/demo-role-context";
 import { canWriteEduTextbooks } from "@/lib/rbac/management-access";
 import { DASHBOARD_MAIN_CONTAINER_CLASS } from "@/lib/layout-container-classes";
@@ -14,7 +15,7 @@ import { userRoleLabelZh } from "@/types/auth";
 
 import { useConsoleTextbooksPage } from "./page.hooks";
 
-export default function ConsoleTextbooksPage() {
+function ConsoleTextbooksPage() {
   const { role } = useDemoRole();
   const screen = useConsoleTextbooksPage();
   const canWrite = canWriteEduTextbooks(screen.actor as any);
@@ -131,3 +132,5 @@ export default function ConsoleTextbooksPage() {
     </div>
   );
 }
+
+export default withPermission(ConsoleTextbooksPage, "/console/settings/textbooks");

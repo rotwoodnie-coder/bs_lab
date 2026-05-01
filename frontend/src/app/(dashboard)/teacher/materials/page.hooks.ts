@@ -24,6 +24,7 @@ import { filterTeacherMaterials, type KindFilterId } from "./_lib/material-filte
 import { TEACHER_MATERIALS_KIND_FILTER, isKnownKindFilterId } from "./_lib/teacher-materials-ui.config";
 import { executeTeacherMaterialCreate } from "./_lib/teacher-materials-create-action";
 import type { TeacherMaterialEditSubmitInput } from "./_components/TeacherMaterialEditDialog";
+import { postV2FileThumbnailEnsure } from "@/lib/v2/v2-file-api";
 
 const SIDEBAR_FILTERS_STORAGE_KEY = "bs-lab:teacher-materials:sidebar-filters";
 
@@ -50,8 +51,18 @@ function writeStoredSidebarFilters(kindFilter: KindFilterId) {
 }
 
 function toStageMessage(stage: string, error: unknown): string {
-  const message = error instanceof Error ? error.message : "未知错误";
+  const message = extractErrorMessageFromAny(error, "未知错误");
   return `[${stage}] ${message}`;
+}
+
+/** 从 Error 实例或 POJO（含 message 字段）中提取错误文案 */
+function extractErrorMessageFromAny(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  if (typeof error === "string") return error;
+  return fallback;
 }
 
 export function useTeacherMaterialsPage() {
@@ -69,6 +80,10 @@ export function useTeacherMaterialsPage() {
   const [items, setItems] = React.useState<TeacherMaterialItem[]>([]);
   const [deleteTarget, setDeleteTarget] = React.useState<TeacherMaterialItem | null>(null);
   const [editTarget, setEditTarget] = React.useState<TeacherMaterialItem | null>(null);
+  const [posterUploadTarget, setPosterUploadTarget] = React.useState<TeacherMaterialItem | null>(null);
+  const [newExternalCount, setNewExternalCount] = React.useState(0);
+  const [isTopOfPage, setIsTopOfPage] = React.useState(true);
+  const lastCheckRef = React.useRef<string>("");
   const sidebarPersistPass = React.useRef(0);
 
   const actor = React.useMemo<ApiActor>(
@@ -166,6 +181,40 @@ export function useTeacherMaterialsPage() {
     }
   }, [kindFilter, kindOptions]);
 
+  // 轮询检测新素材：每 60 秒检查是否有新条目
+  React.useEffect(() => {
+    if (!hydrated) return;
+    const poll = setInterval(() => {
+      void listTeacherMaterialsApi(actor, { keyword: keyword.trim() || undefined })
+        .then((rows) => {
+          if (rows.length === 0) return;
+          const latestId = rows[0]!.materialId;
+          if (!lastCheckRef.current) {
+            lastCheckRef.current = latestId;
+            return;
+          }
+          if (lastCheckRef.current !== latestId) {
+            setNewExternalCount((c) => c + 1);
+            lastCheckRef.current = latestId;
+          }
+        })
+        .catch(() => {
+          /* 轮询静默失败 */
+        });
+    }, 60_000);
+    return () => clearInterval(poll);
+  }, [actor, hydrated]);
+
+  // 监听滚动位置，判断是否在页面顶部
+  React.useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      setIsTopOfPage(scrollTop < 100);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const filtered = React.useMemo(
     () => filterTeacherMaterials(items, kindFilter, keyword),
     [items, kindFilter, keyword],
@@ -224,12 +273,11 @@ export function useTeacherMaterialsPage() {
           hooks?.onFileSuccess?.(file);
         } catch (error) {
           failureCount += 1;
-          const message = error instanceof Error ? error.message : "上传失败";
           console.error("[teacher-materials] create:failed", {
             traceId: [actor.orgId, actor.userId, actor.role].filter(Boolean).join("/"),
             fileName: file.name,
             kind: item.kind,
-            error,
+            ...(typeof error === "object" && error !== null ? (error as Record<string, unknown>) : { originalError: error }),
           });
           hooks?.onFileError?.(file, toStageMessage("create", error));
         }
@@ -314,6 +362,111 @@ export function useTeacherMaterialsPage() {
     );
   }, []);
 
+  /** 触发服务端从对象存储补跑封面（调用 /v2/file/:id/thumbnail/ensure） */
+  const repairThumbnail = React.useCallback(
+    async (item: TeacherMaterialItem) => {
+      const fileId =
+        resolvedTeacherMaterialDataFileId(item) ??
+        (item.rowSource === "data_file" ? item.materialId.trim() : "");
+      if (!fileId) {
+        sonnerToast.error("无法确定文件 ID，无法生成封面");
+        return;
+      }
+      try {
+        await postV2FileThumbnailEnsure(actor, fileId, { force: false });
+        sonnerToast.success("已触发封面生成", {
+          description: "封面生成后自动显示，请稍后刷新查看。",
+        });
+      } catch (error) {
+        sonnerToast.error(error instanceof Error ? error.message : "触发封面生成失败");
+      }
+    },
+    [actor],
+  );
+
+  const clearNewExternalCount = React.useCallback(() => {
+    setNewExternalCount(0);
+    // 刷新列表以获取最新数据
+    if (hydrated) {
+      void listTeacherMaterialsApi(actor, {
+        keyword: keyword.trim() || undefined,
+        materialTypeCode: kindFilter,
+      })
+        .then((rows) => setItems(rows))
+        .catch(() => {});
+    }
+  }, [actor, hydrated, keyword, kindFilter]);
+
+  /** 批量删除素材 */
+  const batchDelete = React.useCallback(
+    async (ids: string[]) => {
+      let successCount = 0;
+      let failCount = 0;
+      for (const id of ids) {
+        try {
+          await deleteTeacherMaterialApi(actor, id);
+          successCount += 1;
+        } catch {
+          failCount += 1;
+        }
+      }
+      if (successCount > 0) {
+        setItems((prev) => prev.filter((row) => !ids.includes(row.materialId)));
+      }
+      const total = ids.length;
+      if (failCount === 0) {
+        sonnerToast.success(`已删除 ${successCount} 个素材`);
+      } else if (successCount > 0) {
+        sonnerToast.warning(`部分删除完成：成功 ${successCount}，失败 ${failCount}`);
+      } else {
+        sonnerToast.error(`删除失败：共 ${failCount} 个`);
+      }
+    },
+    [actor],
+  );
+
+  /** 批量修改分类 */
+  const batchUpdateCategory = React.useCallback(
+    async (ids: string[], category: string) => {
+      let successCount = 0;
+      let failCount = 0;
+      for (const id of ids) {
+        try {
+          await updateTeacherMaterialApi(actor, id, {
+            title: items.find((i) => i.materialId === id)?.title ?? "",
+            kind: category as TeacherMaterialItem["kind"],
+            experimentId: null,
+            linkedExperimentTitle: null,
+            dataFileIdMr: null,
+            dataFileIdMa: null,
+            originalFilename: null,
+            materialStatus: null,
+            materialMainPicUrl: null,
+            expPurpose: null,
+            additionalComments: null,
+            materialNum: null,
+          });
+          successCount += 1;
+        } catch {
+          failCount += 1;
+        }
+      }
+      if (successCount > 0) {
+        setItems((prev) =>
+          prev.map((row) =>
+            ids.includes(row.materialId) ? { ...row, kind: category as TeacherMaterialItem["kind"] } : row,
+          ),
+        );
+      }
+      if (failCount === 0) {
+        sonnerToast.success(`已为 ${successCount} 个素材修改分类`);
+      } else {
+        sonnerToast.warning(`部分修改完成：成功 ${successCount}，失败 ${failCount}`);
+      }
+    },
+    [actor, items],
+  );
+
   return {
     actor,
     hydrated,
@@ -338,5 +491,13 @@ export function useTeacherMaterialsPage() {
     setDeleteTarget,
     confirmDelete,
     onVideoPosterPersisted,
+    repairThumbnail,
+    posterUploadTarget,
+    setPosterUploadTarget,
+    newExternalCount,
+    isTopOfPage,
+    clearNewExternalCount,
+    batchDelete,
+    batchUpdateCategory,
   };
 }

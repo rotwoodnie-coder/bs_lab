@@ -114,3 +114,30 @@ export async function refreshRolePermissionCache(roleId: string): Promise<void> 
 export async function clearRolePermissionCache(roleId: string): Promise<void> {
   clearRolePagePermissions(roleId);
 }
+
+/** 7 大角色列表，与 05 方案 sys_role_menu_perm 种子一致 */
+const ALL_KNOWN_ROLE_IDS = [
+  "Role_Sys_Admin",
+  "Role_District_Admin",
+  "Role_School_Admin",
+  "Role_Researcher",
+  "Role_Teacher",
+  "Role_Student",
+  "Role_Parent",
+];
+
+/**
+ * 启动时预加载所有已知角色的页面权限到内存缓存。
+ * 若不预热，非超管角色首次登录时 PAGE_PERMISSION_STORE 为空，
+ * resolvePermissionCodes() 不会返回任何 PAGE_* 权限码，导致 withPermission() 误判为 403。
+ */
+export async function warmUpAllRolePermissions(): Promise<void> {
+  for (const roleId of ALL_KNOWN_ROLE_IDS) {
+    try {
+      await refreshRolePermissionCache(roleId);
+    } catch (err) {
+      console.error(`[permission-cache] warmup failed for ${roleId}:`, err);
+    }
+  }
+  console.log(`[permission-cache] warmed up ${ALL_KNOWN_ROLE_IDS.length} roles`);
+}

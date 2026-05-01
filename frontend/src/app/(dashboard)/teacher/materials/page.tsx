@@ -20,6 +20,9 @@ import { useSessionActor } from "@/hooks/use-session-actor";
 import { TeacherMaterialCreateDialog } from "./_components/TeacherMaterialCreateDialog";
 import { TeacherMaterialDataTable } from "./_components/TeacherMaterialDataTable";
 import { TeacherMaterialEditDialog } from "./_components/TeacherMaterialEditDialog";
+import { TeacherMaterialPosterUploadDialog } from "./_components/TeacherMaterialPosterUploadDialog";
+import { BatchCategoryDialog } from "./_components/BatchCategoryDialog";
+import { FloatingNewItemsBar } from "./_components/FloatingNewItemsBar";
 import { TeacherMaterialDataFileDbInspectorTable } from "./_components/TeacherMaterialDataFileDbInspectorTable";
 import { TeacherMaterialWaterfall } from "./_components/TeacherMaterialWaterfall";
 import { TeacherMaterialsFiltersSection } from "./_components/teacher-materials-filter-sidebar";
@@ -31,6 +34,17 @@ export default function TeacherMaterialsPage() {
   const { role } = useSessionActor();
   const st = useTeacherMaterialsPage();
   const [dbInspectorOpen, setDbInspectorOpen] = React.useState(false);
+  const [batchSelectedIds, setBatchSelectedIds] = React.useState<string[]>([]);
+  const [batchCategoryOpen, setBatchCategoryOpen] = React.useState(false);
+
+  const handleBatchCategory = React.useCallback(
+    (category: string) => {
+      st.batchUpdateCategory(batchSelectedIds, category);
+      setBatchCategoryOpen(false);
+      setBatchSelectedIds([]);
+    },
+    [st, batchSelectedIds],
+  );
 
   return (
     <div className="flex flex-col space-y-6" style={{ height: "100vh" }}>
@@ -63,8 +77,15 @@ export default function TeacherMaterialsPage() {
           onKindChange={st.setKindFilter}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col space-y-3">
+        <div className="relative flex min-w-0 flex-1 flex-col space-y-3">
           <ViewModeBar mode={st.mode} onModeChange={st.setMode} />
+
+          <FloatingNewItemsBar
+            count={st.newExternalCount}
+            visible={!st.isTopOfPage && st.newExternalCount > 0}
+            onClick={st.clearNewExternalCount}
+          />
+
           {st.mode === "list" ? (
             <TeacherMaterialDataTable
               actor={st.actor}
@@ -72,6 +93,13 @@ export default function TeacherMaterialsPage() {
               onRequestEdit={st.setEditTarget}
               onRequestDelete={st.setDeleteTarget}
               onVideoPosterPersisted={st.onVideoPosterPersisted}
+              onRepairThumbnail={st.repairThumbnail}
+              onRequestPosterUpload={st.setPosterUploadTarget}
+              onBatchDelete={st.batchDelete}
+              onBatchCategory={(ids) => {
+                setBatchSelectedIds(ids);
+                setBatchCategoryOpen(true);
+              }}
             />
           ) : (
             <TeacherMaterialWaterfall
@@ -81,6 +109,8 @@ export default function TeacherMaterialsPage() {
               onRequestEdit={st.setEditTarget}
               onRequestDelete={st.setDeleteTarget}
               onVideoPosterPersisted={st.onVideoPosterPersisted}
+              onRepairThumbnail={st.repairThumbnail}
+              onRequestPosterUpload={st.setPosterUploadTarget}
             />
           )}
         </div>
@@ -129,6 +159,23 @@ export default function TeacherMaterialsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TeacherMaterialPosterUploadDialog
+        open={Boolean(st.posterUploadTarget)}
+        onOpenChange={(open) => {
+          if (!open) st.setPosterUploadTarget(null);
+        }}
+        target={st.posterUploadTarget}
+        actor={st.actor}
+        onPosterPersisted={st.onVideoPosterPersisted}
+      />
+
+      <BatchCategoryDialog
+        open={batchCategoryOpen}
+        onOpenChange={setBatchCategoryOpen}
+        ids={batchSelectedIds}
+        onApply={handleBatchCategory}
+      />
     </div>
   );
 }

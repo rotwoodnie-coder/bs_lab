@@ -15,6 +15,7 @@ import { routeV2SysOrgTypes } from "./routes/v2-sys-org-types.ts";
 import { routeV2SysOrg } from "./routes/v2-sys-org.ts";
 import { routeV2SysRole } from "./routes/v2-sys-role.ts";
 import { routeV2RolePermission } from "./routes/v2-role-permission.ts";
+import { warmUpAllRolePermissions } from "../infrastructure/repositories/v2-role-permission-repository.ts";
 import { routeV2Homework } from "./routes/v2-homework.ts";
 import { routeV2Question } from "./routes/v2-question.ts";
 import { routeV2TeacherMaterialTypes } from "./routes/v2-teacher-material-types.ts";
@@ -217,4 +218,6 @@ createServer(async (req, res) => {
   }
 }).listen(port, () => {
   console.log(`bs-lab backend (V2) listening on :${port}`);
+  // 预热角色权限缓存，确保非超管角色首次请求时有 PAGE_* 权限码
+  warmUpAllRolePermissions().catch((err) => console.error("[permission-cache] startup warmup failed:", err));
 });
