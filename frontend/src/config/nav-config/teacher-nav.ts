@@ -4,7 +4,6 @@ import {
   ListChecks,
   Package,
   Scale,
-  School,
   UsersRound,
 } from "@bs-lab/ui/icons";
 
@@ -17,15 +16,9 @@ import type { SystemNavItemDefinition } from "@/config/nav-config.types";
 export const TEACHER_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   EXP_COURSE_NAV_ITEM,
   {
-    id: "my-classes",
-    label: getNavLabel("my-classes", "我的班级"),
-    href: "/system-manage/teacher-class",
-    Icon: School,
-  },
-  {
     id: "teacher-assignments",
-    label: getNavLabel("teacher-assignments", "实验列表"),
-    href: "/experiment-manage",
+    label: getNavLabel("teacher-assignments", "作业任务"),
+    href: "/teacher/assignments",
     Icon: ListChecks,
   },
   {

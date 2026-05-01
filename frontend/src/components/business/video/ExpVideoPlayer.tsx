@@ -30,7 +30,7 @@ export function StandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
       onMouseEnter={vm.onMouseEnter}
       onMouseLeave={vm.onMouseLeave}
     >
-      {vm.imgSrc && !vm.posterFailed ? (
+      {vm.imgSrc && !vm.posterFailed && vm.posterInView ? (
         <div className="pointer-events-none absolute inset-0 z-0">
           <StorageImg
             src={vm.imgSrc}

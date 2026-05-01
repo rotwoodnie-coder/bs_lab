@@ -36,6 +36,25 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
 
   useExpVideoPosterPersist(posterPersist ?? null, st.livePoster, propPoster, trimmedSrc, st.setLivePoster);
 
+  // 注：延时加载封面—未进入视口前不请求封面图，减少首屏并发请求数
+  const [posterInView, setPosterInView] = React.useState(false);
+  React.useEffect(() => {
+    setPosterInView(false);
+    const el = st.rootRef.current;
+    if (!el) return;
+    const ob = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setPosterInView(true);
+          ob.disconnect();
+        }
+      },
+      { rootMargin: "200px 0px", threshold: 0.01 },
+    );
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, [st.rootRef, trimmedSrc]);
+
   const { onMouseEnter, onMouseLeave, goActive } = useExpVideoListInteractions(
     st.status,
     st.setStatus,
@@ -64,6 +83,7 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     posterFailed: st.posterFailed,
     setPosterFailed: st.setPosterFailed,
     capturePhase: st.capturePhase,
+    posterInView,
     videoRef: st.videoRef,
     videoKey: st.videoKey,
     onMouseEnter,

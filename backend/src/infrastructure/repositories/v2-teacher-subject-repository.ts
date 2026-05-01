@@ -26,8 +26,8 @@ export async function getTeacherSubjects(teacherId: string): Promise<TeacherSubj
      INNER JOIN subject_group sg ON sg.group_id = sgm.group_id
      INNER JOIN data_school_subject s ON s.subject_id = sg.subject_id
      WHERE sgm.user_id = ?
-       AND sgm.status = 'JOINED'
-       AND sg.status = 'NORMAL'
+       AND sgm.status IN ('Y', 'JOINED')
+       AND sg.status IN ('Y', 'NORMAL')
        AND s.status = 'y'
      ORDER BY s.sort_order ASC, s.subject_name ASC`,
     [teacherId],

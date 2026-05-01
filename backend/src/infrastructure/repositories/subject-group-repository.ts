@@ -181,28 +181,35 @@ export async function listSubjectGroupMembers(groupId: string): Promise<SubjectG
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT m.seq_id AS seqId, m.group_id AS groupId, m.user_id AS userId, m.status,
             m.create_user_id AS createUserId, m.create_time AS createTime,
+            u.user_id AS uId,
             r.role_name AS roleName
      FROM subject_group_member m
-     LEFT JOIN sys_user u ON u.user_id = m.user_id
+     INNER JOIN sys_user u ON u.user_id = m.user_id AND u.is_deleted = 0
      LEFT JOIN data_role r ON r.role_id = u.user_role_id
      WHERE m.group_id = ? ORDER BY m.create_time ASC`,
     [groupId],
   );
-  return rows.map((r) => {
+  // 去重：同一用户只保留最早加入的一条记录（防脏数据）
+  const seen = new Set<string>();
+  const out: SubjectGroupMemberRecord[] = [];
+  for (const r of rows) {
     const row = r as RowDataPacket;
+    const uId = String(row.userId ?? "");
+    if (!uId || seen.has(uId)) continue;
+    seen.add(uId);
     const roleName = row.roleName ? String(row.roleName).trim().toLowerCase() : "";
-    // 若系统身份为教研员（role_name 含"教研"），则组内角色为 ADMIN，否则为 MEMBER
     const isResearcher = roleName.includes("教研") || roleName.includes("researcher");
-    return {
+    out.push({
       seqId: String(row.seqId),
       groupId: String(row.groupId),
-      userId: String(row.userId),
+      userId: uId,
       role: isResearcher ? "ADMIN" : ("MEMBER" as "ADMIN" | "MEMBER"),
       status: (String(row.status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as SubjectGroupStatus,
       createUserId: row.createUserId ? String(row.createUserId) : null,
       createTime: row.createTime ? String(row.createTime) : null,
-    };
-  });
+    });
+  }
+  return out;
 }
 
 /**
@@ -264,7 +271,7 @@ export async function listSubjectGroupsNotJoined(userId: string): Promise<Subjec
      LEFT JOIN subject_group_member m ON m.group_id = g.group_id AND m.user_id = ?
      LEFT JOIN sys_user ou ON ou.user_id = g.owner_id AND ou.is_deleted = 0
      WHERE m.user_id IS NULL AND g.owner_id != ?
-       AND g.status = 'Y'
+       AND g.status IN ('Y', 'NORMAL')
      ORDER BY g.create_time DESC`,
     [userId, userId],
   );

@@ -15,6 +15,10 @@ import {
   fetchV2ExpLibraryList,
   type V2ExpLibraryItem,
 } from "@/lib/v2/v2-exp-api";
+import {
+  getTeacherAuthorizedClasses,
+  type TeacherAuthorizedClassRow,
+} from "@/lib/v2/v2-sys-org-api";
 
 export interface UseAssignmentsReturn {
   actor: CoreApiActor;
@@ -32,6 +36,9 @@ export interface UseAssignmentsReturn {
   expLibLoading: boolean;
   submitting: boolean;
   handleCreate: (input: CreateHomeworkInput) => Promise<void>;
+  // 授课班级
+  classes: TeacherAuthorizedClassRow[];
+  classesLoading: boolean;
 }
 
 export function useAssignments(): UseAssignmentsReturn {
@@ -52,6 +59,10 @@ export function useAssignments(): UseAssignmentsReturn {
   const [expLibraryItems, setExpLibraryItems] = React.useState<V2ExpLibraryItem[]>([]);
   const [expLibLoading, setExpLibLoading] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
+
+  // 授课班级
+  const [classes, setClasses] = React.useState<TeacherAuthorizedClassRow[]>([]);
+  const [classesLoading, setClassesLoading] = React.useState(false);
 
   const refresh = React.useCallback(() => {
     setLoading(true);
@@ -81,6 +92,17 @@ export function useAssignments(): UseAssignmentsReturn {
       .finally(() => setExpLibLoading(false));
   }, [actor, dialogOpen]);
 
+  // 加载授课班级
+  React.useEffect(() => {
+    setClassesLoading(true);
+    getTeacherAuthorizedClasses(actor)
+      .then(setClasses)
+      .catch(() => {
+        sonnerToast.error("加载授课班级失败");
+      })
+      .finally(() => setClassesLoading(false));
+  }, [actor]);
+
   const handleCreate = React.useCallback(
     async (input: CreateHomeworkInput) => {
       setSubmitting(true);
@@ -107,5 +129,6 @@ export function useAssignments(): UseAssignmentsReturn {
     dialogOpen, setDialogOpen,
     expLibraryItems, expLibLoading,
     submitting, handleCreate,
+    classes, classesLoading,
   };
 }

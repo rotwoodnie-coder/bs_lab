@@ -10,7 +10,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@bs-lab/ui";
-import { ListChecks, Plus, Inbox } from "@bs-lab/ui/icons";
+import { ListChecks, Plus, Inbox, School } from "@bs-lab/ui/icons";
 import { useAssignments } from "./page.hooks";
 import { CreateHomeworkDialog } from "./_components/CreateHomeworkDialog";
 import { HomeworkCard } from "./_components/HomeworkCard";
@@ -30,10 +30,38 @@ export default function TeacherAssignmentsPage() {
     expLibLoading,
     submitting,
     handleCreate,
+    classes,
+    classesLoading,
   } = useAssignments();
 
   return (
     <div className="space-y-6">
+      {/* 授课班级快速浏览 */}
+      <section className="rounded-lg border border-border bg-background p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <School className="size-5 text-primary" />
+          <h2 className="text-sm font-semibold text-foreground">我的授课班级</h2>
+          {classesLoading ? (
+            <span className="text-xs text-muted-foreground">加载中…</span>
+          ) : null}
+        </div>
+        {!classesLoading && classes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">暂未分配授课班级，请联系管理员配置。</p>
+        ) : !classesLoading ? (
+          <div className="flex flex-wrap gap-2">
+            {classes.map((row, idx) => (
+              <Badge
+                key={`${row.orgId}-${row.subjectId}-${idx}`}
+                variant="secondary"
+                className="rounded-full text-xs"
+              >
+                {row.fullPathName}
+                {row.subjectName ? ` · ${row.subjectName}` : ""}
+              </Badge>
+            ))}
+          </div>
+        ) : null}
+      </section>
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

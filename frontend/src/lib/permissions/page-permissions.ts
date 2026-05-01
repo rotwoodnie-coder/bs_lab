@@ -35,7 +35,7 @@ export const PAGE_PERMISSIONS: readonly PagePermissionDefinition[] = [
   { group: "治理层", menuCode: "district_statistics", path: "/district-statistics", label: "区域统计" },
   { group: "业务层", menuCode: "teacher_experiment_manager", path: "/experiment-manage", label: "实验管理" },
   { group: "业务层", menuCode: "textbook_management", path: "/console/settings/textbooks", label: "教材管理" },
-  { group: "业务层", menuCode: "teacher_classroom", path: "/teacher-classroom", label: "我的教学班级" },
+  { group: "业务层", menuCode: "teacher_classroom", path: "/teacher/assignments", label: "我的教学班级" },
   { group: "业务层", menuCode: "teacher_tasks", path: "/teacher-tasks", label: "我的课堂 / 作业" },
   { group: "使用层", menuCode: "student_tasks", path: "/experiments", label: "任务中心" },
   { group: "使用层", menuCode: "student_growth", path: "/student/footprints", label: "成长足迹" },

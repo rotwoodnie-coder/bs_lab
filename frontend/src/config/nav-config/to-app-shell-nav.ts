@@ -50,7 +50,6 @@ export function toAppShellNavItems(
   ]);
 
   const ORG_RELATED_IDS = new Set([
-    "my-classes", // 教师授课管理 / 教学关系设定
     "mgmt-class", // 班级管理
     "teacher-assignments", // 作业任务
     "mgmt-grade", // 报告批改
