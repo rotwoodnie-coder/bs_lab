@@ -26,8 +26,8 @@ export function shouldProxyMaterialStorageUrl(href: string): boolean {
     if (u.hostname === "localhost" && port === "9000") return true;
     if (u.hostname === "127.0.0.1" && port === "9000") return true;
     if (u.hostname === "host.docker.internal" && port === "9000") return true;
-    // 库内写入的私有桶直链（path-style），含 `v2/{owner}/…`（不限 anon），走同源代理
-    if (u.pathname.includes("/bslab-media/") && u.pathname.includes("/v2/")) return true;
+    // 库内写入的私有桶直链（path-style），含 `v2/{owner}/…`（不限 bucket 名称），走同源代理
+    if (u.pathname.includes("/bslab-media") && u.pathname.includes("/v2/")) return true;
     return extraProxyHosts().some((h) => hostPort === h || u.host === h);
   } catch {
     return false;
