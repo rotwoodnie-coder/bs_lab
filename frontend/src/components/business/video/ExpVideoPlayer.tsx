@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Play } from "@bs-lab/ui/icons";
 import { resolveMediaDisplaySrc } from "@bs-lab/ui";
 
@@ -63,7 +64,10 @@ export function StandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
             type="button"
             className="absolute inset-0 z-[2] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`播放：${vm.title}`}
-            onClick={vm.goActive}
+            onClick={(e) => {
+              e.stopPropagation();
+              vm.goActive();
+            }}
           />
         </>
       ) : null}
@@ -83,7 +87,7 @@ export function StandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
           loop={vm.isPreview}
           controls={vm.isActive}
           aria-label={vm.title}
-          onClick={vm.isPreview ? () => vm.goActive() : undefined}
+          onClick={vm.isPreview ? (e) => { e.stopPropagation(); vm.handlePreviewClick(); } : undefined}
         />
       ) : null}
     </div>

@@ -33,4 +33,6 @@ export type StandardVideoExpPlayerProps = {
    * 当前播放器不做客户端像素级黑场检测：302 到 MinIO 时 `<video>` 跨域，canvas 读帧会污染画布且无法稳定判黑。
    */
   contentStartSeconds?: number | null;
+  /** 可选：点击播放时替代 inline 播放（例如打开弹窗）。设置后播放按钮和预览点击不触发 goActive */
+  onPlayRequest?: () => void;
 };

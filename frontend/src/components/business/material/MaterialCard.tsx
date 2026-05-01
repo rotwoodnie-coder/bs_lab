@@ -20,6 +20,11 @@ export function MaterialCard({ item, actor, mode, onClick }: Props) {
   const preview = getMaterialPreviewPayload(item);
   const isWaterfall = mode === "waterfall";
 
+  // 注：视频卡片点击时通过 onPlayRequest 停止 inline 播放，交由父级打开弹窗
+  const handlePlayRequest = React.useCallback(() => {
+    onClick?.(item);
+  }, [onClick, item]);
+
   return (
     <article
       className="group mb-0.5 flex break-inside-avoid cursor-pointer flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
@@ -43,6 +48,7 @@ export function MaterialCard({ item, actor, mode, onClick }: Props) {
           className="h-full w-full rounded-none transition duration-300 group-hover:scale-[1.02]"
           actor={actor}
           repairSourceItem={item}
+          onPlayRequest={handlePlayRequest}
         />
         <div className="absolute right-2 top-2 z-10 flex flex-wrap justify-end gap-1">
           <Badge variant="secondary" className="font-normal">

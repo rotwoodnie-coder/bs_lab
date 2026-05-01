@@ -16,7 +16,7 @@ import { useExpVideoBaseState } from "./exp-video-player-state";
 export type { PlayerVisualStatus } from "./exp-video-player.types";
 
 export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
-  const { src, poster, ratio = 16 / 9, title = "视频", rasterPosterCapture = "eager", posterPersist, contentStartSeconds } =
+  const { src, poster, ratio = 16 / 9, title = "视频", rasterPosterCapture = "eager", posterPersist, contentStartSeconds, onPlayRequest } =
     props;
   const trimmedSrc = src.trim();
   const propPoster = poster?.trim() ?? "";
@@ -66,6 +66,25 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     st.bumpVideoKey,
   );
 
+  // 注：有 onPlayRequest 时，播放和预览点击转调父级（如打开弹窗），同时卡片恢复 poster 态
+  const handlePlayRequest = React.useCallback(() => {
+    if (onPlayRequest) {
+      onPlayRequest();
+      st.resetOnSrc();
+      return;
+    }
+    goActive();
+  }, [onPlayRequest, goActive, st.resetOnSrc]);
+
+  const handlePreviewClick = React.useCallback(() => {
+    if (onPlayRequest) {
+      onPlayRequest();
+      st.resetOnSrc();
+      return;
+    }
+    goActive();
+  }, [onPlayRequest, goActive, st.resetOnSrc]);
+
   useExpVideoPlaybackSync(st.videoRef, st.mountVideo, st.isPreview, st.status, st.videoKey);
   useExpVideoContentStartSeek(
     st.videoRef,
@@ -93,7 +112,8 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     videoKey: st.videoKey,
     onMouseEnter,
     onMouseLeave,
-    goActive,
+    goActive: handlePlayRequest,
+    handlePreviewClick,
     className: props.className,
   };
 }

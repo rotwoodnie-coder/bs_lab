@@ -21,6 +21,8 @@ type Props = {
   repairSourceItem?: TeacherMaterialItem | null;
   /** 视频截帧上传写库成功后，更新列表行 `materialMainPicUrl` */
   onVideoPosterPersisted?: (fileId: string, displayHref: string) => void;
+  /** 可选：点击播放替代 inline 播放，父级打开弹窗时暂停卡片视频 */
+  onPlayRequest?: () => void;
 };
 
 function titleByStatus(preview: MaterialPreviewPayload): string {
@@ -88,6 +90,7 @@ export function MaterialPreviewCard(props: Props) {
           title={props.title}
           className="size-full min-h-0"
           rasterPosterCapture="visible"
+          onPlayRequest={props.onPlayRequest}
           posterPersist={
             props.actor && videoReady && !posterForVideo && repairFileId
               ? {
