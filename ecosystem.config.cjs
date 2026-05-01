@@ -31,9 +31,8 @@ module.exports = {
     {
       name: "bs-lab-frontend",
       cwd: "./frontend",
-      script: "pnpm",
-      args: "run start",
-      interpreter: "none",
+      script: "scripts/start-with-env.sh",
+      interpreter: "bash",
       env: {
         NODE_ENV: "production",
       },
