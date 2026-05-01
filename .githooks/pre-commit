@@ -107,7 +107,7 @@ if has_staged '\.(ts|tsx|mdc|sql|md)$'; then
 
   for f in $STAGED_TEXT; do
     [ ! -f "$f" ] && continue
-    HITS=$(git diff --cached -U0 "$f" 2>/dev/null | grep -E '^\+' | grep -E '請|實|說|點|擊|關|閉|開|啟|資|料|圖|示|範|圍|錄|入|步|驟|選|擇|頁|麼|為|與|會|後|臺|審|核' || true)
+    HITS=$(git diff --cached -U0 "$f" 2>/dev/null | grep -E '^\+' | grep -E '請|實|說|點|擊|關|閉|開|啟|資|圖|範|圍|錄|驟|選|擇|頁|麼|為|與|會|後|臺|審' || true)
     if [ -n "$HITS" ]; then
       TRAD_COUNT="${TRAD_COUNT}  ${f}:"$'\n'
       TRAD_COUNT="${TRAD_COUNT}$(echo "${HITS}" | head -5 | sed 's/^+/    > /')"$'\n'
