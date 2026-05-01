@@ -23,6 +23,8 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: "missing_u" }, { status: 400 });
   }
   const prefix = minioStoredUrlPrefix();
+  // 调试日志：确认实际比对值
+  console.error("[api/materials/open] prefix=%s  u=%s", prefix, u);
   if (!u.startsWith(prefix)) {
     return NextResponse.json({ ok: false, error: "url_not_allowed" }, { status: 400 });
   }
