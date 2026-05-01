@@ -49,14 +49,19 @@ else
   DB_PASSWORD="${DB_PASSWORD:-}"
   DB_NAME="${DB_NAME:-bs_exp_data}"
 fi
-MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USER $([[ -z \"${DB_PASSWORD:-}\" ]] && echo \"\" || echo \"-p${DB_PASSWORD}\") $DB_NAME"
+# 构造 MySQL 连接参数（避免嵌套引号导致的 set -e 退出）
+MYSQL_OPTS="-h $DB_HOST -P $DB_PORT -u $DB_USER"
+if [ -n "${DB_PASSWORD:-}" ]; then
+  MYSQL_OPTS="$MYSQL_OPTS -p$DB_PASSWORD"
+fi
+MYSQL_CMD="mysql $MYSQL_OPTS $DB_NAME"
 
 echo ">>> 检查并执行数据库迁移..." | tee -a "$DEPLOY_LOG"
 cd "$DEPLOY_DIR"
 for f in $(ls database/migrations/00*.sql 2>/dev/null | sort); do
   base=$(basename "$f")
   # 检查是否已执行：看 migration 标记表，没有则建表
-  $MYSQL_CMD -e "CREATE TABLE IF NOT EXISTS _migrations (name VARCHAR(200) PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)" 2>/dev/null
+  $MYSQL_CMD -e "CREATE TABLE IF NOT EXISTS _migrations (name VARCHAR(200) PRIMARY KEY, applied_at DATETIME DEFAULT CURRENT_TIMESTAMP)" 2>/dev/null || true
   done=$($MYSQL_CMD -N -e "SELECT 1 FROM _migrations WHERE name = '$base'" 2>/dev/null || echo "0")
   if [ "$done" != "1" ]; then
     echo ">>> ⏳ 执行迁移: $base" | tee -a "$DEPLOY_LOG"
