@@ -13,7 +13,7 @@ import {
   type SubjectGroupMemberRecord,
   type SubjectGroupRecord,
 } from "@/lib/v2/v2-group-api";
-import { fetchV2SysUserById, type V2SysUserItem } from "@/lib/v2/v2-sys-api";
+import { fetchV2SysTeacherList, fetchV2SysUserById, type V2SysUserItem } from "@/lib/v2/v2-sys-api";
 import { fetchV2SchoolSubjects } from "@/lib/v2/v2-exp-api";
 
 export type TeachingResearchGroupMemberView = SubjectGroupMemberRecord & {
@@ -26,6 +26,7 @@ export type TeachingResearchGroupMemberView = SubjectGroupMemberRecord & {
 export type TeachingResearchGroupRow = SubjectGroupRecord & {
   ownerName: string;
   ownerLoginName: string;
+  ownerAvatarUrl: string | null;
   createUserName: string;
   memberCount: number;
   members: TeachingResearchGroupMemberView[];
@@ -35,14 +36,20 @@ export type TeachingResearchGroupRow = SubjectGroupRecord & {
 
 async function loadUserNameMap(actor: CoreApiActor, userIds: string[]): Promise<Map<string, V2SysUserItem>> {
   const uniq = [...new Set(userIds.map((s) => s.trim()).filter(Boolean))];
-  const pairs = await Promise.all(uniq.map(async (id) => {
-    try {
-      return [id, await fetchV2SysUserById(actor, id)] as const;
-    } catch {
-      return null;
-    }
+  if (uniq.length === 0) return new Map();
+  // 优先走批量教师列表（免权限），找不齐的再逐个回退
+  const map = new Map<string, V2SysUserItem>();
+  try {
+    const all = await fetchV2SysTeacherList(actor, "", 200);
+    for (const u of all.items) map.set(u.userId, u);
+  } catch { /* fallback to individual fetch */ }
+  const missing = uniq.filter((id) => !map.has(id));
+  const pairs = await Promise.all(missing.map(async (id) => {
+    try { return [id, await fetchV2SysUserById(actor, id)] as const; }
+    catch { return null; }
   }));
-  return new Map(pairs.filter(Boolean) as Array<readonly [string, V2SysUserItem]>);
+  for (const p of pairs) { if (p) map.set(p[0], p[1]); }
+  return map;
 }
 
 export function useTeachingResearchGroupsList() {
@@ -86,8 +93,9 @@ export function useTeachingResearchGroupsList() {
       const members = memberMap.get(group.groupId) ?? [];
       return {
         ...group,
-        ownerName: owner?.userName ?? group.ownerId ?? "—",
-        ownerLoginName: owner?.loginName ?? "",
+        ownerName: owner?.userNickName ?? owner?.userName ?? group.ownerId ?? "—",
+        ownerLoginName: owner?.userName ?? "",
+        ownerAvatarUrl: owner?.userLogo ?? null,
         createUserName: creator?.userName ?? group.createUserId ?? "—",
         memberCount: members.length,
         members: members.map((m) => {

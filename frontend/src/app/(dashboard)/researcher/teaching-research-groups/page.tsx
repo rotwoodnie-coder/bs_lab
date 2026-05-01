@@ -262,7 +262,49 @@ export default function ResearcherTeachingResearchGroupsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">加载中…</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">当前暂无教研组数据。{canCreate ? "可点击「创建教研组」进行创建。" : ""}</TableCell></TableRow> : rows.map((r) => (<TableRow key={r.groupId}><TableCell className="font-medium">{r.groupName}</TableCell><TableCell className="text-muted-foreground">{r.ownerName}</TableCell><TableCell className="text-muted-foreground">{r.memberCount} 人</TableCell><TableCell>{statusLabel(r.status)}</TableCell><TableCell className="text-right"><ActionMenuButton onEdit={() => openEdit(r)} onDelete={() => openDelete(r)} onMemberManage={() => openMemberManage(r)} /></TableCell></TableRow>))}
+                  {loading ? <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">加载中…</TableCell></TableRow> : rows.length === 0 ? <TableRow><TableCell colSpan={5} className="text-sm text-muted-foreground">当前暂无教研组数据。{canCreate ? "可点击「创建教研组」进行创建。" : ""}</TableCell></TableRow> : rows.map((r) => (
+                    <TableRow key={r.groupId}>
+                      <TableCell className="font-medium">{r.groupName}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <Avatar className="size-8 shrink-0 border-2 border-primary/20">
+                            {r.ownerAvatarUrl ? <AvatarImage src={r.ownerAvatarUrl} alt={r.ownerName} /> : null}
+                            <AvatarFallback className="bg-primary/10 text-sm font-medium text-primary">{r.createUserName.trim().slice(0, 1) || "?"}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col min-w-0 justify-center">
+                            <p className="truncate text-sm font-medium text-foreground">{r.ownerName}</p>
+                            <p className="truncate text-xs text-muted-foreground">{r.ownerLoginName}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="flex -space-x-2">
+                            {r.members.length > 0 ? (
+                              <Avatar className="size-8 border-2 border-background shrink-0">
+                                {r.members[0]?.avatarUrl ? <AvatarImage src={r.members[0].avatarUrl} alt={r.members[0].userName} /> : null}
+                                <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">{r.members[0]?.userName.trim().slice(0, 1) || "?"}</AvatarFallback>
+                              </Avatar>
+                            ) : null}
+                            {r.members.length > 1 ? (
+                              <Avatar className="size-8 border-2 border-background shrink-0">
+                                {r.members[1]?.avatarUrl ? <AvatarImage src={r.members[1].avatarUrl} alt={r.members[1].userName} /> : null}
+                                <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">{r.members[1]?.userName.trim().slice(0, 1) || "?"}</AvatarFallback>
+                              </Avatar>
+                            ) : null}
+                            {r.members.length > 1 ? (
+                              <div className="flex size-8 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] font-medium text-muted-foreground">
+                                +{r.memberCount}
+                              </div>
+                            ) : null}
+                          </div>
+                          <span className="text-xs text-muted-foreground">{r.memberCount} 人</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{statusLabel(r.status)}</TableCell>
+                      <TableCell className="text-right"><ActionMenuButton onEdit={() => openEdit(r)} onDelete={() => openDelete(r)} onMemberManage={() => openMemberManage(r)} /></TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -276,10 +318,10 @@ export default function ResearcherTeachingResearchGroupsPage() {
                 <Card key={r.groupId} className="border-border shadow-none">
                   <CardHeader className="space-y-2 pb-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <CardTitle className="text-base">{r.groupName}</CardTitle>
-                        <CardDescription>负责人：{r.ownerName}</CardDescription>
-                      </div>
+                        <div className="space-y-1">
+                          <CardTitle className="text-base">{r.groupName}</CardTitle>
+                          <CardDescription>负责人：{r.ownerName}</CardDescription>
+                        </div>
                       <Badge variant={r.status === "Y" ? "secondary" : "outline"}>{statusLabel(r.status)}</Badge>
                     </div>
                   </CardHeader>
