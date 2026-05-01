@@ -29,7 +29,7 @@ export async function getTeacherSubjects(teacherId: string): Promise<TeacherSubj
        AND sgm.status IN ('Y', 'JOINED')
        AND sg.status IN ('Y', 'NORMAL')
        AND s.status = 'y'
-     ORDER BY s.sort_order ASC, s.subject_name ASC`,
+     ORDER BY s.subject_name ASC`,
     [teacherId],
   );
   return rows.map((r) => ({

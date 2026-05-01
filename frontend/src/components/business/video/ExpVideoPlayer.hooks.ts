@@ -67,23 +67,26 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   );
 
   // 注：有 onPlayRequest 时，播放和预览点击转调父级（如打开弹窗），同时卡片恢复 poster 态
+  // 仅回退 status 并卸载 <video>，不清除封面缓存（livePoster 保留），避免回到卡片时黑屏
   const handlePlayRequest = React.useCallback(() => {
     if (onPlayRequest) {
       onPlayRequest();
-      st.resetOnSrc();
+      st.setStatus("poster");
+      st.bumpVideoKey();
       return;
     }
     goActive();
-  }, [onPlayRequest, goActive, st.resetOnSrc]);
+  }, [onPlayRequest, goActive, st.setStatus, st.bumpVideoKey]);
 
   const handlePreviewClick = React.useCallback(() => {
     if (onPlayRequest) {
       onPlayRequest();
-      st.resetOnSrc();
+      st.setStatus("poster");
+      st.bumpVideoKey();
       return;
     }
     goActive();
-  }, [onPlayRequest, goActive, st.resetOnSrc]);
+  }, [onPlayRequest, goActive, st.setStatus, st.bumpVideoKey]);
 
   useExpVideoPlaybackSync(st.videoRef, st.mountVideo, st.isPreview, st.status, st.videoKey);
   useExpVideoContentStartSeek(
