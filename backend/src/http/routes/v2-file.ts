@@ -207,6 +207,8 @@ export async function routeV2File(req: Request): Promise<Response> {
       const contentSha256 = createHash("sha256").update(buffer).digest("hex");
 
       const fileExt = file.name.includes(".") ? file.name.split(".").pop()! : "";
+      // 用户输入的标题优先，空则用原始文件名
+      const displayName = (formData.get("title") as string | null)?.trim() || file.name;
       const teacherKindRaw = (formData.get("teacherMaterialKind") as string | null)?.trim().toLowerCase() || "";
       const fileTypeId = teacherKindRaw
         ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
@@ -216,7 +218,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       const dup = await findActiveFileByContentSha(contentSha256);
       if (dup) {
         const record = await createFileRecord({
-          fileName: file.name,
+          fileName: displayName,
           fileUrl: dup.fileUrl,
           fileExt: fileExt || undefined,
           fileSize: file.size,
@@ -235,7 +237,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       let record;
       try {
         record = await createFileRecord({
-          fileName: file.name,
+          fileName: displayName,
           fileUrl: storageKey,
           fileExt: fileExt || undefined,
           fileSize: file.size,

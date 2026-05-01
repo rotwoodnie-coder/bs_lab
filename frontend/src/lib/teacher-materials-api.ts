@@ -61,6 +61,14 @@ export type TeacherMaterialItem = {
   materialNum: number | null;
   /** `data_file.owner_user_id` 或 `material_msg.create_user_id`，用于「仅自己可见」判断 */
   ownerUserId?: string | null;
+  /** JOIN sys_user，上传人真实姓名（nick_name 优先） */
+  ownerUserName?: string | null;
+  /** JOIN sys_user.user_logo，头像 URL */
+  ownerAvatarUrl?: string | null;
+  /** JOIN data_pref_title.title_name，职称 */
+  ownerTitleName?: string | null;
+  /** JOIN sys_org.org_name，单位名称 */
+  ownerOrgName?: string | null;
   /** 仅创建者在全库列表中可见（data_file：`logo_url` JSON 的 `pv`；material_msg：`comments` JSON 的 `pv`） */
   visibilitySelfOnly?: boolean;
   /** 原始 `data_file.logo_url`（可能为 JSON），保存属性时与 `pv` 合并 */
@@ -530,6 +538,10 @@ function dataFileRecordToTeacherItem(f: V2DataFileRecord): TeacherMaterialItem {
     additionalComments: null,
     materialNum: null,
     ownerUserId: f.ownerUserId?.trim() || null,
+    ownerUserName: f.ownerUserName?.trim() || null,
+    ownerAvatarUrl: f.ownerAvatarUrl?.trim() || null,
+    ownerTitleName: f.ownerTitleName?.trim() || null,
+    ownerOrgName: f.ownerOrgName?.trim() || null,
     logoUrlRaw: rawLogo,
     dataFileContentSha256: f.contentSha256?.trim() ? f.contentSha256.trim() : null,
     dataFileTypeId: f.fileTypeId?.trim() ? f.fileTypeId.trim() : null,

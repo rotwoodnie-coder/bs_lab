@@ -16,6 +16,14 @@ export interface DataFileRecord {
   fileTypeLogoClass: string | null;
   status: string | null;
   ownerUserId: string | null;
+  /** JOIN sys_user.user_nick_name / user_name，上传人真实姓名 */
+  ownerUserName: string | null;
+  /** JOIN sys_user.user_logo，头像 URL */
+  ownerAvatarUrl: string | null;
+  /** JOIN data_pref_title.title_name，职称 */
+  ownerTitleName: string | null;
+  /** JOIN sys_org.org_name，单位名称 */
+  ownerOrgName: string | null;
   /** `data_file.logo_url`：封面图 URL（设计文档） */
   logoUrl: string | null;
   fileSize: number | null;

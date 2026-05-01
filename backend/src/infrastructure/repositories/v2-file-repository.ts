@@ -13,9 +13,12 @@ import type {
   FileListPage,
 } from "../../domain/v2-file/v2-file-types.ts";
 
-/** 列表/单条/批量：文件行 + 字典类型（`data_file_type`） */
+/** 列表/单条/批量：文件行 + 字典类型（`data_file_type`）+ 用户/职称/组织信息 */
 const FILE_SELECT_FROM = `FROM data_file df
-  LEFT JOIN data_file_type dft ON df.file_type_id = dft.type_id`;
+  LEFT JOIN data_file_type dft ON df.file_type_id = dft.type_id
+  LEFT JOIN sys_user owner ON owner.user_id = df.owner_user_id AND owner.is_deleted = 0
+  LEFT JOIN data_pref_title t ON t.title_id = owner.pref_title_id
+  LEFT JOIN sys_org org ON org.org_id = owner.user_org_id AND org.is_deleted = 0`;
 
 /** 排除逻辑删除占位；NULL 安全（避免 `NULL != 'deleted'` 误过滤整表） */
 const WHERE_NOT_LOGICAL_DELETED = "NOT (df.status <=> 'deleted')";
@@ -138,6 +141,10 @@ function rowToFile(row: RowDataPacket): DataFileRecord {
       : null,
     status: statusStr,
     ownerUserId: row.owner_user_id ? String(row.owner_user_id) : null,
+    ownerUserName: row.owner_user_name ? String(row.owner_user_name) : null,
+    ownerAvatarUrl: row.owner_avatar_url ? String(row.owner_avatar_url) : null,
+    ownerTitleName: row.owner_title_name ? String(row.owner_title_name) : null,
+    ownerOrgName: row.owner_org_name ? String(row.owner_org_name) : null,
     logoUrl: row.logo_url ? String(row.logo_url) : null,
     fileSize: row.file_size != null ? Number(row.file_size) : null,
     fileExt: row.file_ext ? String(row.file_ext) : null,
@@ -198,7 +205,11 @@ export async function listFiles(query: FileListQuery): Promise<FileListPage> {
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE ${whereSql}
      ORDER BY IFNULL(df.update_time, df.create_time) DESC, df.file_id DESC
@@ -226,7 +237,11 @@ export async function findActiveFileByContentSha(
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE df.content_sha256 = ? AND ${ACTIVE_STATUS_SQL}
        AND ${WHERE_NOT_LOGICAL_DELETED}
@@ -264,7 +279,11 @@ export async function getFileById(fileId: string): Promise<DataFileRecord | null
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE df.file_id = ? LIMIT 1`,
     [fileId],
@@ -285,7 +304,11 @@ export async function getFilesByIds(fileIds: string[]): Promise<DataFileRecord[]
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE df.file_id IN (${placeholders})`,
     ids,
@@ -347,7 +370,11 @@ export async function findCoverChildByParentId(parentFileId: string): Promise<Da
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE df.parent_file_id = ? AND df.relation_type = 'logo' AND ${ACTIVE_STATUS_SQL}
      LIMIT 1`,
@@ -440,7 +467,11 @@ export async function getChildFilesByParentId(parentFileId: string): Promise<Dat
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
-            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class
+            dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
+            COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
+            owner.user_logo AS owner_avatar_url,
+            t.title_name AS owner_title_name,
+            org.org_name AS owner_org_name
      ${FILE_SELECT_FROM}
      WHERE df.parent_file_id = ?`,
     [parentFileId],

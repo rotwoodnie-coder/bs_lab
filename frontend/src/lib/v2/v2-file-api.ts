@@ -14,6 +14,14 @@ export type V2DataFileRecord = {
   fileTypeLogoClass: string | null;
   status: string | null;
   ownerUserId: string | null;
+  /** JOIN sys_user.user_nick_name / user_name */
+  ownerUserName?: string | null;
+  /** JOIN sys_user.user_logo */
+  ownerAvatarUrl?: string | null;
+  /** JOIN data_pref_title.title_name */
+  ownerTitleName?: string | null;
+  /** JOIN sys_org.org_name */
+  ownerOrgName?: string | null;
   logoUrl: string | null;
   fileSize: number | null;
   fileExt: string | null;

@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Badge, Button, sonnerToast } from "@bs-lab/ui";
+import { Badge, Button, sonnerToast, Avatar, AvatarImage, AvatarFallback } from "@bs-lab/ui";
 import { Download, Eye, Pencil, Share2, Trash2 } from "@bs-lab/ui/icons";
 import type { ApiActor } from "@/lib/new-core-api";
 import { resolveTeacherMaterialDownload, teacherMaterialDownloadHref, type TeacherMaterialItem } from "@/lib/teacher-materials-api";
 import { MaterialPreviewCard } from "./MaterialPreviewCard";
+import { materialStorageBrowserHref } from "@/lib/material-asset-url";
 import { TeacherMaterialDocumentPreviewDialog } from "./TeacherMaterialDocumentPreviewDialog";
 import { buildTeacherMaterialShareText } from "../_lib/teacher-material-share-text";
 import { canPreviewTeacherMaterialDocument, getMaterialPreviewPayload, kindLabel } from "../_lib/material-preview.utils";
@@ -140,6 +141,41 @@ export function TeacherMaterialWaterfall(props: Props) {
                 <div className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{item.title}</div>
                 <div className="text-xs text-muted-foreground">更新 {item.updatedAt}</div>
               </div>
+
+              {/* 上传人信息：头像 + 姓名（职称）+ 单位 */}
+              {item.ownerUserName ? (
+                <div className="flex items-center gap-2 border-t border-border/40 pt-2">
+                  <Avatar className="size-8 shrink-0 border border-border">
+                    {item.ownerAvatarUrl ? (
+                      <AvatarImage
+                        src={materialStorageBrowserHref(item.ownerAvatarUrl)}
+                        alt=""
+                      />
+                    ) : null}
+                    <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
+                      {item.ownerUserName.trim().slice(0, 1).toUpperCase() || "?"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1">
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {item.ownerUserName}
+                      </span>
+                      {item.ownerTitleName ? (
+                        <span className="shrink-0 text-[10px] text-muted-foreground">
+                          {item.ownerTitleName}
+                        </span>
+                      ) : null}
+                    </div>
+                    {item.ownerOrgName ? (
+                      <div className="truncate text-[10px] text-muted-foreground">
+                        {item.ownerOrgName}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
               {/* 与 size="sm" 按钮同高，避免仅有 Word 预览入口时卡片被拉高 */}
               <div className="h-9 w-full shrink-0">
                 {canPreviewTeacherMaterialDocument(item) ? (
