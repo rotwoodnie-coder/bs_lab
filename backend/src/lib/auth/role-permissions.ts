@@ -104,8 +104,8 @@ export const ROLE_PERMISSIONS_MAP = {
   SUPER_ADMIN: Object.values(PERMISSIONS),
 } as const satisfies Record<string, readonly Permission[]>;
 
-function buildDynamicPagePermissions(roleId: string): Permission[] {
-  const pagePerms = getRolePagePermissions(roleId);
+function buildDynamicPagePermissions(roleId: string | null | undefined): Permission[] {
+  const pagePerms = getRolePagePermissions(roleId ?? "");
   if (pagePerms.length === 0) return [];
   const out: Permission[] = [];
   for (const p of pagePerms) {
