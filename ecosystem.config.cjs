@@ -47,7 +47,7 @@ module.exports = {
       args: "scripts/webhook-deploy.mjs",
       interpreter: "none",
       watch: false,
-      max_memory_restart: "200M",
+      max_memory_restart: "500M",
     },
   ],
 };
