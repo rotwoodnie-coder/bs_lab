@@ -28,8 +28,8 @@ export function TeacherMaterialWaterfall(props: Props) {
 
   const gridClass =
     props.mode === "waterfall"
-      ? "columns-1 gap-4 md:columns-2 2xl:columns-3"
-      : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
+      ? "columns-1 gap-3 md:columns-2 2xl:columns-3"
+      : "grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
   if (props.items.length === 0) {
     return (
@@ -53,7 +53,7 @@ export function TeacherMaterialWaterfall(props: Props) {
         return (
           <article
             key={item.materialId}
-            className="group mb-3 flex break-inside-avoid flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="group mb-1 flex break-inside-avoid flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
           >
             <div
               className={`relative shrink-0 overflow-hidden rounded-t-xl bg-muted/30 ${isWaterfall ? "aspect-video w-full" : "h-40 w-full"}`}
@@ -135,7 +135,7 @@ export function TeacherMaterialWaterfall(props: Props) {
               ) : null}
             </div>
 
-            <div className="space-y-2 p-3">
+            <div className="space-y-1.5 p-2">
               {/* 上传人头像（左）+ 标题（右），合并一行 */}
               <div className="flex gap-2">
                 {item.ownerUserName ? (
