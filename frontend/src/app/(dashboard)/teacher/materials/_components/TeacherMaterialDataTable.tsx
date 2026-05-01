@@ -51,8 +51,8 @@ export function TeacherMaterialDataTable(props: Props) {
         cell: ({ row }) => {
           const preview = getMaterialPreviewPayload(row.original);
           return (
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="h-12 w-[84px] overflow-hidden rounded border border-border/60 bg-muted/30">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="h-10 w-[72px] shrink-0 overflow-hidden rounded border border-border/60 bg-muted/30">
                 <MaterialPreviewCard
                   preview={preview}
                   title={row.original.title}
@@ -63,9 +63,9 @@ export function TeacherMaterialDataTable(props: Props) {
                   onVideoPosterPersisted={props.onVideoPosterPersisted}
                 />
               </div>
-              <div className="min-w-0 space-y-0.5">
+              <div className="min-w-0">
                 <div className="line-clamp-1 text-sm font-medium text-foreground">{row.original.title}</div>
-                <div className="text-xs text-muted-foreground">{row.original.updatedAt}</div>
+                <div className="text-[11px] text-muted-foreground">{row.original.updatedAt}</div>
               </div>
             </div>
           );
@@ -217,7 +217,7 @@ export function TeacherMaterialDataTable(props: Props) {
       <div className="flex justify-end">
         <DataTableViewOptions table={table} />
       </div>
-      <DataTable table={table} stickyHeader className="max-h-[68vh] overflow-auto rounded-md border border-border" emptyText="当前筛选无素材条目。" />
+      <DataTable table={table} stickyHeader className="max-h-[68vh] overflow-auto rounded-md border border-border [&_td]:py-1.5 [&_th]:py-1.5" emptyText="当前筛选无素材条目。" />
       <DataTablePagination table={table} pageSizeOptions={[10, 20, 50]} />
       <TeacherMaterialDocumentPreviewDialog
         open={documentPreview !== null}

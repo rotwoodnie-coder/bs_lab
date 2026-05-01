@@ -53,7 +53,7 @@ export function TeacherMaterialWaterfall(props: Props) {
         return (
           <article
             key={item.materialId}
-            className="group mb-1 flex break-inside-avoid flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+            className="group mb-0.5 flex break-inside-avoid flex-col rounded-xl border border-border bg-card shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
           >
             <div
               className={`relative shrink-0 overflow-hidden rounded-t-xl bg-muted/30 ${isWaterfall ? "aspect-video w-full" : "h-40 w-full"}`}
@@ -135,7 +135,7 @@ export function TeacherMaterialWaterfall(props: Props) {
               ) : null}
             </div>
 
-            <div className="space-y-1.5 p-2">
+            <div className="p-2">
               {/* 上传人头像（左）+ 标题（右），合并一行 */}
               <div className="flex gap-2">
                 {item.ownerUserName ? (
@@ -151,7 +151,7 @@ export function TeacherMaterialWaterfall(props: Props) {
                     </AvatarFallback>
                   </Avatar>
                 ) : null}
-                <div className="min-w-0 flex-1 space-y-1">
+                <div className="min-w-0 flex-1">
                   <div className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{item.title}</div>
                   <div className="truncate text-[11px] text-muted-foreground">
                     {item.ownerUserName ? (
@@ -169,21 +169,21 @@ export function TeacherMaterialWaterfall(props: Props) {
                 </div>
               </div>
 
-              {/* 与 size="sm" 按钮同高，避免仅有 Word 预览入口时卡片被拉高 */}
-              <div className="h-9 w-full shrink-0">
-                {canPreviewTeacherMaterialDocument(item) ? (
+              {/* 预览按钮，仅可预览时显示 */}
+              {canPreviewTeacherMaterialDocument(item) ? (
+                <div className="pt-1.5">
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="h-9 w-full"
+                    className="h-8 w-full text-xs"
                     onClick={() => setDocumentPreview(item)}
                   >
-                    <Eye className="me-1 size-3.5" />
+                    <Eye className="me-1 size-3" />
                     预览
                   </Button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
           </article>
         );
