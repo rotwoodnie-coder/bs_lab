@@ -9,7 +9,7 @@ import {
   AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getClient, getConfig, normalizeKey } from "./s3-storage.js";
+import { getClient, getConfig, normalizeKey } from "./s3-storage.ts";
 
 export type MultipartUploadInitResult = {
   uploadId: string;
