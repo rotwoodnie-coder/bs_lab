@@ -43,6 +43,24 @@ if has_staged 'frontend/'; then
   fi
 fi
 
+# ── 0.5 TypeScript 类型检查（硬性） ──────────
+if has_staged '\.(ts|tsx)$'; then
+  for TSC_DIR in backend frontend; do
+    if has_staged "^${TSC_DIR}/"; then
+      TSC_OUTPUT=$(cd "$TSC_DIR" && npx tsc --noEmit 2>&1) || true
+      TSC_EXIT=$?
+      if [ "$TSC_EXIT" -ne 0 ]; then
+        echo "  ${RED}[FAIL] TypeScript 类型检查（${TSC_DIR}）${NC}"
+        echo "$TSC_OUTPUT" | head -20 | sed 's/^/       /'
+        echo "       请修复上述类型错误后重试"
+        FAIL=1
+      else
+        echo "  ${GREEN}[TSC]${NC} ${TSC_DIR}: 通过"
+      fi
+    fi
+  done
+fi
+
 # ── 1. data_role 写入保护 ─────────────────────────
 if has_staged '^backend/'; then
   STAGED_BACKEND=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^backend/' | tr '\n' ' ')
