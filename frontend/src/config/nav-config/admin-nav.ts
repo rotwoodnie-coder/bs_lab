@@ -31,7 +31,7 @@ import type { SystemNavItemDefinition } from "@/config/nav-config.types";
 
 /** 学校管理员 · 管理台（组织/用户/第三方与监控为真路由；与 RBAC 互斥教研评审） */
 export const SCHOOL_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
-  { id: "console-cfg-textbook-ref", label: "教材管理", href: "/console/settings/textbooks", Icon: BookMarked },
+  { id: "console-res-textbooks", label: "教材管理", href: "/console/settings/textbooks", Icon: BookMarked },
   { id: "console-res-experiments", label: getNavLabel("console-res-experiments", "实验列表"), href: "/console/settings/experiments", Icon: Library },
   { id: "exp-question-bank", label: getNavLabel("exp-question-bank", "实验题库"), href: "/console/assessment/questions", Icon: FileQuestion },
   { id: "console-cfg-sim-dev", label: "模拟开发配置", href: "/admin/simulation-dev", Icon: LayoutDashboard },

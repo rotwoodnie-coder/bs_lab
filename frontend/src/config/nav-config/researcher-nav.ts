@@ -1,7 +1,6 @@
 import {
   BarChart3,
   Bell,
-  BookMarked,
   BookOpen,
   Building2,
   ClipboardCheck,
@@ -9,10 +8,8 @@ import {
   FileQuestion,
   Images,
   Layers,
-  LayoutDashboard,
   Library,
   Medal,
-  MonitorPlay,
   Package,
   Scale,
   School,
@@ -52,12 +49,6 @@ function buildDistrictResearcherManagementNav(
       label: "实验材料分类",
       href: "/console/settings/materials/teacher-materials",
       Icon: Images,
-    },
-    {
-      id: "console-cfg-textbook-ref",
-      label: "教材管理",
-      href: "/console/settings/textbooks",
-      Icon: BookMarked,
     },
     {
       id: "console-cfg-dictionaries",

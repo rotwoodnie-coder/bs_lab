@@ -40,7 +40,6 @@ export function toAppShellNavItems(
   /** 教学维度、实验目录/材料子表配置、素材类型与角色、账号侧角色与通知审计等 */
   const SYSTEM_CONFIG_NAV_IDS = new Set([
     "console-cfg-teacher-material",
-    "console-cfg-textbook-ref",
     "console-cfg-dictionaries",
     "console-cfg-incentives",
     "console-res-subject",
@@ -167,7 +166,6 @@ export function toAppShellNavItems(
   ];
   const SYSTEM_CONFIG_CHILD_ORDER: string[] = [
     "console-cfg-teacher-material",
-    "console-cfg-textbook-ref",
     "console-cfg-dictionaries",
     "console-res-subject",
     "sys-roles",

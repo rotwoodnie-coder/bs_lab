@@ -1,12 +1,10 @@
 import {
-  ClipboardCheck,
+  BookOpen,
   FileQuestion,
-  LayoutDashboard,
   ListChecks,
   Package,
   Scale,
   School,
-  Users,
   UsersRound,
 } from "@bs-lab/ui/icons";
 
@@ -29,6 +27,12 @@ export const TEACHER_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
     label: getNavLabel("teacher-assignments", "实验列表"),
     href: "/experiment-manage",
     Icon: ListChecks,
+  },
+  {
+    id: "console-res-textbooks",
+    label: "教材管理",
+    href: "/console/settings/textbooks",
+    Icon: BookOpen,
   },
   {
     id: "teacher-research-project-groups",

@@ -70,7 +70,6 @@ function spawnNextDev() {
   if (childEnv.MINIO_PUBLIC_URL?.trim()) {
     childEnv.NEXT_PUBLIC_MINIO_PUBLIC_URL = childEnv.MINIO_PUBLIC_URL.trim();
   }
-  const childEnv = mergeRepoRootEnvLocal(spawnEnvForNodeChild());
 
   if (existsSync(nextCli)) {
     return spawn(process.execPath, [nextCli, "dev", "-p", String(port)], {

@@ -80,7 +80,6 @@ export function resolveDashboardNavId(
   if (pathname.startsWith("/console/settings/education/subject-grades")) return "console-res-subject";
   if (pathname.startsWith("/console/settings/textbooks")) return "console-res-textbooks";
   if (pathname.startsWith("/console/settings/materials/teacher-materials")) return "console-cfg-teacher-material";
-  if (pathname.startsWith("/console/settings/textbooks/textbook-reference")) return "console-cfg-textbook-ref";
   if (pathname.startsWith("/console/settings/dictionaries")) return "console-cfg-dictionaries";
   if (pathname.startsWith("/console/settings/incentives")) return "console-cfg-incentives";
   if (pathname.startsWith("/console/settings/experiments")) return "console-res-experiments";

@@ -2,6 +2,24 @@ import { can, PERMISSIONS } from "@/lib/auth/role-permissions";
 import type { AuthUser } from "@/hooks/use-auth";
 import type { UserRole } from "@/types/auth";
 
+/**
+ * 归一化路径：解析 `..` 和 `.` 片段，防止 URL 参数绕过（如 /console/operations/../settings/system/users）。
+ */
+export function normalizePath(pathname: string): string {
+  const path = pathname.split("?")[0] || pathname;
+  const segments = path.split("/").filter(Boolean);
+  const resolved: string[] = [];
+  for (const seg of segments) {
+    if (seg === ".") continue;
+    if (seg === "..") {
+      resolved.pop();
+      continue;
+    }
+    resolved.push(seg);
+  }
+  return "/" + resolved.join("/");
+}
+
 /** 超级管理员：与治理场景下视为全站最高操作权限（与后端 Role_Sys_Admin 策略对齐）。 */
 export function isSuperUserRole(role: UserRole): boolean {
   return role === "Role_Sys_Admin";
@@ -26,7 +44,8 @@ export function canSeeAiConfig(role: UserRole): boolean {
 }
 
 export function isManagementPathAllowedForRole(pathname: string, role: UserRole): boolean {
-  const path = pathname.split("?")[0] || pathname;
+  // 注：先归一化路径，防止 `..` 绕过客户端守卫
+  const path = normalizePath(pathname);
 
   // 运维中心：仅超管可访问
   if (path.startsWith("/console/operations/")) {
