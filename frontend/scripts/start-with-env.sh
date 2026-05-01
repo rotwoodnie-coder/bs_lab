@@ -17,6 +17,9 @@ set +a
 # 清除 PORT 变量，防止 .env.local 中的 PORT=4100 被 Next.js 当作监听端口
 unset PORT
 
+# 强制生产模式：.env.local 中可能写 NODE_ENV=development，会覆盖 PM2 设置
+export NODE_ENV=production
+
 echo "[start-with-env] MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-UNSET}"
 echo "[start-with-env] MINIO_BUCKET=${MINIO_BUCKET:-UNSET}"
 echo "[start-with-env] MEDIA_APP_ACCESS_KEY=${MEDIA_APP_ACCESS_KEY:+SET(redacted)}"
