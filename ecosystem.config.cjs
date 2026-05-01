@@ -46,6 +46,9 @@ module.exports = {
       script: "node",
       args: "scripts/webhook-deploy.mjs",
       interpreter: "none",
+      env: {
+        PATH: "/www/server/nodejs/v22.22.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      },
       watch: false,
       max_memory_restart: "500M",
     },
