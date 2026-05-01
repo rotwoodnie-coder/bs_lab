@@ -35,6 +35,7 @@ export function TeacherClassAdmin() {
         query={base.teacherQuery}
         onQueryChange={base.setTeacherQuery}
         allRelationsMap={base.allRelationsMap}
+        teacherSubjectsMap={base.teacherSubjectsMap}
         classTree={base.classTree}
         classNameById={base.classNameById}
         subjectNameById={base.subjectNameById}

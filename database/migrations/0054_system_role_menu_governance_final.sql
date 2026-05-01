@@ -91,13 +91,13 @@ INSERT IGNORE INTO `sys_role_menu_perm`
 SELECT CONCAT('RM_', UUID()), 'Role_School_Admin', m.menu_id,
        1,
        CASE
-         WHEN m.menu_code IN ('user_management','class_management','parent_bindings','school_statistics','review_student_works') THEN 1
+         WHEN m.menu_code IN ('org_management','user_management','class_management','parent_bindings','school_statistics','review_student_works') THEN 1
          ELSE 0
        END,
        'y', NOW()
 FROM `sys_menu` m
 WHERE m.menu_code IN (
-  'user_management','class_management','parent_bindings','school_statistics','review_student_works',
+  'org_management','user_management','class_management','parent_bindings','school_statistics','review_student_works',
   'teacher_classroom','teacher_tasks','teacher_experiment_manager','experiment_square','profile','dashboard'
 );
 

@@ -22,6 +22,8 @@ export interface TeacherClassTableProps {
   query: string;
   onQueryChange: (v: string) => void;
   allRelationsMap: Record<string, TeacherClassRelationRow[]>;
+  /** 教师从教研组推导的可教学科 */
+  teacherSubjectsMap: Record<string, SubjectOption[]>;
   classTree: V2SysOrgItem[];
   classNameById: Record<string, string>;
   subjectNameById: Record<string, string>;
@@ -54,7 +56,7 @@ const COLS =
 
 export function TeacherClassTable({
   teachers, loading, query, onQueryChange,
-  allRelationsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName,
+  allRelationsMap, teacherSubjectsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName,
   onConfigure, onCopyConfig,
 }: TeacherClassTableProps) {
   const [viewMode, setViewMode] = React.useState<"table" | "grid">("table");
@@ -89,8 +91,8 @@ export function TeacherClassTable({
       </CardHeader>
       <CardContent className="p-0">
         {loading ? <SkeletonRows /> : viewMode === "table"
-          ? <TableView teachers={teachers} allRelationsMap={allRelationsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} />
-          : <GridView teachers={teachers} allRelationsMap={allRelationsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} onCopyConfig={onCopyConfig} />
+          ? <TableView teachers={teachers} allRelationsMap={allRelationsMap} teacherSubjectsMap={teacherSubjectsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} />
+          : <GridView teachers={teachers} allRelationsMap={allRelationsMap} teacherSubjectsMap={teacherSubjectsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} onCopyConfig={onCopyConfig} />
         }
       </CardContent>
     </Card>
@@ -124,6 +126,7 @@ function SkeletonRows() {
 
 type TeacherTableContextProps = {
   allRelationsMap: Record<string, TeacherClassRelationRow[]>;
+  teacherSubjectsMap: Record<string, SubjectOption[]>;
   classTree: V2SysOrgItem[];
   classNameById: Record<string, string>;
   subjectNameById: Record<string, string>;
@@ -134,7 +137,7 @@ type TeacherTableContextProps = {
 
 type RowProps = { teachers: V2SysUserItem[] } & TeacherTableContextProps;
 
-function TableView({ teachers, allRelationsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName, onConfigure }: RowProps) {
+function TableView({ teachers, allRelationsMap, teacherSubjectsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName, onConfigure }: RowProps) {
   return (
     <div className="w-full max-w-none">
       <div className={`grid w-full ${COLS} items-start gap-3 border-b border-border/80 bg-muted/30 px-6 py-3 text-base font-semibold tracking-wide text-foreground`}>
@@ -163,7 +166,7 @@ function TableView({ teachers, allRelationsMap, classTree, classNameById, subjec
       ) : (
         <div className="divide-y divide-border/80">
           {teachers.map((t) => (
-            <TableRow key={t.userId} t={t} allRelationsMap={allRelationsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} />
+            <TableRow key={t.userId} t={t} allRelationsMap={allRelationsMap} teacherSubjectsMap={teacherSubjectsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} />
           ))}
         </div>
       )}
@@ -174,6 +177,7 @@ function TableView({ teachers, allRelationsMap, classTree, classNameById, subjec
 function TableRow({
   t,
   allRelationsMap,
+  teacherSubjectsMap,
   classTree,
   classNameById,
   subjectNameById,
@@ -183,7 +187,11 @@ function TableRow({
 }: { t: V2SysUserItem } & TeacherTableContextProps) {
   const rels = allRelationsMap[t.userId] ?? [];
   const classIds = [...new Set(rels.map((r) => r.classOrgId).filter(Boolean))];
-  const subjectIds = [...new Set(rels.map((r) => r.subjectId).filter(Boolean))];
+  const relSubjectIds = [...new Set(rels.map((r) => r.subjectId).filter(Boolean))];
+  // 合并来自教研组的可教学科（可能尚未在 Teacher_Class 中有排课记录）
+  const groupSubjects = teacherSubjectsMap[t.userId] ?? [];
+  const groupSubjectIds = groupSubjects.map((s) => s.id);
+  const subjectIds = [...new Set([...relSubjectIds, ...groupSubjectIds])];
   const schoolColLine = resolveTeacherSchoolColumn(t, classTree, schoolOrgId, schoolOrgName);
   const deptOnly = resolveDeptDisplayName(t, classTree, schoolColLine);
 
@@ -227,12 +235,12 @@ function TableRow({
   );
 }
 
-function GridView({ teachers, allRelationsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName, onConfigure, onCopyConfig }: RowProps & { onCopyConfig?: (id: string) => void }) {
+function GridView({ teachers, allRelationsMap, teacherSubjectsMap, classTree, classNameById, subjectNameById, schoolOrgId, schoolOrgName, onConfigure, onCopyConfig }: RowProps & { onCopyConfig?: (id: string) => void }) {
   if (teachers.length === 0) return <div className="py-12 text-center text-sm text-muted-foreground">暂无教师数据</div>;
   return (
     <div className="grid w-full max-w-none grid-cols-1 gap-5 p-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
       {teachers.map((t) => (
-        <TeacherCard key={t.userId} t={t} allRelationsMap={allRelationsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} onCopyConfig={onCopyConfig} />
+        <TeacherCard key={t.userId} t={t} allRelationsMap={allRelationsMap} teacherSubjectsMap={teacherSubjectsMap} classTree={classTree} classNameById={classNameById} subjectNameById={subjectNameById} schoolOrgId={schoolOrgId} schoolOrgName={schoolOrgName} onConfigure={onConfigure} onCopyConfig={onCopyConfig} />
       ))}
     </div>
   );
@@ -241,6 +249,7 @@ function GridView({ teachers, allRelationsMap, classTree, classNameById, subject
 function TeacherCard({
   t,
   allRelationsMap,
+  teacherSubjectsMap,
   classTree,
   classNameById,
   subjectNameById,
@@ -251,7 +260,10 @@ function TeacherCard({
 }: { t: V2SysUserItem } & TeacherTableContextProps & { onCopyConfig?: (id: string) => void }) {
   const rels = allRelationsMap[t.userId] ?? [];
   const classIds = [...new Set(rels.map((r) => r.classOrgId).filter(Boolean))];
-  const subjectIds = [...new Set(rels.map((r) => r.subjectId).filter(Boolean))];
+  const relSubjectIds = [...new Set(rels.map((r) => r.subjectId).filter(Boolean))];
+  const groupSubjects = teacherSubjectsMap[t.userId] ?? [];
+  const groupSubjectIds = groupSubjects.map((s) => s.id);
+  const subjectIds = [...new Set([...relSubjectIds, ...groupSubjectIds])];
   const schoolLine = resolveTeacherSchoolColumn(t, classTree, schoolOrgId, schoolOrgName);
   const deptOnly = resolveDeptDisplayName(t, classTree, schoolLine);
 

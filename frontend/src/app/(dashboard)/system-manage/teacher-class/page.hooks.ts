@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import type { CoreApiActor } from "@/lib/core-api-shared";
 import { fetchV2SysUserList, type V2SysUserItem, fetchV2SysOrgTree, type V2SysOrgItem } from "@/lib/v2/v2-sys-api";
 import { getTeacherAuthorizedClasses, syncTeacherClasses } from "@/lib/v2/v2-sys-org-api";
+import { fetchTeacherSubjects, type TeacherSubjectRow } from "@/lib/v2/v2-sys-org-api";
 import { fetchV2SchoolSubjects } from "@/lib/v2/v2-exp-api";
 import { V2_ORG_TYPE_IDS } from "@/lib/v2/v2-org-type-constants";
 import type { TeacherStats } from "./_components/StatsCards";
@@ -42,6 +43,8 @@ export interface UseTeacherClassAdminReturn {
   handleSaveAndContinue: () => Promise<void>;
   reloadRelations: () => Promise<void>;
   allRelationsMap: Record<string, TeacherClassRelationRow[]>;
+  /** 教师可教学科（来自教研组），表格展示"授课学科"的来源之一 */
+  teacherSubjectsMap: Record<string, SubjectOption[]>;
   batchLoading: boolean;
   configDialogOpen: boolean;
   openConfigDialog: (teacherId: string) => void;
@@ -107,6 +110,7 @@ export function useTeacherClassAdmin(): UseTeacherClassAdminReturn {
   const [relationLoading, setRelationLoading] = React.useState(false);
   const [savePending, setSavePending] = React.useState(false);
   const [allRelationsMap, setAllRelationsMap] = React.useState<Record<string, TeacherClassRelationRow[]>>({});
+  const [teacherSubjectsMap, setTeacherSubjectsMap] = React.useState<Record<string, SubjectOption[]>>({});
   const [batchLoading, setBatchLoading] = React.useState(false);
   const [configDialogOpen, setConfigDialogOpen] = React.useState(false);
 
@@ -215,6 +219,24 @@ export function useTeacherClassAdmin(): UseTeacherClassAdminReturn {
       const map: Record<string, TeacherClassRelationRow[]> = {};
       teacherList.forEach((t, i) => { map[t.userId] = normalizeRelationRows(results[i]!); });
       setAllRelationsMap(map);
+
+      // 同时加载教师从教研组推导的可教学科（用于表格展示"授课学科")
+      const subjectResults = await Promise.all(
+        teacherList.map((t) =>
+          fetchTeacherSubjects(actor, t.userId).catch((err) => {
+            console.warn("[teacher-class] fetchTeacherSubjects failed for %s: %s", t.userId, err instanceof Error ? err.message : String(err));
+            return [] as TeacherSubjectRow[];
+          }),
+        ),
+      );
+      const subjMap: Record<string, SubjectOption[]> = {};
+      teacherList.forEach((t, i) => {
+        const rows = subjectResults[i] ?? [];
+        subjMap[t.userId] = rows
+          .filter((r) => r.subjectId && r.subjectName)
+          .map((r) => ({ id: r.subjectId!, name: r.subjectName! }));
+      });
+      setTeacherSubjectsMap(subjMap);
     } catch {
       sonnerToast.error("批量加载授课关系失败");
     } finally { setBatchLoading(false); }
@@ -318,6 +340,6 @@ export function useTeacherClassAdmin(): UseTeacherClassAdminReturn {
     schoolOrgId, schoolOrgName, configDefaultSchoolOrgId, configDefaultSchoolDisplayName,
     relationMap, relationLoading, dirty, savePending,
     handleAdd, handleRemove, handleSave, handleSaveAndContinue, reloadRelations,
-    allRelationsMap, batchLoading, configDialogOpen, openConfigDialog, closeConfigDialog, stats,
+    allRelationsMap, teacherSubjectsMap, batchLoading, configDialogOpen, openConfigDialog, closeConfigDialog, stats,
   };
 }
