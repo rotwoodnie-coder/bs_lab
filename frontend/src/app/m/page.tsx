@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useMobileContext } from "@/contexts/MobileContext";
 import { resolveMobileAudience } from "@/components/mobile/mobile-role";
+import { ChildSwitcher } from "@/components/mobile/ChildSwitcher";
 import { cn } from "@/lib/utils";
 
 const MAGIC_PROFESSOR = {
@@ -35,7 +35,7 @@ function TeacherSearchBar() {
 
 const HOME_DATA = {
   student_001: {
-    title: "风力实验 · 小明专属",
+    title: "探索广场",
     subtitle: "大标题 + 风格化背景，轻松进入实验广场",
     list: [
       { title: "安全实验：自制简易风向标", desc: "王老师 · 420s · 基础实验", href: "/m/video/video_demo", accent: "from-orange-400 to-amber-500" },
@@ -44,7 +44,7 @@ const HOME_DATA = {
     ],
   },
   student_002: {
-    title: "光学实验 · 小红专属",
+    title: "科学小实验",
     subtitle: "大标题 + 风格化背景，轻松进入实验广场",
     list: [
       { title: "安全实验：彩虹投影", desc: "王老师 · 360s · 基础实验", href: "/m/video/video_demo_1", accent: "from-rose-400 to-red-500" },
@@ -100,25 +100,20 @@ function MagicProfessorPanel({ lines }: { lines: string[] }) {
 }
 
 function HomeContent() {
-  const { userContext, currentChildId, currentChild, getSchoolStage } = useMobileContext();
+  const { userContext, getSchoolStage, currentChildId } = useMobileContext();
   const audience = resolveMobileAudience({ schoolLevelId: userContext?.schoolLevelId, role: userContext?.role });
   const schoolStage = getSchoolStage();
   const isPrimary = schoolStage === "primary";
   const isTeacher = audience === "teacher";
+  const isParent = audience === "parent";
   const isMiddle = schoolStage === "middle";
   const data = isTeacher
     ? HOME_DATA.teacher
-    : currentChildId === "student_002"
-      ? HOME_DATA.student_002
-      : currentChildId === "student_001"
-        ? HOME_DATA.student_001
-        : HOME_DATA.default;
-  const headerTitle = data.title;
-  const headerSubtitle = isTeacher
-    ? data.subtitle
-    : currentChild
-      ? `当前查看：${currentChild.studentUserName}`
-      : data.subtitle;
+    : isPrimary
+      ? HOME_DATA.student_001
+      : HOME_DATA.default;
+  const headerTitle = isTeacher ? data.title : isPrimary ? "探索广场" : data.title;
+  const headerSubtitle = data.subtitle;
 
   const cardShellClass = isPrimary
     ? "rounded-[20px] border-white/55 bg-white/82 shadow-[0_16px_40px_rgba(244,114,182,0.14)]"
@@ -144,6 +139,7 @@ function HomeContent() {
           <h1 className={cn("font-black leading-tight", isPrimary ? "text-3xl" : "text-2xl")}>{headerTitle}</h1>
           <p className="max-w-xl text-sm text-white/85">{headerSubtitle}</p>
           {isTeacher ? <TeacherSearchBar /> : null}
+          {isParent ? <ChildSwitcher /> : null}
         </div>
       </section>
 

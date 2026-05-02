@@ -6,11 +6,12 @@ import { MobileCard } from "./MobileCard";
 
 export function ChildSwitcher() {
   const { children, currentChildId, currentChild, setCurrentChildId, userContext } = useMobileContext();
-  const isParent = userContext?.role?.toLowerCase().includes("parent") ?? true;
+  const isParent = userContext?.role === "parent";
 
   useEffect(() => {
+    if (!isParent) return;
     if (!currentChildId && children[0]) setCurrentChildId(children[0].studentUserId);
-  }, [children, currentChildId, setCurrentChildId]);
+  }, [children, currentChildId, isParent, setCurrentChildId]);
 
   if (!isParent) return null;
 
