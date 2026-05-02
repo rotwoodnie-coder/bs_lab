@@ -5,16 +5,9 @@ import { MobileProvider, useMobileContext } from "@/contexts/MobileContext";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { cn } from "@/lib/utils";
 
-function resolveMobileLayoutVariant(schoolLevelId?: string | null) {
-  const value = String(schoolLevelId ?? "").toLowerCase();
-  if (!value) return "primary";
-  if (value.includes("middle") || value.includes("junior") || value.includes("初中") || value.includes("中学")) return "middle";
-  return "primary";
-}
-
 function MobileShell({ children }: { children: ReactNode }) {
-  const { userContext } = useMobileContext();
-  const variant = resolveMobileLayoutVariant(userContext?.schoolLevelId);
+  const { getSchoolStage } = useMobileContext();
+  const variant = getSchoolStage();
 
   return (
     <div

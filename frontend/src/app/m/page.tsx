@@ -60,10 +60,11 @@ function TeacherSearchBar() {
 }
 
 function HomeContent() {
-  const { userContext, currentChildId, currentChild } = useMobileContext();
+  const { userContext, currentChildId, currentChild, getSchoolStage } = useMobileContext();
   const audience = resolveMobileAudience({ schoolLevelId: userContext?.schoolLevelId, role: userContext?.role });
-  const isStudent = audience === "primary" || audience === "middle";
-  const isPrimary = audience === "primary";
+  const schoolStage = getSchoolStage();
+  const isStudent = schoolStage === "primary" || schoolStage === "middle";
+  const isPrimary = schoolStage === "primary";
   const isTeacher = audience === "teacher";
   const data = isTeacher
     ? HOME_DATA.teacher
@@ -123,7 +124,7 @@ function HomeContent() {
             </Link>
           ))}
         </div>
-      ) : audience === "middle" ? (
+      ) : schoolStage === "middle" ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {data.list.map((item) => (
             <Link

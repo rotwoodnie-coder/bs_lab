@@ -24,6 +24,26 @@ export type MobileChild = {
   relationLabel: string;
 };
 
+export type SchoolStage = "primary" | "middle" | "unknown";
+
+function normalizeSchoolStage(schoolLevelId?: string | null): SchoolStage {
+  const value = String(schoolLevelId ?? "").trim().toLowerCase();
+  if (!value) return "unknown";
+  if (
+    value === "primary" ||
+    value === "middle" ||
+    value.includes("小学") ||
+    value.includes("初中") ||
+    value.includes("中学") ||
+    value.includes("middle") ||
+    value.includes("junior") ||
+    value.includes("primary")
+  ) {
+    return value.includes("middle") || value.includes("junior") || value.includes("初中") || value.includes("中学") ? "middle" : "primary";
+  }
+  return "unknown";
+}
+
 type MobileContextValue = {
   userContext: MobileUserContext | null;
   children: MobileChild[];
@@ -31,6 +51,7 @@ type MobileContextValue = {
   currentChild: MobileChild | null;
   setCurrentChildId: (value: string | null) => void;
   refreshUserContext: () => Promise<MobileUserContext>;
+  getSchoolStage: () => SchoolStage;
   /** 绑定完成后直接更新上下文中的 hasBinding 字段，跳过 API 调用 */
   forceBindingComplete: () => void;
 };
@@ -91,6 +112,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     const decoded = token ? decodeMockToken(token) : null;
     const role = String(decoded?.role ?? window.localStorage.getItem("mock-mobile-last-role") ?? "parent");
     const hasBinding = Boolean(decoded?.has_binding ?? (role !== "parent" || window.localStorage.getItem("mock-mobile-parent-bound") === "true"));
+    const schoolLevelId = role === "teacher" ? "middle" : role === "student" ? "primary" : hasBinding ? "primary" : null;
     const normalized: MobileUserContext = {
       userId: `${role}_user`,
       userName: `${role}用户`,
@@ -98,7 +120,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
       userLogo: null,
       role,
       hasBinding,
-      schoolLevelId: role === "teacher" ? "middle" : role === "student" ? "primary" : hasBinding ? "primary" : null,
+      schoolLevelId,
       gradeId: role === "student" ? "grade_1" : null,
       orgId: null,
     };
@@ -193,9 +215,11 @@ export function MobileProvider({ children }: { children: ReactNode }) {
     [childrenList, currentChildId],
   );
 
+  const getSchoolStage = useCallback(() => normalizeSchoolStage(userContext?.schoolLevelId), [userContext?.schoolLevelId]);
+
   const value = useMemo(
-    () => ({ userContext, children: childrenList, currentChildId, currentChild, setCurrentChildId, refreshUserContext, forceBindingComplete }),
-    [userContext, childrenList, currentChildId, currentChild],
+    () => ({ userContext, children: childrenList, currentChildId, currentChild, setCurrentChildId, refreshUserContext, getSchoolStage, forceBindingComplete }),
+    [userContext, childrenList, currentChildId, currentChild, getSchoolStage],
   );
 
   return <MobileContext.Provider value={value}>{children}</MobileContext.Provider>;

@@ -123,15 +123,6 @@ function clearLoginCookies() {
   });
 }
 
-function resolveProfileStage(schoolLevelId?: string | null) {
-  const value = String(schoolLevelId ?? "").trim().toLowerCase();
-  if (!value) return "primary";
-  if (value.includes("middle") || value.includes("junior") || value.includes("初中") || value.includes("中学") || value.includes("high") || value.includes("senior") || value.includes("高中")) {
-    return "middle";
-  }
-  return "primary";
-}
-
 function StudentSummaryStats({ stage }: { stage: "primary" | "middle" }) {
   const stats = stage === "primary" ? STUDENT_PRIMARY_STATS : STUDENT_MIDDLE_STATS;
 
@@ -292,9 +283,9 @@ function ParentChildSelector() {
 }
 
 export default function MobileProfilePage() {
-  const { userContext, currentChild } = useMobileContext();
+  const { userContext, currentChild, getSchoolStage } = useMobileContext();
   const audience = useMemo(() => resolveMobileAudience({ schoolLevelId: userContext?.schoolLevelId, role: userContext?.role }), [userContext?.schoolLevelId, userContext?.role]);
-  const stage = useMemo(() => resolveProfileStage(userContext?.schoolLevelId), [userContext?.schoolLevelId]);
+  const stage = getSchoolStage() === "middle" ? "middle" : "primary";
   const isStudent = audience === "primary" || audience === "middle";
   const roleLabel = userContext?.role?.replace(/^role_/i, "").toUpperCase() ?? "未知";
   const stageLabel = stage === "primary" ? "小学" : "中学";
