@@ -1,210 +1,153 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import type { CSSProperties } from "react";
 import { useVideoSecurity } from "@/hooks/useVideoSecurity";
-import { createVideoStepMachine, type VideoStepItem } from "@/state/video-step-machine";
 
-export type VideoStep = VideoStepItem;
-
-type RelatedVideo = {
-  id: string;
+export type VideoStep = {
+  time: number;
   title: string;
-  duration: number;
-  coverUrl: string;
+  safetyNote: string | null;
 };
 
-export function VideoPlayer({ src, steps, videoId }: { src: string; steps: VideoStep[]; videoId?: string }) {
-  const router = useRouter();
+type Props = {
+  src: string;
+  steps: VideoStep[];
+  videoId?: string;
+  title?: string;
+  coverUrl?: string;
+  duration?: number;
+};
+
+export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const machine = useMemo(() => createVideoStepMachine({ steps }), [steps]);
-  const [snapshot, setSnapshot] = useState(machine.getSnapshot());
-  const [related, setRelated] = useState<RelatedVideo[]>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isReady, setIsReady] = useState(false);
   const security = useVideoSecurity();
-  // 记录当前是否正在播报，避免重复触发
-  const speakingRef = useRef(false);
+  const supportSpeech = security.isSupported;
 
-  const currentStep = useMemo(
-    () => steps.find((step) => step.id === snapshot.currentStepId) ?? steps[0],
-    [snapshot.currentStepId, steps],
-  );
+  const activeStep = steps[activeIndex] ?? steps[0];
+  const locked = supportSpeech && security.isLocked;
+  const showSafetyText = !supportSpeech && Boolean(activeStep?.safetyNote);
 
-  // 初次加载时启动状态机
-  useEffect(() => {
-    if (!currentStep || snapshot.state !== "idle") return;
-    setSnapshot(machine.start());
-  }, [currentStep, machine, snapshot.state]);
+  const overlayStyle = useMemo<CSSProperties>(() => ({ backdropFilter: "blur(2px)" }), []);
 
-  // speeching → locked（播报中锁定下一步按钮）
-  useEffect(() => {
-    if (snapshot.state !== "speeching") return;
-    setSnapshot(machine.lock());
-  }, [snapshot.state, machine]);
+  const speak = (note: string | null) => {
+    if (!supportSpeech || !note) return;
+    security.start(note);
+  };
 
-  // 安全播报完成 → 解锁
-  useEffect(() => {
-    if (security.state !== "done") return;
-    if (!speakingRef.current) return;
-    speakingRef.current = false;
-    setSnapshot((prev) => {
-      // 如果已经完成或跳转过了，不覆盖
-      if (prev.state === "idle" || prev.state === "completed") return prev;
-      return machine.unlock();
-    });
-  }, [security.state, machine]);
-
-  // 加载相关推荐
-  useEffect(() => {
-    const id = videoId ?? currentStep?.id ?? "";
-    if (!id) return;
-    void fetch(`/api/video/list?relatedTo=${encodeURIComponent(id)}`, { credentials: "include" })
-      .then((res) => res.json())
-      .then((json) => setRelated((json.data?.items ?? []) as RelatedVideo[]))
-      .catch(() => setRelated([]));
-  }, [currentStep?.id, videoId]);
-
-  const handleTimeUpdate = () => {
+  const syncByTime = () => {
     const video = videoRef.current;
     if (!video || steps.length === 0) return;
-    const ct = video.currentTime;
-    // 按 startAt 排序找到当前应该高亮的步骤
-    let activeStepIdx = 0;
-    for (let i = 0; i < steps.length; i++) {
-      const s = steps[i];
-      if (typeof s.startAt === "number" && ct >= s.startAt) {
-        activeStepIdx = i;
-      }
+    const current = video.currentTime;
+    let nextIndex = 0;
+    for (let i = 0; i < steps.length; i += 1) {
+      if (current >= steps[i].time) nextIndex = i;
     }
-    const active = steps[activeStepIdx];
-    if (active && active.id !== snapshot.currentStepId) {
-      setSnapshot(machine.requestStep(active.id));
-    }
+    setActiveIndex(nextIndex);
   };
 
-  const handlePlay = () => {
-    // 初次播放时触发当前步骤的安全播报（仅触发一次）
-    if (!currentStep || speakingRef.current) return;
-    speakingRef.current = true;
-    security.startSpeak(currentStep.safetyNote);
-    setSnapshot(machine.beginSpeech());
+  const jumpTo = (index: number) => {
+    if (locked) return;
+    const step = steps[index];
+    const video = videoRef.current;
+    if (!step || !video) return;
+    video.currentTime = step.time;
+    void video.play();
+    setActiveIndex(index);
+    speak(step.safetyNote);
   };
 
-  const requestStep = (stepId: string) => {
-    if (snapshot.isLocked) return;
-    const next = machine.requestStep(stepId);
-    setSnapshot(next);
-    const step = steps.find((item) => item.id === stepId);
-    if (step) {
-      speakingRef.current = true;
-      security.startSpeak(step.safetyNote);
-      setSnapshot(machine.beginSpeech());
-      const video = videoRef.current;
-      if (video && typeof step.startAt === "number") {
-        video.currentTime = step.startAt;
-        void video.play();
-      }
-    }
-  };
-
-  const openVideo = (targetId: string) => {
-    router.push(`/m/video/${encodeURIComponent(targetId)}`);
-  };
+  useEffect(() => {
+    if (!isReady) return;
+    const first = steps[0];
+    if (first?.safetyNote) speak(first.safetyNote);
+  }, [isReady]);
 
   return (
-    <div className="grid gap-4 p-4 lg:grid-cols-[1.5fr_1fr]">
-      <div className="relative overflow-hidden rounded-3xl border bg-black shadow-sm">
-        <video
-          ref={videoRef}
-          src={src}
-          controls
-          className="h-full w-full"
-          onTimeUpdate={handleTimeUpdate}
-          onPlay={handlePlay}
-        />
-        {snapshot.isLocked ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
-            <div className="rounded-2xl bg-black/60 px-4 py-2 text-sm">安全播报中… {security.countdown}s</div>
-          </div>
-        ) : null}
-      </div>
-      <aside className="space-y-3">
-        <div className="rounded-3xl border bg-background p-4">
-          <div className="text-sm font-semibold text-muted-foreground">当前步骤</div>
-          <div className="mt-2 text-lg font-semibold">{currentStep?.title ?? "未开始"}</div>
-          <p className="mt-2 text-sm text-muted-foreground">{currentStep?.safetyNote ?? ""}</p>
-        </div>
-        <div className="space-y-2">
-          {steps.map((step) => (
-            <button
-              key={step.id}
-              onClick={() => requestStep(step.id)}
-              disabled={snapshot.isLocked}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition ${snapshot.currentStepId === step.id ? "border-primary bg-primary/10" : "border-border/60 bg-background hover:bg-muted/50"}`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="font-medium">{step.title}</span>
-                <span className="text-xs text-muted-foreground">{step.duration}s</span>
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 bg-[#FFF8EE] p-3 text-slate-800 md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)] md:p-5">
+      <section className="flex flex-col gap-3">
+        <header className="rounded-[28px] bg-white px-5 py-4 shadow-[0_10px_30px_rgba(244,114,22,0.08)]">
+          <div className="text-xs font-semibold uppercase tracking-[0.25em] text-orange-500">移动端实验视频</div>
+          <h1 className="mt-2 text-xl font-black text-slate-900 md:text-2xl">{title ?? "科学小实验"}</h1>
+          <p className="mt-1 text-sm text-slate-500">点击步骤卡片可直接跳转，安全提示会在本地语音播报期间自动锁定操作。</p>
+        </header>
+
+        <div className="relative overflow-hidden rounded-[32px] bg-black shadow-[0_18px_50px_rgba(15,23,42,0.22)]">
+          <video
+            ref={videoRef}
+            src={src}
+            poster={coverUrl}
+            controls
+            className="aspect-video h-full w-full bg-black object-cover"
+            onTimeUpdate={syncByTime}
+            onLoadedMetadata={() => setIsReady(true)}
+          />
+          {locked ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/45" style={overlayStyle}>
+              <div className="rounded-[24px] bg-white/90 px-5 py-4 text-center shadow-lg">
+                <div className="text-sm font-black text-orange-600">安全播报中…</div>
+                <div className="mt-1 text-2xl font-black text-slate-900">{security.countdown}s</div>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{step.safetyNote}</p>
-            </button>
-          ))}
+            </div>
+          ) : null}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => {
-              if (snapshot.isLocked) return;
-              setSnapshot(machine.goBack());
-              const step = steps[snapshot.currentStepIndex - 1];
-              if (step) {
-                speakingRef.current = true;
-                security.startSpeak(step.safetyNote);
-                setSnapshot(machine.beginSpeech());
-              }
-            }}
-            disabled={snapshot.isLocked || !snapshot.canGoBack}
-            className="flex-1 rounded-2xl border px-4 py-3 text-sm font-medium disabled:opacity-50"
-          >
+
+        <div className="flex gap-3 md:hidden">
+          <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="flex-1 rounded-full bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-50">
             上一步
           </button>
-          <button
-            onClick={() => {
-              if (snapshot.isLocked) return;
-              const nextSnap = machine.goNext();
-              setSnapshot(nextSnap);
-              security.onDone();
-              const step = steps[nextSnap.currentStepIndex];
-              if (step) {
-                speakingRef.current = true;
-                security.startSpeak(step.safetyNote);
-                setSnapshot(machine.beginSpeech());
-              }
-            }}
-            disabled={snapshot.isLocked || !snapshot.canGoNext}
-            className="flex-1 rounded-2xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
-          >
+          <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:opacity-50">
             下一步
           </button>
         </div>
-        {related.length > 0 ? (
-          <div className="rounded-3xl border bg-background p-4">
-            <div className="mb-3 text-sm font-semibold text-muted-foreground">相关推荐</div>
-            <div className="space-y-2">
-              {related.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => openVideo(item.id)}
-                  className="flex w-full items-center gap-3 rounded-2xl border px-3 py-2 text-left hover:bg-muted/50"
-                >
-                  <div className="h-14 w-20 rounded-xl bg-muted" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{item.title}</div>
-                    <div className="text-xs text-muted-foreground">{item.duration}s</div>
+      </section>
+
+      <aside className="flex flex-col gap-3">
+        <div className="rounded-[28px] bg-white p-4 shadow-[0_10px_30px_rgba(148,163,184,0.12)]">
+          <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">当前步骤</div>
+          <div className="mt-2 text-lg font-extrabold text-slate-900">{activeStep?.title ?? "未开始"}</div>
+          {showSafetyText ? (
+            <p className="mt-2 text-sm leading-6 text-orange-700">{activeStep?.safetyNote}</p>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-slate-500">{activeStep?.safetyNote ?? "本步骤暂无安全播报内容。"}</p>
+          )}
+          {typeof duration === "number" ? <p className="mt-2 text-xs text-slate-400">总时长 {duration}s</p> : null}
+          {!supportSpeech ? <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">当前浏览器不支持语音播报，已切换为文字安全提示，按钮保持可用。</p> : null}
+        </div>
+
+        <div className="flex gap-3 md:flex-row">
+          <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="hidden flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition disabled:opacity-50 md:block">
+            上一步
+          </button>
+          <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="hidden flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 md:block">
+            下一步
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {steps.map((step, index) => {
+            const active = index === activeIndex;
+            return (
+              <button
+                key={`${step.title}-${step.time}`}
+                onClick={() => jumpTo(index)}
+                disabled={locked}
+                className={`w-full rounded-[26px] border p-4 text-left transition ${active ? "border-orange-400 bg-orange-50 shadow-[0_8px_24px_rgba(251,146,60,0.16)]" : "border-slate-200 bg-white hover:bg-slate-50"} disabled:opacity-60`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Step {index + 1}</div>
+                    <div className="mt-1 text-base font-extrabold text-slate-900">{step.title}</div>
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{step.time}s</span>
+                </div>
+                {step.safetyNote ? <p className="mt-3 rounded-2xl bg-orange-100 px-3 py-2 text-sm leading-6 text-orange-800">{step.safetyNote}</p> : <p className="mt-3 text-sm text-slate-400">暂无安全提示</p>}
+              </button>
+            );
+          })}
+        </div>
       </aside>
     </div>
   );

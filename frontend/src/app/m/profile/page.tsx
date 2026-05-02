@@ -34,22 +34,22 @@ export default function MobileProfilePage() {
     audience === "parent"
       ? [
           { title: "我的孩子", desc: currentChild ? `当前：${currentChild.studentUserName}` : "查看并切换孩子", href: "/m" },
-          { title: "作业 / 任务", desc: "查看本周待办与完成情况" },
+          { title: "作业 / 任务", desc: "查看本周待办与完成情况", href: "/m/tasks" },
           { title: "材料助手", desc: "实验材料清单与准备建议" },
           { title: "设置", desc: "账号、通知、隐私与偏好设置" },
         ]
       : audience === "teacher"
         ? [
             { title: "班级管理", desc: "班级、分组与课堂组织" },
-            { title: "作业 / 任务", desc: "布置作业、查看提交进度" },
+            { title: "作业 / 任务", desc: "布置作业、查看提交进度", href: "/m/tasks" },
             { title: "审核中心", desc: "审核作品、任务与申请" },
             { title: "数据统计", desc: "课堂数据与完成率统计" },
           ]
         : [
-            { title: "我的实验", desc: "实验过程、记录与回看" },
-            { title: "作业", desc: "查看待完成与已完成作业" },
-            { title: "作品", desc: "我的提交与展示作品" },
-            { title: "勋章积分", desc: "奖励勋章与积分成长" },
+            { title: "我的实验", desc: "实验过程、记录与回看", href: "/m/experiments" },
+            { title: "作业", desc: "查看待完成与已完成作业", href: "/m/tasks" },
+            { title: "作品", desc: "我的提交与展示作品", href: "/m/works" },
+            { title: "勋章积分", desc: "奖励勋章与积分成长", href: "/m/badges" },
           ];
 
   const summaryStats =

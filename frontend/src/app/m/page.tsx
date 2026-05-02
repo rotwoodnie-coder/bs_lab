@@ -47,6 +47,16 @@ function HomeContent() {
           ))}
         </div>
       </MobileCard>
+
+      <MobileCard title="每日挑战" subtitle="每天一题，巩固实验知识">
+        <Link href="/m/quiz" className="flex items-center justify-between rounded-3xl border p-4 hover:bg-muted/50">
+          <div>
+            <div className="font-semibold">进入今日挑战</div>
+            <div className="mt-1 text-sm text-muted-foreground">完成后可获得积分与徽章</div>
+          </div>
+          <div className="text-2xl">🏆</div>
+        </Link>
+      </MobileCard>
     </div>
   );
 }

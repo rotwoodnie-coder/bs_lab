@@ -499,14 +499,14 @@
 
 ### Phase 3
 **New**
-- `frontend/src/app/m/video/[id]/page.tsx`
-- `frontend/src/components/mobile/video-player.tsx`
-- `frontend/src/hooks/useVideoSecurity.ts`
-- `frontend/src/state/video-step-machine.ts`
+- [x] `frontend/src/app/m/video/[id]/page.tsx`
+- [x] `frontend/src/components/mobile/video-player.tsx`
+- [x] `frontend/src/hooks/useVideoSecurity.ts`
+- [x] `frontend/src/state/video-step-machine.ts`
 
 **Modified**
-- 播放器相关组件
-- 步骤联动逻辑
+- [x] 播放器相关组件
+- [x] 步骤联动逻辑
 
 ### Phase 4
 **New**

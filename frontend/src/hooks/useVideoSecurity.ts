@@ -1,37 +1,59 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-
-export type SecurityState = "idle" | "speaking" | "done";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export function useVideoSecurity() {
-  const [state, setState] = useState<SecurityState>("idle");
-  const [countdown, setCountdown] = useState<number>(0);
+  const [countdown, setCountdown] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const timerRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const supported = typeof window !== "undefined" && "speechSynthesis" in window;
 
-  const isLocked = state === "speaking";
-
-  const startSpeak = useCallback((text: string) => {
-    if (typeof window === "undefined") return;
-    const utterance = new SpeechSynthesisUtterance(text);
-    setState("speaking");
-    setCountdown(Math.max(1, Math.ceil(text.length / 8)));
-    utterance.onend = () => setState("done");
-    utterance.onerror = () => setState("done");
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
 
-  const onDone = useCallback(() => setState("done"), []);
+  const finish = useCallback(() => {
+    clearTimer();
+    setCountdown(0);
+    setIsLocked(false);
+  }, [clearTimer]);
 
-  useEffect(() => {
-    if (state !== "speaking") return;
-    if (countdown <= 0) return;
-    const timer = window.setInterval(() => setCountdown((v) => Math.max(0, v - 1)), 1000);
-    return () => window.clearInterval(timer);
-  }, [state, countdown]);
+  const start = useCallback(
+    (text: string | null) => {
+      if (!supported || !text) {
+        finish();
+        return;
+      }
 
-  return useMemo(
-    () => ({ state, countdown, isLocked, startSpeak, onDone, setState }),
-    [state, countdown, isLocked, startSpeak, onDone],
+      clearTimer();
+      const seconds = Math.max(2, Math.ceil(text.length / 6));
+      setCountdown(seconds);
+      setIsLocked(true);
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = finish;
+      utterance.onerror = finish;
+
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+
+      timerRef.current = window.setInterval(() => {
+        setCountdown((current) => {
+          if (current <= 1) {
+            clearTimer();
+            return 0;
+          }
+          return current - 1;
+        });
+      }, 1000);
+    },
+    [clearTimer, finish, supported],
   );
+
+  useEffect(() => () => clearTimer(), [clearTimer]);
+
+  return useMemo(() => ({ countdown, isLocked, isSupported: supported, start }), [countdown, isLocked, supported, start]);
 }
