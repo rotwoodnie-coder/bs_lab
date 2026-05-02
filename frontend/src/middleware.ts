@@ -90,13 +90,6 @@ function isSafeMobileRedirectPath(path: string): boolean {
   return path.startsWith("/m") && !MOBILE_PUBLIC_PATHS.includes(path) && (path === "/m" || path.startsWith("/m/"));
 }
 
-function isPathAllowed(path: string, roleId: string | null): boolean {
-  if (isWhitelistedPath(path)) return true;
-  if (!roleId) return false;
-  if (MANAGEMENT_PREFIXES.some((prefix) => path.startsWith(prefix))) return false;
-  return true;
-}
-
 function readRedirectCount(req: NextRequest): number {
   const raw = req.nextUrl.searchParams.get(REDIRECT_COUNT_PARAM);
   const count = Number.parseInt(raw ?? "0", 10);
@@ -134,21 +127,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const { roleId, hasBinding } = decodeSessionFromCookie(req);
-
   if (isWhitelistedPath(path)) return NextResponse.next();
 
-  if (path.startsWith("/m")) {
-    if (!roleId) {
-      return path === "/m/login" ? NextResponse.next() : buildSafeRedirect(req, pathname, "/m/login", "未登录");
-    }
+  const { roleId, hasBinding } = decodeSessionFromCookie(req);
 
-    if (isParentRole(roleId) && !hasBinding) {
-      if (path === "/m/bind/child") return NextResponse.next();
-      return buildSafeRedirect(req, pathname, "/m/bind/child", "家长未绑定");
-    }
+  if (!roleId) {
+    return path === "/m/login" ? NextResponse.next() : buildSafeRedirect(req, pathname, "/m/login", "未登录");
+  }
 
-    return NextResponse.next();
+  if (isParentRole(roleId) && !hasBinding) {
+    if (path === "/m/bind/child") return NextResponse.next();
+    return buildSafeRedirect(req, pathname, "/m/bind/child", "家长未绑定");
   }
 
   return NextResponse.next();
