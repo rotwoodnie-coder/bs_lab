@@ -191,18 +191,7 @@ function AssistantImmersiveExperience({ onExit, initialSceneId }: { onExit: () =
   });
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={goNext}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          goNext();
-        }
-      }}
-      className={cn("relative flex min-h-dvh w-full flex-col overflow-hidden text-left text-white outline-none", "bg-gradient-to-br", scene.gradient)}
-    >
+    <div className={cn("fixed inset-0 z-50 flex h-dvh w-dvw flex-col overflow-hidden text-left text-white outline-none", "bg-gradient-to-br", scene.gradient)}>
       <style jsx>{`
         .magic-avatar {
           position: relative;
@@ -363,7 +352,7 @@ function AssistantImmersiveExperience({ onExit, initialSceneId }: { onExit: () =
       </div>
 
       {showEndOptions ? (
-        <div className="absolute inset-0 z-30 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm rounded-[1.75rem] border border-white/30 bg-white p-4 text-slate-900 shadow-2xl">
             <div className="text-lg font-black">实验完成</div>
             <div className="mt-1 text-sm text-slate-600">请选择接下来的操作。</div>
