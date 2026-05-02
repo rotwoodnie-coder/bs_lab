@@ -1,10 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { MobileCard } from "@/components/mobile/MobileCard";
+import { useEffect, useState } from "react";
 import { useMobileContext } from "@/contexts/MobileContext";
 import { resolveMobileAudience } from "@/components/mobile/mobile-role";
 import { cn } from "@/lib/utils";
+
+const MAGIC_PROFESSOR = {
+  name: "魔法教授",
+  avatar: "🧙‍♂️",
+  defaultLines: ["想做什么实验？", "点击场景卡片试试吧！"],
+  scenePrompts: {
+    student_001: "风力场景很有趣，先试试自制风向标吧！",
+    student_002: "光学场景已经准备好，去看看彩虹投影实验。",
+    default: "先选择一个场景，再开始你的魔法实验。",
+  },
+  experimentPrompts: {
+    student_001: "建议先观察风的方向，再动手制作风向标。",
+    student_002: "试着调整光源角度，看看彩虹会怎么变化。",
+    default: "选择一个实验卡片，魔法教授会继续提示你。",
+  },
+} as const;
 
 const HOME_DATA = {
   student_001: {
@@ -48,12 +64,25 @@ const HOME_DATA = {
   },
 } as const;
 
-function TeacherSearchBar() {
+function MagicProfessorBubble({ lines }: { lines: string[] }) {
   return (
-    <div className="rounded-[1.5rem] border border-white/15 bg-white/10 p-3 backdrop-blur">
-      <div className="flex items-center gap-3 rounded-[1.25rem] bg-white/95 px-4 py-3 text-slate-500 shadow-inner">
-        <span className="text-lg">🔎</span>
-        <span className="text-sm">搜索实验名称、年级、知识点</span>
+    <div className="inline-flex flex-col gap-1 rounded-[1.4rem] rounded-tl-md border border-cyan-100 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-lg shadow-cyan-950/10">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </div>
+  );
+}
+
+function MagicProfessorPanel({ lines }: { lines: string[] }) {
+  return (
+    <div className="sticky top-3 z-30 mb-4 flex items-start gap-3 rounded-[1.8rem] border border-white/60 bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/10 backdrop-blur sm:top-4">
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.2rem] bg-gradient-to-br from-cyan-400 via-sky-500 to-indigo-600 text-2xl text-white shadow-md shadow-cyan-950/20">
+        {MAGIC_PROFESSOR.avatar}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700">{MAGIC_PROFESSOR.name}</div>
+        <MagicProfessorBubble lines={lines} />
       </div>
     </div>
   );
@@ -63,9 +92,9 @@ function HomeContent() {
   const { userContext, currentChildId, currentChild, getSchoolStage } = useMobileContext();
   const audience = resolveMobileAudience({ schoolLevelId: userContext?.schoolLevelId, role: userContext?.role });
   const schoolStage = getSchoolStage();
-  const isStudent = schoolStage === "primary" || schoolStage === "middle";
   const isPrimary = schoolStage === "primary";
   const isTeacher = audience === "teacher";
+  const isMiddle = schoolStage === "middle";
   const data = isTeacher
     ? HOME_DATA.teacher
     : currentChildId === "student_002"
@@ -73,40 +102,37 @@ function HomeContent() {
       : currentChildId === "student_001"
         ? HOME_DATA.student_001
         : HOME_DATA.default;
-  const headerTitle = isTeacher ? data.title : isStudent ? data.title : data.title;
+  const headerTitle = data.title;
   const headerSubtitle = isTeacher
     ? data.subtitle
-    : isStudent
-      ? data.subtitle
-      : currentChild
-        ? `当前查看：${currentChild.studentUserName}`
-        : data.subtitle;
+    : currentChild
+      ? `当前查看：${currentChild.studentUserName}`
+      : data.subtitle;
+
+  const cardShellClass = isPrimary
+    ? "rounded-[20px] border-white/55 bg-white/82 shadow-[0_16px_40px_rgba(244,114,182,0.14)]"
+    : "rounded-xl border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.06)]";
+
+  const buttonClass = isPrimary
+    ? "min-h-12 rounded-2xl px-4 py-3 text-[16px] font-semibold"
+    : "min-h-10 rounded-xl px-3.5 py-2.5 text-[14px] font-medium";
 
   return (
-    <div className="space-y-4 p-4 md:p-5">
+    <div className={cn("space-y-4 p-4 md:p-5", isPrimary ? "text-slate-700" : "text-slate-800") }>
       <section
         className={cn(
-          "overflow-hidden rounded-[2rem] border border-white/40 bg-gradient-to-br p-5 text-white shadow-xl shadow-slate-900/10",
-          isTeacher ? "from-slate-900 via-slate-800 to-indigo-950" : isPrimary ? "from-cyan-500 via-sky-500 to-indigo-600" : "from-slate-700 via-slate-800 to-slate-950",
+          "overflow-hidden border p-5 text-white",
+          isPrimary ? "rounded-[24px] border-white/40 bg-gradient-to-br from-orange-300 via-pink-400 to-rose-200 shadow-[0_18px_44px_rgba(251,146,60,0.22)]" : "rounded-xl border-slate-200 bg-slate-700 shadow-[0_14px_30px_rgba(15,23,42,0.12)]",
         )}
       >
-        <div className="absolute" aria-hidden="true" />
         <div className="relative space-y-3">
-          <div className="inline-flex rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur">
-            {isTeacher ? "教师端视频广场" : "学生端视频广场"}
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur">
+            <span>{isPrimary ? "🌈" : "📘"}</span>
+            <span>{isTeacher ? "教师端视频广场" : isPrimary ? "小学探索广场" : "中学学习广场"}</span>
           </div>
-          <h1 className={cn("font-black leading-tight", isTeacher ? "text-2xl" : isPrimary ? "text-3xl" : "text-2xl")}>{headerTitle}</h1>
-          <div className="text-xs font-medium tracking-[0.24em] text-white/70">自动化部署验证</div>
-          <p className="max-w-xl text-sm text-white/80">{headerSubtitle}</p>
+          <h1 className={cn("font-black leading-tight", isPrimary ? "text-3xl" : "text-2xl")}>{headerTitle}</h1>
+          <p className="max-w-xl text-sm text-white/85">{headerSubtitle}</p>
           {isTeacher ? <TeacherSearchBar /> : null}
-          <div className={cn("mt-4 grid gap-3", isTeacher ? "grid-cols-3" : isStudent && isPrimary ? "grid-cols-1" : "grid-cols-2")}>
-            {isTeacher ? (
-              <div className="rounded-3xl bg-white/15 p-4 backdrop-blur">
-                <div className="text-xs text-white/70">信息密度</div>
-                <div className="mt-1 text-lg font-semibold">双列瀑布流</div>
-              </div>
-            ) : null}
-          </div>
         </div>
       </section>
 
@@ -116,40 +142,40 @@ function HomeContent() {
             <Link
               key={item.title}
               href={item.href}
-              className="mb-3 block break-inside-avoid overflow-hidden rounded-[1.75rem] border border-border/60 bg-background p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className={cn("mb-3 block break-inside-avoid overflow-hidden border p-4 transition hover:-translate-y-0.5 hover:shadow-md", cardShellClass)}
             >
-              <div className={cn("h-24 rounded-[1.5rem] bg-gradient-to-br", item.accent)} />
+              <div className={cn("h-24 rounded-[1.25rem] bg-gradient-to-br", item.accent)} />
               <div className="mt-4 text-base font-semibold leading-snug">{item.title}</div>
               <div className="mt-1 text-sm text-muted-foreground">{item.desc}</div>
               <div className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">引用次数：静态数据</div>
             </Link>
           ))}
         </div>
-      ) : schoolStage === "middle" ? (
+      ) : isMiddle ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {data.list.map((item) => (
             <Link
               key={item.title}
               href={item.href}
-              className="group overflow-hidden rounded-[1.75rem] border border-border/60 bg-background p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className={cn("group overflow-hidden border p-3 transition hover:-translate-y-0.5 hover:shadow-md", cardShellClass)}
             >
-              <div className={cn("h-28 rounded-[1.5rem] bg-gradient-to-br", item.accent)} />
-              <div className="mt-4 text-base font-semibold">{item.title}</div>
+              <div className={cn("h-20 rounded-[10px] bg-gradient-to-br", item.accent)} />
+              <div className="mt-3 text-[15px] font-semibold leading-snug">{item.title}</div>
               <div className="mt-1 text-sm text-muted-foreground">{item.desc}</div>
             </Link>
           ))}
         </div>
       ) : (
         <div className="space-y-3">
-          {data.list.map((item) => (
+          {data.list.map((item, index) => (
             <Link
               key={item.title}
               href={item.href}
-              className="flex items-center gap-4 rounded-[1.75rem] border border-border/60 bg-background p-4 shadow-sm transition active:scale-[0.99] hover:-translate-y-0.5 hover:shadow-md"
+              className={cn("flex items-center gap-4 border p-4 transition active:scale-[0.99] hover:-translate-y-0.5 hover:shadow-md", cardShellClass, buttonClass)}
             >
-              <div className={cn("h-20 w-20 shrink-0 rounded-[1.5rem] bg-gradient-to-br", item.accent)} />
+              <div className={cn("flex h-16 w-16 shrink-0 items-center justify-center rounded-[18px] text-2xl", item.accent, "bg-gradient-to-br text-white")}>{isPrimary ? ["🧪", "🎨", "🌻"][index % 3] : "📚"}</div>
               <div className="min-w-0 flex-1">
-                <div className="text-base font-semibold">{item.title}</div>
+                <div className="text-[15px] font-semibold">{item.title}</div>
                 <div className="mt-1 text-sm text-muted-foreground">{item.desc}</div>
               </div>
             </Link>

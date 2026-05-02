@@ -24,21 +24,23 @@ const DEFAULT_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
 export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isReady, setIsReady] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(duration ?? 0);
   const [fallbackPrompt, setFallbackPrompt] = useState<string | null>(null);
   const security = useVideoSecurity({ onFallbackPrompt: setFallbackPrompt });
   const locked = security.isLocked;
   const activeStep = steps[activeIndex] ?? steps[0];
   const resolvedSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : DEFAULT_VIDEO_URL;
+  const isPlaying = videoRef.current ? !videoRef.current.paused : false;
 
   const overlayStyle = useMemo<CSSProperties>(() => ({ backdropFilter: "blur(2px)" }), []);
-  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
   const syncByTime = useCallback(() => {
     if (locked) return;
     const video = videoRef.current;
     if (!video || steps.length === 0) return;
     const current = video.currentTime;
+    setCurrentTime(current);
     let nextIndex = 0;
     for (let i = 0; i < steps.length; i += 1) {
       if (current >= steps[i].time) nextIndex = i;
@@ -47,7 +49,7 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
   }, [locked, steps]);
 
   const triggerWarmUp = () => {
-    let warmUp = new SpeechSynthesisUtterance("");
+    const warmUp = new SpeechSynthesisUtterance("");
     warmUp.volume = 0;
     speechSynthesis.cancel();
     speechSynthesis.speak(warmUp);
@@ -63,93 +65,59 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
   );
 
   const jumpTo = useCallback(
-    (index: number) => {
+    async (index: number) => {
       if (locked) return;
       const step = steps[index];
       const video = videoRef.current;
       if (!step || !video || !document.contains(video)) return;
       video.currentTime = step.time;
-      void video.play().catch(() => {
-        if (videoRef.current && document.contains(videoRef.current)) {
-          void videoRef.current.play().catch(() => undefined);
-        }
-      });
       setActiveIndex(index);
       speak(step.safetyNote);
+      try {
+        await video.play();
+      } catch {
+        void 0;
+      }
     },
     [locked, speak, steps],
   );
 
-  const handleKeyDown = useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (locked) {
-        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-          event.preventDefault();
-        }
-        return;
+  const togglePlay = useCallback(async () => {
+    if (locked) return;
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (video.paused) {
+        await video.play();
+      } else {
+        video.pause();
       }
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        jumpTo(Math.max(0, activeIndex - 1));
-      }
-      if (event.key === "ArrowRight") {
-        event.preventDefault();
-        jumpTo(Math.min(steps.length - 1, activeIndex + 1));
-      }
-    },
-    [activeIndex, jumpTo, locked, steps.length],
-  );
+    } catch {
+      void 0;
+    }
+  }, [locked]);
 
   const handleStartExperiment = useCallback(() => {
     triggerWarmUp();
     const first = steps[0];
-    if (first?.safetyNote) {
-      speak(first.safetyNote);
-    }
+    if (first?.safetyNote) speak(first.safetyNote);
   }, [speak, steps]);
 
   useEffect(() => {
-    if (!isReady) return;
-    const video = videoRef.current;
-    console.log("video src:", video?.src, "networkState:", video?.networkState);
-  }, [isReady]);
-
-  useEffect(() => {
-    const videoEl = document.querySelector("video");
-    if (videoEl) {
-      console.log("=== Video 元素诊断 (自动) ===");
-      console.log("src:", videoEl.src);
-      console.log("currentSrc:", videoEl.currentSrc);
-      console.log("networkState:", videoEl.networkState, "(0=EMPTY, 1=IDLE, 2=LOADING, 3=NO_SOURCE)");
-      console.log("readyState:", videoEl.readyState);
-      console.log("error:", videoEl.error);
-      console.log("outerHTML 前200字符:", videoEl.outerHTML?.substring(0, 200));
-    } else {
-      console.log("页面上没有找到 <video> 元素！");
-    }
-  }, []);
-
-  useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && locked) {
-        security.forceUnlock();
-      }
+      if (document.visibilityState === "visible" && locked) security.forceUnlock();
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [locked, security]);
 
   return (
-    <div
-      className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 bg-[#FFF8EE] p-3 text-slate-800 md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)] md:p-5"
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-    >
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 bg-[#FFF8EE] p-3 text-slate-800 md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)] md:p-5" tabIndex={0}>
       <section className="flex flex-col gap-3">
         <header className="rounded-[28px] bg-white px-5 py-4 shadow-[0_10px_30px_rgba(244,114,22,0.08)]">
           <div className="text-xs font-semibold uppercase tracking-[0.25em] text-orange-500">移动端实验视频</div>
           <h1 className="mt-2 text-xl font-black text-slate-900 md:text-2xl">{title ?? "科学小实验"}</h1>
-          <p className="mt-1 text-sm text-slate-500">点击步骤卡片可直接跳转，安全提示会在本地语音播报期间自动锁定操作。</p>
+          <p className="mt-1 text-sm text-slate-500">点一下步骤卡片就能跳转，安全提示期间会自动锁定操作。</p>
         </header>
 
         <div className="relative overflow-hidden rounded-[32px] bg-black shadow-[0_18px_50px_rgba(15,23,42,0.22)]">
@@ -157,13 +125,17 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
             ref={videoRef}
             src={resolvedSrc}
             poster={coverUrl}
-            controls={!locked}
-            controlsList={locked ? "nodownload noplaybackrate noremoteplayback" : undefined}
-            disablePictureInPicture={locked}
+            controls={false}
+            controlsList="nodownload noplaybackrate noremoteplayback"
+            disablePictureInPicture
             preload="metadata"
             className="aspect-video h-full w-full bg-black object-cover"
             onTimeUpdate={syncByTime}
-            onLoadedMetadata={() => setIsReady(true)}
+            onLoadedMetadata={(e) => {
+              const video = e.currentTarget;
+              setVideoDuration(Number.isFinite(video.duration) ? video.duration : duration ?? 0);
+              setCurrentTime(video.currentTime);
+            }}
             onError={(e) => {
               const video = e.currentTarget;
               const error = video.error;
@@ -175,16 +147,44 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
                 readyState: video.readyState,
               });
             }}
-            onSeeking={(event) => {
-              if (locked) {
-                event.preventDefault();
-                const video = event.currentTarget;
-                if (document.contains(video)) {
-                  video.currentTime = steps[activeIndex]?.time ?? 0;
-                }
-              }
-            }}
           />
+
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-10">
+            <div className="flex items-center gap-3 rounded-[24px] bg-black/25 px-3 py-2 backdrop-blur-sm">
+              <button
+                type="button"
+                onClick={togglePlay}
+                disabled={locked}
+                aria-label={isPlaying ? "暂停" : "播放"}
+                className="grid min-h-[44px] min-w-[44px] place-items-center rounded-full bg-white/90 text-slate-900 transition active:scale-95 disabled:opacity-50"
+              >
+                <span className="text-xl font-black leading-none">{isPlaying ? "❚❚" : "▶"}</span>
+              </button>
+
+              <div className="flex-1">
+                <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-white/80">
+                  <span>{Math.floor(currentTime)}s</span>
+                  <span>{Math.floor(videoDuration || duration || 0)}s</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {steps.map((step, index) => {
+                    const active = index === activeIndex;
+                    return (
+                      <button
+                        key={`${step.title}-${step.time}`}
+                        type="button"
+                        onClick={() => jumpTo(index)}
+                        disabled={locked}
+                        aria-label={`跳转到步骤${index + 1}: ${step.title}`}
+                        className={`h-4 w-4 rounded-full transition-all duration-200 ${active ? "scale-150 bg-orange-400 shadow-[0_0_0_6px_rgba(249,115,22,0.18)]" : currentTime >= step.time ? "bg-white" : "bg-white/45"} disabled:opacity-50`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {locked ? (
             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/45" style={overlayStyle}>
               <div className="rounded-[24px] bg-white/90 px-5 py-4 text-center shadow-lg">
@@ -193,18 +193,6 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
               </div>
             </div>
           ) : null}
-        </div>
-
-        <div className="flex gap-3 md:hidden">
-          <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="flex-1 rounded-full bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-50">
-            上一步
-          </button>
-          <button onClick={handleStartExperiment} disabled={locked} className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:opacity-50">
-            开始实验
-          </button>
-          <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:opacity-50">
-            下一步
-          </button>
         </div>
       </section>
 
@@ -216,35 +204,42 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
           {typeof duration === "number" ? <p className="mt-2 text-xs text-slate-400">总时长 {duration}s</p> : null}
           {!security.isSupported ? <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">当前浏览器不支持语音播报，请手动确认安全提示后继续。</p> : null}
           {fallbackPrompt ? (
-            <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 md:items-center">
-              <div className="w-full max-w-md rounded-[28px] bg-white/95 p-5 shadow-2xl backdrop-blur md:p-6">
-                <div className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">安全提示</div>
-                <div className="mt-3 text-sm leading-7 text-slate-700">{fallbackPrompt}</div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+              <div className="w-full max-w-lg rounded-[32px] border border-white/30 bg-white/92 p-6 text-center shadow-2xl">
+                <div className="text-xs font-bold uppercase tracking-[0.25em] text-orange-500">安全提示</div>
+                <div className="mt-4 text-[32px] font-black leading-tight text-slate-950 md:text-[40px]">{fallbackPrompt}</div>
                 <button
                   type="button"
                   onClick={() => {
                     security.manuallyConfirmSafety();
                     setFallbackPrompt(null);
                   }}
-                  className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-bold text-white"
+                  className="mt-6 min-h-[48px] w-full rounded-full bg-orange-500 px-4 py-3 text-base font-black text-white shadow-lg shadow-orange-500/25"
                 >
-                  我已阅读安全提示
+                  我知道了，继续
                 </button>
               </div>
             </div>
           ) : null}
         </div>
 
-        <div className="flex gap-3 md:flex-row">
-          <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="hidden flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition disabled:opacity-50 md:block">
-            上一步
-          </button>
-          <button onClick={handleStartExperiment} disabled={locked} className="hidden flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 md:block">
-            开始实验
-          </button>
-          <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="hidden flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 md:block">
-            下一步
-          </button>
+        <div className="rounded-[28px] bg-white p-4 shadow-[0_10px_30px_rgba(148,163,184,0.12)]">
+          <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">进度</div>
+          <div className="flex items-center justify-between gap-2">
+            {steps.map((step, index) => {
+              const active = index === activeIndex;
+              return (
+                <button
+                  key={`${step.title}-${step.time}`}
+                  type="button"
+                  onClick={() => jumpTo(index)}
+                  disabled={locked}
+                  aria-label={`跳转到步骤${index + 1}: ${step.title}`}
+                  className={`h-4 w-4 rounded-full transition-all duration-200 ${active ? "scale-150 bg-orange-500 shadow-[0_0_0_6px_rgba(249,115,22,0.14)]" : "bg-slate-300"} disabled:opacity-50`}
+                />
+              );
+            })}
+          </div>
         </div>
 
         <div className="space-y-3">
@@ -255,16 +250,17 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
                 key={`${step.title}-${step.time}`}
                 onClick={() => jumpTo(index)}
                 disabled={locked}
-                className={`w-full rounded-[26px] border p-4 text-left transition ${active ? "border-orange-400 bg-orange-50 shadow-[0_8px_24px_rgba(251,146,60,0.16)]" : "border-slate-200 bg-white hover:bg-slate-50"} disabled:opacity-60`}
+                className={`mx-auto block w-[80vw] max-w-none rounded-[30px] border p-5 text-left transition-all duration-200 active:scale-[0.98] ${active ? "border-orange-400 bg-orange-50 shadow-[0_12px_28px_rgba(251,146,60,0.18)]" : "border-slate-200 bg-white hover:scale-[0.99] hover:bg-slate-50"} disabled:opacity-60`}
+                style={{ WebkitTapHighlightColor: "transparent" }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Step {index + 1}</div>
-                    <div className="mt-1 text-base font-extrabold text-slate-900">{step.title}</div>
+                    <div className="mt-2 text-xl font-black text-slate-900">{step.title}</div>
                   </div>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{step.time}s</span>
                 </div>
-                {step.safetyNote ? <p className="mt-3 rounded-2xl bg-orange-100 px-3 py-2 text-sm leading-6 text-orange-800">{step.safetyNote}</p> : <p className="mt-3 text-sm text-slate-400">暂无安全提示</p>}
+                {step.safetyNote ? <p className="mt-4 rounded-2xl bg-orange-100 px-4 py-3 text-base leading-7 text-orange-900">{step.safetyNote}</p> : <p className="mt-4 text-sm text-slate-400">暂无安全提示</p>}
               </button>
             );
           })}
