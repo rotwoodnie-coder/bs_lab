@@ -106,10 +106,12 @@ function readRedirectCount(req: NextRequest): number {
 function buildSafeRedirect(req: NextRequest, pathname: string, destination: string, reason: string) {
   const redirectCount = readRedirectCount(req);
   if (redirectCount >= 1) {
-    return new NextResponse(`请求被阻止：检测到重复重定向（${reason}），请从首页重新进入。`, {
+    const response = new NextResponse(`请求被阻止：检测到重复重定向（${reason}），请从首页重新进入。`, {
       status: 400,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
+    response.cookies.set(REDIRECT_COUNT_PARAM, "1", { path: "/m", sameSite: "lax" });
+    return response;
   }
 
   const url = req.nextUrl.clone();
@@ -119,12 +121,19 @@ function buildSafeRedirect(req: NextRequest, pathname: string, destination: stri
     url.searchParams.set("redirect", pathname);
   }
   url.searchParams.set(REDIRECT_COUNT_PARAM, String(redirectCount + 1));
-  return NextResponse.redirect(url);
+  const response = NextResponse.redirect(url);
+  response.cookies.set(REDIRECT_COUNT_PARAM, String(redirectCount + 1), { path: "/m", sameSite: "lax" });
+  return response;
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const path = normalizePath(pathname);
+
+  if (!path.startsWith("/m")) {
+    return NextResponse.next();
+  }
+
   const { roleId, hasBinding } = decodeSessionFromCookie(req);
 
   if (isWhitelistedPath(path)) return NextResponse.next();
@@ -140,11 +149,6 @@ export function middleware(req: NextRequest) {
     }
 
     return NextResponse.next();
-  }
-
-  if (!isPathAllowed(path, roleId)) {
-    const target = roleId ? "/" : "/login";
-    return buildSafeRedirect(req, pathname, target, "访问受限");
   }
 
   return NextResponse.next();
