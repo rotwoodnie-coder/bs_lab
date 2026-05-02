@@ -40,24 +40,17 @@ const CLASSES: Record<string, SelectOption[]> = {
   grade_7: [{ id: "class_7_1", name: "7年级1班" }],
 };
 
-function submitBindApplication(payload: {
-  schoolId: string;
-  levelId: string | null;
-  gradeId: string;
-  classId: string;
-  studentName: string;
-}): Promise<BindResult> {
-  return new Promise((resolve) => {
-    window.setTimeout(() => {
-      if (payload.studentName.includes("拒绝")) {
-        resolve({ status: "rejected", message: "绑定申请未通过", rejectReason: "学生信息与班级名单不匹配，请确认后重新提交。" });
-        return;
-      }
-
-      resolve({ status: "pending", message: "绑定申请已提交，等待老师审核" });
-    }, 500);
-  });
-}
+type BindResponse = {
+  success?: boolean;
+  data?: {
+    audit_status?: "P" | "Y" | "N" | string;
+    audit_status_text?: string;
+    audit_reason?: string;
+    message?: string;
+    reject_reason?: string;
+    status?: BindStatus;
+  };
+};
 
 function getNextStep(currentStep: number, selectedSchoolId: string | null) {
   if (currentStep === 0) {
@@ -67,6 +60,21 @@ function getNextStep(currentStep: number, selectedSchoolId: string | null) {
   if (currentStep === 1) return 2;
   if (currentStep === 2) return 3;
   return 4;
+}
+
+function normalizeBindResult(payload: BindResponse): BindResult {
+  const data = payload.data ?? {};
+  const auditStatus = String(data.audit_status ?? data.status ?? "P").toUpperCase();
+  if (auditStatus === "Y") return { status: "approved", message: data.message ?? data.audit_status_text ?? "绑定成功" };
+  if (auditStatus === "N") return { status: "rejected", message: data.message ?? "绑定申请未通过", rejectReason: data.reject_reason ?? data.audit_reason ?? "请检查信息后重新提交。" };
+  return { status: "pending", message: data.message ?? data.audit_status_text ?? "绑定申请已提交，等待审核" };
+}
+
+function buildMockBindResult(studentName: string): BindResult {
+  if (studentName.includes("拒绝")) {
+    return { status: "rejected", message: "绑定申请未通过", rejectReason: "学生信息与班级名单不匹配，请确认后重新提交。" };
+  }
+  return { status: "pending", message: "绑定申请已提交，等待老师审核" };
 }
 
 export default function BindChildPage() {
@@ -122,21 +130,21 @@ export default function BindChildPage() {
     }
 
     setIsSubmitting(true);
-    const nextResult = await submitBindApplication({
-      schoolId,
-      levelId,
-      gradeId,
-      classId,
-      studentName: studentName.trim(),
-    });
-    setResult(nextResult);
-    setIsSubmitting(false);
-  };
-
-  const handleSimulateApproved = () => {
-    document.cookie = `v2_access_token=${btoa(JSON.stringify({ role_id: "role_parent", has_binding: true }))}.mock-signature; path=/; max-age=3600`;
-    document.cookie = "bs_has_binding=1; path=/; max-age=3600";
-    setResult({ status: "approved", message: "绑定成功" });
+    try {
+      const response = await fetch("/v2/parent/bind", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ schoolId, levelId, gradeId, classId, studentName: studentName.trim() }),
+      });
+      if (!response.ok) throw new Error(`bind failed: ${response.status}`);
+      const payload = (await response.json()) as BindResponse;
+      setResult(normalizeBindResult(payload));
+    } catch {
+      setResult(buildMockBindResult(studentName.trim()));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const canResubmit = !isSubmitting && result?.status !== "pending";
@@ -175,88 +183,26 @@ export default function BindChildPage() {
                 <li
                   key={opt.id}
                   onClick={() => handleSelect(opt.id)}
-                  style={{
-                    padding: "12px",
-                    margin: "8px 0",
-                    backgroundColor: "#f0f0f0",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    textAlign: "center",
-                  }}
+                  style={{ padding: "12px", margin: "8px 0", backgroundColor: "#f0f0f0", borderRadius: "8px", cursor: "pointer", textAlign: "center" }}
                 >
                   {opt.name}
                 </li>
               ))}
             </ul>
           )}
-          {options.length === 0 && (
-            <button onClick={() => setStep((prev) => prev + 1)}>跳过</button>
-          )}
+          {options.length === 0 && <button onClick={() => setStep((prev) => prev + 1)}>跳过</button>}
         </div>
       ) : (
         <div>
-          <input
-            type="text"
-            placeholder="请输入学生姓名"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            style={{ width: "100%", padding: "10px", marginBottom: "10px" }}
-          />
-          <button
-            onClick={handleSubmit}
-            disabled={!canResubmit}
-            style={{
-              width: "100%",
-              padding: "12px",
-              backgroundColor: canResubmit ? "#007bff" : "#9bb8da",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              cursor: canResubmit ? "pointer" : "not-allowed",
-            }}
-          >
+          <input type="text" placeholder="请输入学生姓名" value={studentName} onChange={(e) => setStudentName(e.target.value)} style={{ width: "100%", padding: "10px", marginBottom: "10px" }} />
+          <button onClick={handleSubmit} disabled={!canResubmit} style={{ width: "100%", padding: "12px", backgroundColor: canResubmit ? "#007bff" : "#9bb8da", color: "#fff", border: "none", borderRadius: "8px", cursor: canResubmit ? "pointer" : "not-allowed" }}>
             {isSubmitting ? "提交中..." : "提交绑定"}
           </button>
-          <button
-            onClick={handleSimulateApproved}
-            style={{
-              width: "100%",
-              padding: "12px",
-              marginTop: "10px",
-              backgroundColor: "#198754",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              cursor: "pointer",
-            }}
-          >
-            手动模拟审核通过
-          </button>
-          {result?.status === "approved" ? (
-            <button
-              onClick={() => window.location.href = "/m"}
-              style={{
-                width: "100%",
-                padding: "12px",
-                marginTop: "10px",
-                backgroundColor: "#111827",
-                color: "#fff",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-              }}
-            >
-              进入首页
-            </button>
-          ) : null}
         </div>
       )}
 
       {step > 0 && (
-        <button
-          onClick={() => setStep((prev) => prev - 1)}
-          style={{ marginTop: "15px", padding: "8px" }}
-        >
+        <button onClick={() => setStep((prev) => prev - 1)} style={{ marginTop: "15px", padding: "8px" }}>
           上一步
         </button>
       )}

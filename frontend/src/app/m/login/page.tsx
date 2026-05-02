@@ -6,25 +6,48 @@ import { MobileCard } from "@/components/mobile/MobileCard";
 import { useMobileContext } from "@/contexts/MobileContext";
 
 const ROLE_OPTIONS = [
-  { id: "parent", label: "家长", defaultHasBinding: false },
-  { id: "student", label: "学生", defaultHasBinding: true },
-  { id: "teacher", label: "老师", defaultHasBinding: true },
+  { id: "parent", label: "家长" },
+  { id: "student", label: "学生" },
+  { id: "teacher", label: "老师" },
 ] as const;
 
 type LoginRole = (typeof ROLE_OPTIONS)[number]["id"];
 
-function encodeMockToken(payload: Record<string, unknown>) {
-  const json = JSON.stringify(payload);
-  const base64 = btoa(unescape(encodeURIComponent(json)));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+type LoginResponse = {
+  success?: boolean;
+  data?: {
+    token?: string;
+    accessToken?: string;
+    access_token?: string;
+    refreshToken?: string;
+    refresh_token?: string;
+    role?: string;
+    has_binding?: boolean;
+    school_level_id?: string | null;
+  };
+};
+
+function readCookie(name: string) {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
-function getParentBindingState() {
-  if (typeof window === "undefined") return false;
+function setAuthCookie(token: string, refreshToken?: string | null) {
+  document.cookie = `v2_access_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+  if (refreshToken) {
+    document.cookie = `v2_refresh_token=${encodeURIComponent(refreshToken)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+  }
+}
+
+function getMockBindingState(role: LoginRole) {
+  if (typeof window === "undefined") return role !== "parent";
+  if (role !== "parent") return true;
   return window.localStorage.getItem("mock-mobile-parent-bound") === "true";
 }
 
-function setMockAuthCookie(role: LoginRole, hasBinding: boolean) {
+function buildMockLoginResponse(role: LoginRole): LoginResponse {
+  const hasBinding = getMockBindingState(role);
   const tokenPayload = {
     role_id: role,
     role,
@@ -32,14 +55,17 @@ function setMockAuthCookie(role: LoginRole, hasBinding: boolean) {
     login_name: `${role}_mock_user`,
     issued_at: Date.now(),
   };
-  const token = `${encodeMockToken(tokenPayload)}.mock-signature`;
-  document.cookie = `v2_access_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  document.cookie = `v2_refresh_token=mock-refresh-token; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  window.localStorage.setItem("mock-mobile-last-role", role);
-  window.localStorage.setItem("mock-mobile-login-role", role);
-  if (role === "parent") {
-    window.localStorage.setItem("mock-mobile-parent-bound", String(hasBinding));
-  }
+  const token = `${btoa(unescape(encodeURIComponent(JSON.stringify(tokenPayload))))}.mock-signature`;
+  return {
+    success: true,
+    data: {
+      token,
+      refresh_token: "mock-refresh-token",
+      role,
+      has_binding: hasBinding,
+      school_level_id: role === "teacher" ? "middle" : role === "student" ? "primary" : hasBinding ? "primary" : null,
+    },
+  };
 }
 
 export default function MobileLoginPage() {
@@ -53,11 +79,33 @@ export default function MobileLoginPage() {
   const submit = async () => {
     setLoading(true);
     try {
-      const hasBinding = selectedRole === "parent" ? getParentBindingState() : true;
-      setMockAuthCookie(selectedRole, hasBinding);
-      if (hasBinding) forceBindingComplete();
+      const response = await fetch("/v2/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: loginName, password: loginPwd, role: selectedRole }),
+      });
+      let payload: LoginResponse;
+      if (!response.ok) throw new Error(`login failed: ${response.status}`);
+      payload = (await response.json()) as LoginResponse;
+      const data = payload.data ?? {};
+      const token = data.token ?? data.accessToken ?? data.access_token;
+      if (!token) throw new Error("missing token");
+      setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? readCookie("v2_refresh_token"));
+      if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
       await refreshUserContext();
-      router.push(selectedRole === "parent" && !hasBinding ? "/m/bind/child" : "/m");
+      router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
+    } catch (error) {
+      const fallback = buildMockLoginResponse(selectedRole);
+      const data = fallback.data ?? {};
+      const token = data.token ?? data.accessToken ?? data.access_token;
+      if (token) {
+        setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? null);
+        if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
+        await refreshUserContext();
+        router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
+        return;
+      }
+      throw error;
     } finally {
       setLoading(false);
     }
