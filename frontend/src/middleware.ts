@@ -121,11 +121,13 @@ function buildSafeRedirect(req: NextRequest, pathname: string, destination: stri
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const path = normalizePath(pathname);
 
-  if (!path.startsWith("/m")) {
+  // 非 /m 路由完全放行，避免影响 PC 端页面与根域名访问。
+  if (!pathname.startsWith("/m")) {
     return NextResponse.next();
   }
+
+  const path = normalizePath(pathname);
 
   if (isWhitelistedPath(path)) return NextResponse.next();
 
