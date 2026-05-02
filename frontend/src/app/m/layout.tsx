@@ -6,7 +6,7 @@ import { MobileProvider, useMobileContext } from "@/contexts/MobileContext";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { cn } from "@/lib/utils";
 
-const HIDDEN_BOTTOM_NAV_PATHS = ["/m/login", "/m/bind/child", "/m/bind/success"] as const;
+const HIDDEN_BOTTOM_NAV_PATHS = ["/m/login", "/m/bind/child", "/m/bind/success", "/m/assistant"] as const;
 
 function MobileShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
