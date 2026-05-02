@@ -10,13 +10,9 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 
-// ── Token 解码 ──────────────────────────────────────────────
-
 const TOKEN_COOKIE = "v2_access_token";
+const REDIRECT_COUNT_PARAM = "__mw_redirect_count";
 
-/**
- * base64url 解码（纯 JS，不依赖 atob / Buffer，兼容 Edge Runtime）。
- */
 function base64UrlDecode(str: string): string {
   const base64 = str.replace(/-/g, "+").replace(/_/g, "/") + "====".slice(str.length % 4 || 4);
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -42,17 +38,14 @@ type AccessTokenPayload = { role_id?: unknown; has_binding?: unknown };
 function decodeSessionFromCookie(req: NextRequest): { roleId: string | null; hasBinding: boolean } {
   const bindingCookie = req.cookies.get("bs_has_binding");
   const forcedBinding = bindingCookie?.value === "1";
-
   const cookie = req.cookies.get(TOKEN_COOKIE);
   if (!cookie?.value) return { roleId: null, hasBinding: false };
   const dotIdx = cookie.value.indexOf(".");
   if (dotIdx <= 0) return { roleId: null, hasBinding: false };
-  const payloadB64 = cookie.value.slice(0, dotIdx);
   try {
-    const json = JSON.parse(base64UrlDecode(payloadB64)) as AccessTokenPayload;
+    const json = JSON.parse(base64UrlDecode(cookie.value.slice(0, dotIdx))) as AccessTokenPayload;
     const roleId = typeof json.role_id === "string" && json.role_id.length > 0 ? json.role_id : null;
-    const hasBinding = forcedBinding || json.has_binding === true;
-    return { roleId, hasBinding };
+    return { roleId, hasBinding: forcedBinding || json.has_binding === true };
   } catch {
     return { roleId: null, hasBinding: false };
   }
@@ -78,50 +71,82 @@ function normalizePath(pathname: string): string {
   return "/" + resolved.join("/");
 }
 
-const ALLOWED_PUBLIC_PREFIXES = ["/_next", "/favicon", "/mockServiceWorker.js", "/api/", "/v2/", "/login", "/__nextjs"];
-const MOBILE_WHITELIST_PREFIXES = ["/m/login", "/m/bind/child"];
-const PROTECTED_MANAGEMENT_PREFIXES = ["/console/", "/admin/", "/researcher/", "/ops/"];
+const PUBLIC_PREFIXES = ["/_next", "/favicon", "/mockServiceWorker.js", "/api/", "/v2/", "/login", "/__nextjs"];
+const MOBILE_PUBLIC_PATHS = ["/m/login", "/m/bind/child"];
+const MANAGEMENT_PREFIXES = ["/console/", "/admin/", "/researcher/", "/ops/"];
+
+function isStaticAssetPath(path: string): boolean {
+  return /\.(?:css|js|map|png|jpg|jpeg|gif|webp|svg|ico|json|txt|woff2?|ttf|otf)$/i.test(path);
+}
+
+function isWhitelistedPath(path: string): boolean {
+  if (PUBLIC_PREFIXES.some((prefix) => path === prefix || path.startsWith(prefix))) return true;
+  if (MOBILE_PUBLIC_PATHS.includes(path)) return true;
+  if (isStaticAssetPath(path)) return true;
+  return false;
+}
+
+function isSafeMobileRedirectPath(path: string): boolean {
+  return path.startsWith("/m") && !MOBILE_PUBLIC_PATHS.includes(path) && (path === "/m" || path.startsWith("/m/"));
+}
 
 function isPathAllowed(path: string, roleId: string | null): boolean {
-  if (ALLOWED_PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return true;
+  if (isWhitelistedPath(path)) return true;
   if (!roleId) return false;
-  if (!PROTECTED_MANAGEMENT_PREFIXES.some((p) => path.startsWith(p))) return true;
+  if (MANAGEMENT_PREFIXES.some((prefix) => path.startsWith(prefix))) return false;
   return true;
+}
+
+function readRedirectCount(req: NextRequest): number {
+  const raw = req.nextUrl.searchParams.get(REDIRECT_COUNT_PARAM);
+  const count = Number.parseInt(raw ?? "0", 10);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+function buildSafeRedirect(req: NextRequest, pathname: string, destination: string, reason: string) {
+  const redirectCount = readRedirectCount(req);
+  if (redirectCount >= 1) {
+    return new NextResponse(`请求被阻止：检测到重复重定向（${reason}），请从首页重新进入。`, {
+      status: 400,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  const url = req.nextUrl.clone();
+  url.pathname = destination;
+  url.searchParams.delete("redirect");
+  if (isSafeMobileRedirectPath(pathname)) {
+    url.searchParams.set("redirect", pathname);
+  }
+  url.searchParams.set(REDIRECT_COUNT_PARAM, String(redirectCount + 1));
+  return NextResponse.redirect(url);
 }
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const path = normalizePath(pathname);
   const { roleId, hasBinding } = decodeSessionFromCookie(req);
-  console.log(`[MW] path=${req.nextUrl.pathname}, has_binding=${hasBinding}`);
 
-  if (ALLOWED_PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))) return NextResponse.next();
-  if (path === "/m/login" || path === "/m/bind/child") return NextResponse.next();
+  if (isWhitelistedPath(path)) return NextResponse.next();
 
   if (path.startsWith("/m")) {
     if (!roleId) {
-      if (path === "/m/login") return NextResponse.next();
-      const url = req.nextUrl.clone();
-      url.pathname = "/m/login";
-      url.searchParams.set("redirect", "/m");
-      return NextResponse.redirect(url);
+      return path === "/m/login" ? NextResponse.next() : buildSafeRedirect(req, pathname, "/m/login", "未登录");
     }
+
     if (isParentRole(roleId) && !hasBinding) {
       if (path === "/m/bind/child") return NextResponse.next();
-      const url = req.nextUrl.clone();
-      url.pathname = "/m/bind/child";
-      url.searchParams.set("redirect", pathname);
-      return NextResponse.redirect(url);
+      return buildSafeRedirect(req, pathname, "/m/bind/child", "家长未绑定");
     }
+
     return NextResponse.next();
   }
 
   if (!isPathAllowed(path, roleId)) {
-    const url = req.nextUrl.clone();
-    url.pathname = roleId ? "/" : "/login";
-    url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
+    const target = roleId ? "/" : "/login";
+    return buildSafeRedirect(req, pathname, target, "访问受限");
   }
+
   return NextResponse.next();
 }
 

@@ -7,7 +7,7 @@ import type { VideoStep } from "@/components/mobile/VideoPlayer";
 const VIDEO_LIBRARY: Record<string, { title: string; url: string; coverUrl: string; duration: number; steps: VideoStep[] }> = {
   "1": {
     title: "安全实验：彩虹液体分层",
-    url: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    url: "https://www.w3schools.com/html/mov_bbb.mp4",
     coverUrl: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=1200&q=80",
     duration: 120,
     steps: [
