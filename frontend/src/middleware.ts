@@ -129,16 +129,21 @@ export function middleware(req: NextRequest) {
 
   const path = normalizePath(pathname);
 
-  if (isWhitelistedPath(path)) return NextResponse.next();
+  if (path === "/m/login" || path === "/m/bind/child") {
+    return NextResponse.next();
+  }
+
+  if (path.startsWith("/_next/") || isStaticAssetPath(path)) {
+    return NextResponse.next();
+  }
 
   const { roleId, hasBinding } = decodeSessionFromCookie(req);
 
   if (!roleId) {
-    return path === "/m/login" ? NextResponse.next() : buildSafeRedirect(req, pathname, "/m/login", "未登录");
+    return buildSafeRedirect(req, pathname, "/m/login", "未登录");
   }
 
   if (isParentRole(roleId) && !hasBinding) {
-    if (path === "/m/bind/child") return NextResponse.next();
     return buildSafeRedirect(req, pathname, "/m/bind/child", "家长未绑定");
   }
 
