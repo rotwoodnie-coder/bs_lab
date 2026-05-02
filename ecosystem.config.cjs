@@ -30,9 +30,9 @@ module.exports = {
     },
     {
       name: "bs-lab-frontend",
-      cwd: "./frontend",
-      script: "scripts/start-with-env.sh",
-      interpreter: "bash",
+      cwd: "/opt/bs-lab/frontend",
+      script: "/www/server/nodejs/v22.22.2/bin/node",
+      args: "node_modules/.bin/next start -p 4200",
       env: {
         NODE_ENV: "production",
       },
