@@ -34,9 +34,9 @@ function readCookie(name: string) {
 }
 
 function setAuthCookie(token: string, refreshToken?: string | null) {
-  document.cookie = `v2_access_token=${encodeURIComponent(token)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+  document.cookie = `v2_access_token=${encodeURIComponent(token)}; path=/m; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   if (refreshToken) {
-    document.cookie = `v2_refresh_token=${encodeURIComponent(refreshToken)}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+    document.cookie = `v2_refresh_token=${encodeURIComponent(refreshToken)}; path=/m; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }
 }
 
