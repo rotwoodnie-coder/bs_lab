@@ -26,9 +26,55 @@ git clean -fd 2>/dev/null || true
 OLD_COMMIT=$(git rev-parse HEAD)
 echo ">>> 当前版本: $OLD_COMMIT" | tee -a "$DEPLOY_LOG"
 
+# ── 如果存在本地修改，先自动 stash，避免 git pull 被阻断 ──
+AUTO_STASH_CREATED=false
+AUTO_STASH_NAME="auto-stash before deploy"
+set +e
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo ">>> 检测到本地修改，执行 git stash..." | tee -a "$DEPLOY_LOG"
+  git stash push -m "$AUTO_STASH_NAME" 2>&1 | tee -a "$DEPLOY_LOG"
+  STASH_EXIT=${PIPESTATUS[0]}
+  if [ "$STASH_EXIT" -eq 0 ]; then
+    AUTO_STASH_CREATED=true
+    echo ">>> ✅ 已保存现场：$AUTO_STASH_NAME" | tee -a "$DEPLOY_LOG"
+  else
+    echo ">>> ⚠️ stash 失败，继续尝试部署（可能存在未跟踪或特殊状态）" | tee -a "$DEPLOY_LOG"
+  fi
+else
+  echo ">>> 工作区干净，无需 stash" | tee -a "$DEPLOY_LOG"
+fi
+set -e
+
 # ── 拉取最新代码 ──
 echo ">>> git pull..." | tee -a "$DEPLOY_LOG"
 git pull 2>&1 | tee -a "$DEPLOY_LOG"
+
+# ── 恢复服务器专用修改（如 .env.local / 服务器补丁） ──
+if [ "$AUTO_STASH_CREATED" = true ]; then
+  echo ">>> 恢复 stash..." | tee -a "$DEPLOY_LOG"
+  set +e
+  git stash pop 2>&1 | tee -a "$DEPLOY_LOG"
+  STASH_POP_EXIT=${PIPESTATUS[0]}
+
+  if [ "$STASH_POP_EXIT" -ne 0 ]; then
+    echo ">>> ⚠️ git stash pop 发生冲突，保留服务器版本（ours）..." | tee -a "$DEPLOY_LOG"
+    CONFLICT_FILES=$(git diff --name-only --diff-filter=U)
+    if [ -n "$CONFLICT_FILES" ]; then
+      while IFS= read -r file; do
+        [ -z "$file" ] && continue
+        if [ -f "$file" ]; then
+          git checkout --ours -- "$file" 2>/dev/null || true
+          git add "$file" 2>/dev/null || true
+          echo ">>>   已保留服务器版本: $file" | tee -a "$DEPLOY_LOG"
+        fi
+      done <<< "$CONFLICT_FILES"
+    fi
+    git stash drop 2>/dev/null || true
+  else
+    echo ">>> ✅ stash 恢复完成" | tee -a "$DEPLOY_LOG"
+  fi
+  set -e
+fi
 
 NEW_COMMIT=$(git rev-parse HEAD)
 if [ "$OLD_COMMIT" = "$NEW_COMMIT" ]; then

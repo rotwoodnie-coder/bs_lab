@@ -1,3 +1,13 @@
+import dotenv from "dotenv";
+import { createRequire } from "node:module";
+
+if (process.env.DOTENV_CONFIG_PATH) {
+  dotenv.config({ path: process.env.DOTENV_CONFIG_PATH });
+} else {
+  const require = createRequire(import.meta.url);
+  require("dotenv/config");
+}
+
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";

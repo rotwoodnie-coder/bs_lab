@@ -40,8 +40,8 @@ const PARENT_CHILDREN = [
 ];
 
 const STUDENT_PRIMARY_STATS = [
-  { label: "我的实验", value: "12 个实验", icon: "🧪", tone: "from-orange-400 to-amber-500" },
-  { label: "作业", value: "8 个作业", icon: "📚", tone: "from-emerald-400 to-green-500" },
+  { label: "我的实验", value: "12 个实验", icon: "🧪", tone: "from-amber-400 to-orange-500" },
+  { label: "作业", value: "8 个作业", icon: "📚", tone: "from-emerald-400 to-teal-500" },
   { label: "作品", value: "5 个作品", icon: "🎨", tone: "from-sky-400 to-cyan-500" },
   { label: "勋章积分", value: "320 积分", icon: "🏅", tone: "from-fuchsia-400 to-rose-500" },
 ] as const;
