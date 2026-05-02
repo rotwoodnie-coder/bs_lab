@@ -82,7 +82,7 @@ export function submitQuizAnswer(optionId: string) {
     selectedOptionId: optionId,
     selectedOptionLabel: selectedOption.label,
     isCorrect,
-    submittedAt: state.stats.lastSubmittedAt,
+    submittedAt: state.stats.lastSubmittedAt ?? Date.now(),
     rewardPoints: isCorrect ? state.question.rewardPoints : 0,
   };
 

@@ -96,6 +96,7 @@ function HomeContent() {
             {isTeacher ? "教师端视频广场" : "学生端视频广场"}
           </div>
           <h1 className={cn("font-black leading-tight", isTeacher ? "text-2xl" : isPrimary ? "text-3xl" : "text-2xl")}>{headerTitle}</h1>
+          <div className="text-xs font-medium tracking-[0.24em] text-white/70">自动化部署验证</div>
           <p className="max-w-xl text-sm text-white/80">{headerSubtitle}</p>
           {isTeacher ? <TeacherSearchBar /> : null}
           <div className={cn("mt-4 grid gap-3", isTeacher ? "grid-cols-3" : isStudent && isPrimary ? "grid-cols-1" : "grid-cols-2")}>

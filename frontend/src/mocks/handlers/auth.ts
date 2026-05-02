@@ -128,22 +128,20 @@ export const authHandlers = [
     console.log("[MSW Handler] 拦截到请求:", request.url);
     try {
       const hasBinding = isBindApplied();
-      const token = buildToken(hasBinding);
-      return HttpResponse.json(
-        {
-          success: true,
-          data: {
-            access_token: token,
-            refresh_token: "mock-refresh",
-            accessToken: token,
-            refreshToken: "mock-refresh",
-            has_binding: hasBinding,
-            school_level_id: "小学",
-          },
-          error: null,
+      const role = readMockRole();
+      const token = buildToken(hasBinding, role);
+      return HttpResponse.json({
+        success: true,
+        data: {
+          access_token: token,
+          refresh_token: "mock-refresh",
+          accessToken: token,
+          refreshToken: "mock-refresh",
+          has_binding: hasBinding,
+          school_level_id: "小学",
         },
-        { status: 200, headers: { "Set-Cookie": `v2_access_token=${token}; Path=/, v2_refresh_token=mock-refresh; Path=/` } },
-      );
+        error: null,
+      });
     } catch (error) {
       console.error("[MSW Handler] /api/auth/refresh error", error);
       return HttpResponse.json({ success: false }, { status: 500 });

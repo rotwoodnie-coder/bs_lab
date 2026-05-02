@@ -22,8 +22,9 @@ export default function MobileQuizPage() {
   const handleSubmit = () => {
     const result = submitQuizAnswer(selectedOptionId);
     setStatsVersion((prev) => prev + 1);
-    if (result.submission.isCorrect) {
-      setToast(`恭喜答对 +${result.submission.rewardPoints} 积分`);
+    const submission = result.submission;
+    if (submission && submission.isCorrect) {
+      setToast(`恭喜答对 +${submission.rewardPoints} 积分`);
     } else {
       setToast("提交成功，继续加油");
     }

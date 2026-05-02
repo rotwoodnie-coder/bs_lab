@@ -9,7 +9,26 @@ import { cn } from "@/lib/utils";
 
 const COOKIE_KEYS = ["bs_has_binding", "role", "role_id", "has_binding", "token", "access_token", "refresh_token", "bs_token"];
 
-const PARENT_CHILDREN = [
+type ParentChildMeta = {
+  studentUserId: string;
+  studentUserName: string;
+  avatar: string;
+  classLabel: string;
+  recentCompletion: string;
+  pendingTasks: number;
+  finishedTasks: number;
+};
+
+type SummaryStat = { label: string; value: string; icon: string; tone: string };
+type ShortcutItem = { title: string; desc: string; href: string; icon: string; tone: string };
+type ToolCard =
+  | { title: string; desc: string; content: readonly [string] }
+  | { title: string; desc: string; switches: ReadonlyArray<{ label: string; enabled: boolean }> }
+  | { title: string; desc: string; notifications: readonly string[] };
+
+type SectionItem = { title: string; desc: string; href?: string };
+
+const PARENT_CHILDREN: ParentChildMeta[] = [
   {
     studentUserId: "student_001",
     studentUserName: "小明",
@@ -39,21 +58,21 @@ const PARENT_CHILDREN = [
   },
 ];
 
-const STUDENT_PRIMARY_STATS = [
+const STUDENT_PRIMARY_STATS: SummaryStat[] = [
   { label: "我的实验", value: "12 个实验", icon: "🧪", tone: "from-amber-400 to-orange-500" },
   { label: "作业", value: "8 个作业", icon: "📚", tone: "from-emerald-400 to-teal-500" },
   { label: "作品", value: "5 个作品", icon: "🎨", tone: "from-sky-400 to-cyan-500" },
   { label: "勋章积分", value: "320 积分", icon: "🏅", tone: "from-fuchsia-400 to-rose-500" },
 ] as const;
 
-const STUDENT_MIDDLE_STATS = [
-  { label: "我的实验", value: "12 个实验" },
-  { label: "作业", value: "8 个作业" },
-  { label: "作品", value: "5 个作品" },
-  { label: "勋章积分", value: "320 积分" },
+const STUDENT_MIDDLE_STATS: SummaryStat[] = [
+  { label: "我的实验", value: "12 个实验", icon: "🧪", tone: "from-slate-200 to-slate-300" },
+  { label: "作业", value: "8 个作业", icon: "📚", tone: "from-slate-200 to-slate-300" },
+  { label: "作品", value: "5 个作品", icon: "🎨", tone: "from-slate-200 to-slate-300" },
+  { label: "勋章积分", value: "320 积分", icon: "🏅", tone: "from-slate-200 to-slate-300" },
 ] as const;
 
-const STUDENT_PRIMARY_SHORTCUTS = [
+const STUDENT_PRIMARY_SHORTCUTS: ShortcutItem[] = [
   { title: "我的实验", desc: "查看实验过程与回放", href: "/m/experiments", icon: "🧪", tone: "from-orange-400 to-amber-500" },
   { title: "作业", desc: "查看待完成与已完成任务", href: "/m/tasks", icon: "📚", tone: "from-emerald-400 to-green-500" },
   { title: "作品", desc: "我的提交与展示作品", href: "/m/works", icon: "🎨", tone: "from-sky-400 to-cyan-500" },
@@ -62,13 +81,13 @@ const STUDENT_PRIMARY_SHORTCUTS = [
   { title: "设置", desc: "账号与偏好设置", href: "/m/settings", icon: "⚙️", tone: "from-slate-400 to-slate-600" },
 ] as const;
 
-const STUDENT_MIDDLE_SHORTCUTS = [
-  { title: "我的实验", desc: "实验库", href: "/m/experiments" },
-  { title: "作业", desc: "任务与提交", href: "/m/tasks" },
-  { title: "作品", desc: "我的作品", href: "/m/works" },
-  { title: "勋章积分", desc: "积分与勋章", href: "/m/badges" },
-  { title: "班级", desc: "三年级一班", href: "#class" },
-  { title: "设置", desc: "账号与偏好", href: "/m/settings" },
+const STUDENT_MIDDLE_SHORTCUTS: ShortcutItem[] = [
+  { title: "我的实验", desc: "实验库", href: "/m/experiments", icon: "•", tone: "from-slate-200 to-slate-300" },
+  { title: "作业", desc: "任务与提交", href: "/m/tasks", icon: "•", tone: "from-slate-200 to-slate-300" },
+  { title: "作品", desc: "我的作品", href: "/m/works", icon: "•", tone: "from-slate-200 to-slate-300" },
+  { title: "勋章积分", desc: "积分与勋章", href: "/m/badges", icon: "•", tone: "from-slate-200 to-slate-300" },
+  { title: "班级", desc: "三年级一班", href: "#class", icon: "•", tone: "from-slate-200 to-slate-300" },
+  { title: "设置", desc: "账号与偏好", href: "/m/settings", icon: "•", tone: "from-slate-200 to-slate-300" },
 ] as const;
 
 const STUDENT_PRIMARY_UPDATES = [
@@ -83,7 +102,7 @@ const STUDENT_MIDDLE_UPDATES = [
   { title: "作业《材料准备》已完成", time: "昨天 18:10" },
 ] as const;
 
-const PARENT_TOOL_CARDS = [
+const PARENT_TOOL_CARDS: ToolCard[] = [
   {
     title: "材料助手",
     desc: "快速查看当前孩子实验所需材料清单，提前准备更省心。",
@@ -126,11 +145,11 @@ function clearLoginCookies() {
 function StudentSummaryStats({ stage }: { stage: "primary" | "middle" }) {
   const stats = stage === "primary" ? STUDENT_PRIMARY_STATS : STUDENT_MIDDLE_STATS;
 
-  if (stage === "primary") {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        {stats.map((item) => (
-          <div key={item.label} className={cn("rounded-[20px] p-4 text-white shadow-lg", `bg-gradient-to-br ${item.tone}`)}>
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {stats.map((item) => (
+        <div key={item.label} className={stage === "primary" ? cn("rounded-[20px] p-4 text-white shadow-lg", `bg-gradient-to-br ${item.tone}`) : "rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm"}>
+          {stage === "primary" ? (
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-3xl font-black leading-none">{item.value}</div>
@@ -138,21 +157,15 @@ function StudentSummaryStats({ stage }: { stage: "primary" | "middle" }) {
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 text-2xl shadow-inner">{item.icon}</div>
             </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {stats.map((item) => (
-        <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm">
-          <div className="text-[11px] text-slate-500">{item.label}</div>
-          <div className="mt-1 flex items-end gap-2">
-            <div className="text-2xl font-semibold leading-none text-slate-900">{item.value}</div>
-            <div className="text-xs text-slate-500">静态统计</div>
-          </div>
+          ) : (
+            <div>
+              <div className="text-[11px] text-slate-500">{item.label}</div>
+              <div className="mt-1 flex items-end gap-2">
+                <div className="text-2xl font-semibold leading-none text-slate-900">{item.value}</div>
+                <div className="text-xs text-slate-500">静态统计</div>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -184,7 +197,7 @@ function StudentShortcuts({ stage }: { stage: "primary" | "middle" }) {
     <div className="grid grid-cols-2 gap-2">
       {shortcuts.map((item) => (
         <Link key={item.title} href={item.href} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 transition hover:bg-slate-50 active:scale-[0.99]">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-lg text-slate-700">•</div>
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl text-lg text-slate-700", `bg-gradient-to-br ${item.tone}`)}>{item.icon}</div>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-slate-900">{item.title}</div>
             <div className="truncate text-[11px] text-slate-500">{item.desc}</div>
@@ -228,7 +241,7 @@ function StudentUpdates({ stage }: { stage: "primary" | "middle" }) {
   );
 }
 
-function SectionList({ items }: { items: Array<{ title: string; desc: string; href?: string }> }) {
+function SectionList({ items }: { items: SectionItem[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {items.map((item) => (
@@ -273,7 +286,7 @@ function ParentChildSelector() {
             </div>
             <div>
               <div className="text-sm font-semibold">{child.studentUserName}</div>
-              <div className="text-[11px] text-muted-foreground">{child.classLabel}</div>
+              <div className="text-[11px] text-muted-foreground">{"classLabel" in child ? child.classLabel : child.classOrgName}</div>
             </div>
           </button>
         );
@@ -319,7 +332,9 @@ export default function MobileProfilePage() {
           ];
 
   const activeChild = currentChild ?? PARENT_CHILDREN[0];
-  const activeChildMeta = PARENT_CHILDREN.find((item) => item.studentUserId === activeChild?.studentUserId) ?? PARENT_CHILDREN[0];
+  const activeChildMeta = currentChild
+    ? { ...PARENT_CHILDREN[0], ...currentChild }
+    : PARENT_CHILDREN[0];
 
   return (
     <div className="space-y-4 p-4 md:pb-4">
@@ -375,11 +390,11 @@ export default function MobileProfilePage() {
           <div className="grid gap-4">
             {PARENT_TOOL_CARDS.map((card) => (
               <MobileCard key={card.title} title={card.title} subtitle={card.desc}>
-                {card.content ? (
+                {"content" in card ? (
                   <div className="rounded-3xl border bg-background p-4 text-sm leading-7 text-foreground">{card.content[0]}</div>
                 ) : null}
 
-                {card.switches ? (
+                {"switches" in card ? (
                   <div className="space-y-3">
                     {card.switches.map((item) => (
                       <div key={item.label} className="flex items-center justify-between rounded-3xl border bg-background px-4 py-3">
@@ -390,7 +405,7 @@ export default function MobileProfilePage() {
                   </div>
                 ) : null}
 
-                {card.notifications ? (
+                {"notifications" in card ? (
                   <div className="space-y-2">
                     {card.notifications.map((item) => (
                       <div key={item} className="rounded-3xl border bg-background px-4 py-3 text-sm text-foreground">
