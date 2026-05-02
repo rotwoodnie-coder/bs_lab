@@ -4,8 +4,10 @@ import process from "node:process";
 
 const backendPort = Number(process.env.BACKEND_DEV_PORT ?? process.env.PORT_BACKEND ?? 4100);
 const frontendPort = Number(process.env.FRONTEND_DEV_PORT ?? process.env.PORT_FRONTEND ?? 4200);
+const extraPort = 4300;
+const portsToFree = [backendPort, frontendPort, extraPort];
 
-function killPortWindows(port, label) {
+function killPortWindows(port, label = `port ${port}`) {
   const script = [
     "$ErrorActionPreference = 'SilentlyContinue'",
     `$pids = @(Get-NetTCPConnection -LocalPort ${port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique)`,
@@ -19,7 +21,7 @@ function killPortWindows(port, label) {
     `    $cmdMatch += @(Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match $pattern } | Select-Object -ExpandProperty ProcessId)`,
     `  }`,
     `  $pids = @($cmdMatch | Select-Object -Unique)`,
-    `  if ($pids -and $pids.Count -gt 0) { Write-Host \"[dev:fresh] ${label}: matched fallback process command lines on port ${port}\" }`,
+    `  if ($pids -and $pids.Count -gt 0) { Write-Host \"[dev:fresh] ${label}: matched fallback process command lines on ${port}\" }`,
     "}",
     "foreach ($pid in $pids) {",
     "  if ($pid) {",
@@ -56,10 +58,10 @@ function killPortUnix(port) {
   }
 }
 
-function freePort(port) {
-  console.log(`[dev:fresh] force-killing listeners on port ${port}...`);
+function freePort(port, label = `port ${port}`) {
+  console.log(`[dev:fresh] force-killing listeners on ${label}...`);
   if (process.platform === "win32") {
-    killPortWindows(port);
+    killPortWindows(port, label);
   } else {
     killPortUnix(port);
   }
@@ -95,19 +97,21 @@ function waitPortFree(port, label) {
 const repoRoot = new URL("..", import.meta.url);
 const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 
-// 清理前后端端口
-freePort(backendPort);
-freePort(frontendPort);
+// 仅清理指定端口
+for (const port of portsToFree) {
+  freePort(port);
+}
 
-// 再次强制清理一轮，避免残留进程占口
-waitPortFree(backendPort, "backend");
-freePort(backendPort);
-waitPortFree(frontendPort, "frontend");
-freePort(frontendPort);
+// 再次检查并强制清理一轮，避免残留进程占口
+for (const port of portsToFree) {
+  waitPortFree(port, `port ${port}`);
+  freePort(port);
+}
 
 // 等待端口释放完毕
-waitPortFree(backendPort, "backend");
-waitPortFree(frontendPort, "frontend");
+for (const port of portsToFree) {
+  waitPortFree(port, `port ${port}`);
+}
 
 function loadEnvLocal() {
   const envPath = new URL(".env.local", repoRoot);

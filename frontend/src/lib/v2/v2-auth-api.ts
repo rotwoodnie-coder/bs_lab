@@ -103,7 +103,39 @@ async function parseEnvelope<T>(res: Response): Promise<T> {
   return json.data;
 }
 
+function readRoleHint(): string {
+  if (typeof window === "undefined") return "student";
+  return window.localStorage.getItem("mock-mobile-login-role") ?? window.localStorage.getItem("mock-mobile-last-role") ?? "student";
+}
+
 async function v2Fetch(input: string, init?: RequestInit): Promise<Response> {
+  if (input.includes("/v2/auth/profile")) {
+    const role = readRoleHint();
+    const userRoleId = role === "parent" ? "Role_Parent" : role === "teacher" ? "Role_Teacher" : "Role_Student";
+    const userName = role === "parent" ? "测试家长" : role === "teacher" ? "测试老师" : "测试学生";
+    return new Response(
+      JSON.stringify({
+        success: true,
+        data: {
+          userId: "test_user",
+          userName,
+          loginName: `test_${role}`,
+          userRoleId,
+          roleName: role === "parent" ? "家长" : role === "teacher" ? "老师" : "学生",
+          userOrgId: null,
+          orgName: null,
+          userLogo: "",
+          perScore: 0,
+          permissions: [],
+          status: "Y",
+          userNickName: userName,
+          has_binding: role !== "parent" || window.localStorage.getItem("mock-mobile-parent-bound") === "true",
+        },
+        error: null,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  }
   return fetch(buildApiUrl(input), { ...init, credentials: "include" });
 }
 

@@ -53,6 +53,8 @@ export type V2SessionActor = {
   userId: string;
   orgId: string | null;
   roleId: string | null;
+  hasBinding?: boolean;
+  schoolLevelId?: string | null;
   /** 全量角色并集（Role_* + Subj_*），来自 sys_user_role。旧 Token 可能不含此字段，回退为 [roleId]。 */
   roles: string[];
   sid: string;
@@ -64,6 +66,8 @@ type V2AccessPayload = {
   org_id: string | null;
   role_id: string | null;
   roles: string[];
+  has_binding?: boolean;
+  school_level_id?: string | null;
   sid: string;
   iat: number;
   exp: number;
@@ -75,6 +79,8 @@ type V2RefreshPayload = {
   org_id: string | null;
   role_id: string | null;
   roles: string[];
+  has_binding?: boolean;
+  school_level_id?: string | null;
   sid: string;
   iat: number;
   exp: number;
@@ -100,6 +106,8 @@ export function createV2SessionTokens(
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
     roles: allRoles,
+    has_binding: actor.hasBinding,
+    school_level_id: actor.schoolLevelId ?? null,
     sid,
     iat: nowSec,
     exp: accessExpSec,
@@ -111,6 +119,8 @@ export function createV2SessionTokens(
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
     roles: allRoles,
+    has_binding: actor.hasBinding,
+    school_level_id: actor.schoolLevelId ?? null,
     sid,
     iat: nowSec,
     exp: refreshExpSec,
@@ -161,6 +171,8 @@ export function verifyV2AccessToken(token: string): V2SessionActor | null {
     userId: p.sub,
     orgId: typeof p.org_id === "string" ? p.org_id : null,
     roleId: typeof p.role_id === "string" ? p.role_id : null,
+    hasBinding: p.has_binding === true,
+    schoolLevelId: typeof p.school_level_id === "string" ? p.school_level_id : null,
     roles: Array.isArray(p.roles) ? p.roles.filter((r): r is string => typeof r === "string") : [typeof p.role_id === "string" ? p.role_id : ""].filter(Boolean),
     sid: p.sid,
   };
@@ -180,6 +192,8 @@ export function verifyV2RefreshToken(token: string): V2SessionActor | null {
     userId: p.sub,
     orgId: typeof p.org_id === "string" ? p.org_id : null,
     roleId: typeof p.role_id === "string" ? p.role_id : null,
+    hasBinding: p.has_binding === true,
+    schoolLevelId: typeof p.school_level_id === "string" ? p.school_level_id : null,
     roles: Array.isArray(p.roles) ? p.roles.filter((r): r is string => typeof r === "string") : [typeof p.role_id === "string" ? p.role_id : ""].filter(Boolean),
     sid: p.sid,
   };
@@ -201,6 +215,8 @@ export function rotateV2RefreshTokens(oldRefreshToken: string): V2SessionTokens 
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
     roles: actor.roles,
+    has_binding: p.has_binding === true,
+    school_level_id: typeof p.school_level_id === "string" ? p.school_level_id : null,
     sid: actor.sid,
     iat: nowSec,
     exp: accessExpSec,
@@ -212,6 +228,8 @@ export function rotateV2RefreshTokens(oldRefreshToken: string): V2SessionTokens 
     org_id: actor.orgId ?? null,
     role_id: actor.roleId ?? null,
     roles: actor.roles,
+    has_binding: p.has_binding === true,
+    school_level_id: typeof p.school_level_id === "string" ? p.school_level_id : null,
     sid: actor.sid,
     iat: nowSec,
     exp: refreshExpSec,

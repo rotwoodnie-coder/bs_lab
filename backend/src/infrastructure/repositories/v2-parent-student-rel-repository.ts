@@ -31,9 +31,8 @@ function rowToRel(r: RowDataPacket): ParentStudentRelRow {
 export async function countApprovedBindingsForParent(pool: Pool, parentUserId: string): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS c
-     FROM sys_parent_student_rel
-     WHERE parent_user_id = ?
-       AND audit_status = 'Y'`,
+     FROM v_active_parent_children
+     WHERE parent_user_id = ?`,
     [parentUserId],
   );
   const c = rows[0]?.c ?? (rows[0] as any)?.["COUNT(*)"];
@@ -42,15 +41,15 @@ export async function countApprovedBindingsForParent(pool: Pool, parentUserId: s
 
 export async function listBindingsForParent(pool: Pool, parentUserId: string) {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT r.seq_id AS seqId,
-            r.parent_user_id AS parentUserId,
-            r.student_user_id AS studentUserId,
-            r.school_org_id AS schoolOrgId,
-            r.create_time AS createTime,
-            r.audit_status AS auditStatus,
-            r.audit_user_id AS auditUserId,
-            r.audit_comments AS auditComments,
-            r.audit_time AS auditTime,
+    `SELECT v.seq_id AS seqId,
+            v.parent_user_id AS parentUserId,
+            v.student_user_id AS studentUserId,
+            v.school_org_id AS schoolOrgId,
+            v.create_time AS createTime,
+            v.audit_status AS auditStatus,
+            v.audit_user_id AS auditUserId,
+            v.audit_comments AS auditComments,
+            v.audit_time AS auditTime,
             su.user_name AS studentUserName,
             co.org_id AS classOrgId,
             co.org_name AS classOrgName,
@@ -58,13 +57,13 @@ export async function listBindingsForParent(pool: Pool, parentUserId: string) {
             go.org_name AS gradeOrgName,
             so.org_id AS schoolOrgIdResolved,
             so.org_name AS schoolOrgName
-     FROM sys_parent_student_rel r
-     LEFT JOIN sys_user su ON su.user_id = r.student_user_id AND su.is_deleted = 0
+     FROM v_active_parent_children v
+     LEFT JOIN sys_user su ON su.user_id = v.student_user_id AND su.is_deleted = 0
      LEFT JOIN sys_org co ON co.org_id = su.user_org_id AND co.is_deleted = 0
      LEFT JOIN sys_org go ON go.org_id = co.parent_org_id AND go.is_deleted = 0
      LEFT JOIN sys_org so ON so.org_id = go.parent_org_id AND so.is_deleted = 0
-     WHERE r.parent_user_id = ?
-     ORDER BY r.create_time DESC`,
+     WHERE v.parent_user_id = ?
+     ORDER BY v.create_time DESC`,
     [parentUserId],
   );
   return rows.map((r) => ({

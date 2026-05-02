@@ -228,6 +228,27 @@ async function loadSubjectNamesByIds(pool: ReturnType<typeof getMysqlPool>, subj
   return m;
 }
 
+async function loadMobileAuthContext(pool: ReturnType<typeof getMysqlPool>, userId: string): Promise<{ hasBinding: boolean; schoolLevelId: string | null }> {
+  const [bindingRows] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 AS hasBinding
+     FROM v_active_parent_children
+     WHERE parent_user_id = ?
+     LIMIT 1`,
+    [userId],
+  );
+  const [stageRows] = await pool.query<RowDataPacket[]>(
+    `SELECT school_level_id AS schoolLevelId
+     FROM v_user_school_stage
+     WHERE user_id = ?
+     LIMIT 1`,
+    [userId],
+  );
+  return {
+    hasBinding: bindingRows.length > 0,
+    schoolLevelId: stageRows[0]?.schoolLevelId != null ? String(stageRows[0]?.schoolLevelId) : null,
+  };
+}
+
 function ok(data: unknown, init?: ResponseInit): Response {
   return Response.json({ success: true, data, error: null }, init);
 }
@@ -410,6 +431,7 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       const userDefaultRoleId = row.user_role_id ? String(row.user_role_id) : null;
       // data_role 未必有 role_code 字段；权限系统以 roleId 作为 code（初始化固定值）
       const userDefaultRoleCode = coerceRoleCode(userDefaultRoleId, row.role_name ? String(row.role_name) : null);
+      const mobileAuthContext = await loadMobileAuthContext(pool, userId);
 
       const [ctxRows] = await pool.query<RowDataPacket[]>(
         `SELECT ur.org_id, ur.role_id, o.org_name,
@@ -492,7 +514,14 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       }
 
       const tokens = createV2SessionTokens(
-        { userId, orgId: currentOrgId, roleId: currentRoleCode, roles: allRoleIds },
+        {
+          userId,
+          orgId: currentOrgId,
+          roleId: currentRoleCode,
+          roles: allRoleIds,
+          hasBinding: mobileAuthContext.hasBinding,
+          schoolLevelId: mobileAuthContext.schoolLevelId,
+        },
         allRoleIds,
       );
       const setCookies = buildAuthSetCookieHeaders(tokens);

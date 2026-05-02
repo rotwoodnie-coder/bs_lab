@@ -37,22 +37,31 @@ function base64UrlDecode(str: string): string {
   return output;
 }
 
-/** 从 v2_access_token cookie 中提取 role_id（不验证签名，仅 base64 解码 payload） */
-function decodeRoleFromCookie(req: NextRequest): string | null {
+type AccessTokenPayload = { role_id?: unknown; has_binding?: unknown };
+
+function decodeSessionFromCookie(req: NextRequest): { roleId: string | null; hasBinding: boolean } {
+  const bindingCookie = req.cookies.get("bs_has_binding");
+  const forcedBinding = bindingCookie?.value === "1";
+
   const cookie = req.cookies.get(TOKEN_COOKIE);
-  if (!cookie?.value) return null;
+  if (!cookie?.value) return { roleId: null, hasBinding: false };
   const dotIdx = cookie.value.indexOf(".");
-  if (dotIdx <= 0) return null;
+  if (dotIdx <= 0) return { roleId: null, hasBinding: false };
   const payloadB64 = cookie.value.slice(0, dotIdx);
   try {
-    const json = JSON.parse(base64UrlDecode(payloadB64));
-    return typeof json.role_id === "string" && json.role_id.length > 0 ? json.role_id : null;
+    const json = JSON.parse(base64UrlDecode(payloadB64)) as AccessTokenPayload;
+    const roleId = typeof json.role_id === "string" && json.role_id.length > 0 ? json.role_id : null;
+    const hasBinding = forcedBinding || json.has_binding === true;
+    return { roleId, hasBinding };
   } catch {
-    return null;
+    return { roleId: null, hasBinding: false };
   }
 }
 
-// ── 路径归一化 ──────────────────────────────────────────────
+function isParentRole(roleId: string | null): boolean {
+  const value = String(roleId ?? "").trim().toLowerCase();
+  return value === "role_parent" || value === "parent";
+}
 
 function normalizePath(pathname: string): string {
   const path = pathname.split("?")[0] || pathname;
@@ -69,83 +78,51 @@ function normalizePath(pathname: string): string {
   return "/" + resolved.join("/");
 }
 
-// ── 守卫规则 ────────────────────────────────────────────────
-
-const ALLOWED_PUBLIC_PREFIXES = [
-  "/_next",       // Next.js 静态资源
-  "/favicon",     // 图标
-  "/api/",        // 接口（后端已有权限校验）
-  "/v2/",         // 反向代理到后端
-  "/login",       // 登录页
-  "/__nextjs",    // Next.js 开发工具
-];
-
-/** 管理后台受保护路径前缀 */
-const PROTECTED_MANAGEMENT_PREFIXES = [
-  "/console/",
-  "/admin/",
-  "/researcher/",
-  "/ops/",
-];
+const ALLOWED_PUBLIC_PREFIXES = ["/_next", "/favicon", "/mockServiceWorker.js", "/api/", "/v2/", "/login", "/__nextjs"];
+const MOBILE_WHITELIST_PREFIXES = ["/m/login", "/m/bind/child"];
+const PROTECTED_MANAGEMENT_PREFIXES = ["/console/", "/admin/", "/researcher/", "/ops/"];
 
 function isPathAllowed(path: string, roleId: string | null): boolean {
-  // 公开路径一律放行
   if (ALLOWED_PUBLIC_PREFIXES.some((p) => path.startsWith(p))) return true;
-
-  // 未登录或会话过期，只允许公开路径
   if (!roleId) return false;
-
-  // 非管理路径放行
   if (!PROTECTED_MANAGEMENT_PREFIXES.some((p) => path.startsWith(p))) return true;
-
-  // ── 运维中心：仅超管 ──
-  if (path.startsWith("/console/operations/")) {
-    return roleId === "Role_Sys_Admin";
-  }
-
-  // ── 校管 ──
-  if (roleId === "Role_School_Admin") {
-    if (path.startsWith("/researcher/")) return false;
-    if (path.startsWith("/console/review/") && !path.startsWith("/console/review/student-works")) return false;
-    if (path.startsWith("/admin/")) return false;
-    return true;
-  }
-
-  // ── 教研员 ──
-  if (roleId === "Role_Researcher") {
-    if (path.startsWith("/console/settings/system/")) return false;
-    return true;
-  }
-
-  // 其他角色（教师、学生、家长、区管等）默认放行
   return true;
 }
-
-// ── 入口 ────────────────────────────────────────────────────
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const path = normalizePath(pathname);
+  const { roleId, hasBinding } = decodeSessionFromCookie(req);
+  console.log(`[MW] path=${req.nextUrl.pathname}, has_binding=${hasBinding}`);
 
-  // 公开路径直接放行
-  if (ALLOWED_PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))) {
+  if (ALLOWED_PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(p))) return NextResponse.next();
+  if (path === "/m/login" || path === "/m/bind/child") return NextResponse.next();
+
+  if (path.startsWith("/m")) {
+    if (!roleId) {
+      if (path === "/m/login") return NextResponse.next();
+      const url = req.nextUrl.clone();
+      url.pathname = "/m/login";
+      url.searchParams.set("redirect", "/m");
+      return NextResponse.redirect(url);
+    }
+    if (isParentRole(roleId) && !hasBinding) {
+      if (path === "/m/bind/child") return NextResponse.next();
+      const url = req.nextUrl.clone();
+      url.pathname = "/m/bind/child";
+      url.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(url);
+    }
     return NextResponse.next();
   }
 
-  const roleId = decodeRoleFromCookie(req);
-
   if (!isPathAllowed(path, roleId)) {
     const url = req.nextUrl.clone();
-    // 无角色 → 未登录，跳到登录页
-    // 有角色但无权 → 跳到首页
     url.pathname = roleId ? "/" : "/login";
     url.searchParams.set("redirect", pathname);
     return NextResponse.redirect(url);
   }
-
   return NextResponse.next();
 }
 
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
