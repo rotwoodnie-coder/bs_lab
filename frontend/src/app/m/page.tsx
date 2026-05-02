@@ -11,18 +11,18 @@ const HOME_DATA = {
     title: "风力实验 · 小明专属",
     subtitle: "大标题 + 风格化背景，轻松进入实验广场",
     list: [
-      { title: "安全实验：自制简易风向标", desc: "420s · 基础实验", href: "/m/video/video_demo", accent: "from-orange-400 to-amber-500" },
-      { title: "相关实验 1", desc: "360s · 推荐", href: "/m/video/video_demo_1", accent: "from-fuchsia-500 to-pink-500" },
-      { title: "创意材料：风车小屋", desc: "480s · 观察任务", href: "/m/video/video_demo", accent: "from-cyan-400 to-sky-500" },
+      { title: "安全实验：自制简易风向标", desc: "王老师 · 420s · 基础实验", href: "/m/video/video_demo", accent: "from-orange-400 to-amber-500" },
+      { title: "相关实验 1", desc: "王老师 · 360s · 推荐", href: "/m/video/video_demo_1", accent: "from-fuchsia-500 to-pink-500" },
+      { title: "创意材料：风车小屋", desc: "王老师 · 480s · 观察任务", href: "/m/video/video_demo", accent: "from-cyan-400 to-sky-500" },
     ],
   },
   student_002: {
     title: "光学实验 · 小红专属",
     subtitle: "大标题 + 风格化背景，轻松进入实验广场",
     list: [
-      { title: "安全实验：彩虹投影", desc: "360s · 基础实验", href: "/m/video/video_demo_1", accent: "from-rose-400 to-red-500" },
-      { title: "相关实验 2", desc: "480s · 推荐", href: "/m/video/video_demo", accent: "from-violet-500 to-purple-600" },
-      { title: "光影观察记录", desc: "300s · 课后打卡", href: "/m/video/video_demo_1", accent: "from-emerald-400 to-teal-500" },
+      { title: "安全实验：彩虹投影", desc: "王老师 · 360s · 基础实验", href: "/m/video/video_demo_1", accent: "from-rose-400 to-red-500" },
+      { title: "相关实验 2", desc: "王老师 · 480s · 推荐", href: "/m/video/video_demo", accent: "from-violet-500 to-purple-600" },
+      { title: "光影观察记录", desc: "王老师 · 300s · 课后打卡", href: "/m/video/video_demo_1", accent: "from-emerald-400 to-teal-500" },
     ],
   },
   teacher: {
@@ -30,12 +30,12 @@ const HOME_DATA = {
     subtitle: "更高信息密度的静态视频库，便于快速浏览与引用",
     searchHint: "搜索实验名称、年级、知识点",
     list: [
-      { title: "课堂演示：浮力实验", desc: "6 分钟 · 三年级 · 被引用 12 次", href: "/m/video/video_demo", accent: "from-sky-500 to-cyan-600" },
-      { title: "实验拆解：光的折射", desc: "8 分钟 · 四年级 · 被引用 9 次", href: "/m/video/video_demo_1", accent: "from-violet-500 to-fuchsia-600" },
-      { title: "安全规范：酒精灯使用", desc: "5 分钟 · 全学段 · 被引用 21 次", href: "/m/video/video_demo", accent: "from-emerald-500 to-teal-600" },
-      { title: "材料准备：纸风车课堂", desc: "7 分钟 · 二年级 · 被引用 12 次", href: "/m/video/video_demo_1", accent: "from-amber-500 to-orange-600" },
-      { title: "课后延伸：观察记录模板", desc: "4 分钟 · 三年级 · 被引用 5 次", href: "/m/video/video_demo", accent: "from-rose-500 to-pink-600" },
-      { title: "审核参考：作品评价示例", desc: "9 分钟 · 教师精选 · 被引用 18 次", href: "/m/video/video_demo_1", accent: "from-slate-500 to-slate-700" },
+      { title: "课堂演示：浮力实验", desc: "王老师 · 6 分钟 · 三年级 · 被引用 12 次", href: "/m/video/video_demo", accent: "from-sky-500 to-cyan-600" },
+      { title: "实验拆解：光的折射", desc: "王老师 · 8 分钟 · 四年级 · 被引用 9 次", href: "/m/video/video_demo_1", accent: "from-violet-500 to-fuchsia-600" },
+      { title: "安全规范：酒精灯使用", desc: "王老师 · 5 分钟 · 全学段 · 被引用 21 次", href: "/m/video/video_demo", accent: "from-emerald-500 to-teal-600" },
+      { title: "材料准备：纸风车课堂", desc: "王老师 · 7 分钟 · 二年级 · 被引用 12 次", href: "/m/video/video_demo_1", accent: "from-amber-500 to-orange-600" },
+      { title: "课后延伸：观察记录模板", desc: "王老师 · 4 分钟 · 三年级 · 被引用 5 次", href: "/m/video/video_demo", accent: "from-rose-500 to-pink-600" },
+      { title: "审核参考：作品评价示例", desc: "王老师 · 9 分钟 · 教师精选 · 被引用 18 次", href: "/m/video/video_demo_1", accent: "from-slate-500 to-slate-700" },
     ],
   },
   default: {
@@ -98,14 +98,6 @@ function HomeContent() {
           <p className="max-w-xl text-sm text-white/80">{headerSubtitle}</p>
           {isTeacher ? <TeacherSearchBar /> : null}
           <div className={cn("mt-4 grid gap-3", isTeacher ? "grid-cols-3" : isStudent && isPrimary ? "grid-cols-1" : "grid-cols-2")}>
-            <div className="rounded-3xl bg-white/15 p-4 backdrop-blur">
-              <div className="text-xs text-white/70">当前角色</div>
-              <div className="mt-1 text-lg font-semibold">{userContext?.role ?? "student"}</div>
-            </div>
-            <div className="rounded-3xl bg-white/15 p-4 backdrop-blur">
-              <div className="text-xs text-white/70">当前学段</div>
-              <div className="mt-1 text-lg font-semibold">{isPrimary ? "小学" : audience === "middle" ? "中学" : isTeacher ? "教师" : "通用"}</div>
-            </div>
             {isTeacher ? (
               <div className="rounded-3xl bg-white/15 p-4 backdrop-blur">
                 <div className="text-xs text-white/70">信息密度</div>

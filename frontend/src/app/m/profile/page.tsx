@@ -40,17 +40,17 @@ const PARENT_CHILDREN = [
 ];
 
 const STUDENT_PRIMARY_STATS = [
-  { label: "我的实验", value: "12", icon: "🧪", tone: "from-orange-400 to-amber-500" },
-  { label: "作业", value: "8", icon: "📚", tone: "from-emerald-400 to-green-500" },
-  { label: "作品", value: "5", icon: "🎨", tone: "from-sky-400 to-cyan-500" },
-  { label: "勋章积分", value: "320", icon: "🏅", tone: "from-fuchsia-400 to-rose-500" },
+  { label: "我的实验", value: "12 个实验", icon: "🧪", tone: "from-orange-400 to-amber-500" },
+  { label: "作业", value: "8 个作业", icon: "📚", tone: "from-emerald-400 to-green-500" },
+  { label: "作品", value: "5 个作品", icon: "🎨", tone: "from-sky-400 to-cyan-500" },
+  { label: "勋章积分", value: "320 积分", icon: "🏅", tone: "from-fuchsia-400 to-rose-500" },
 ] as const;
 
 const STUDENT_MIDDLE_STATS = [
-  { label: "我的实验", value: "12" },
-  { label: "作业", value: "8" },
-  { label: "作品", value: "5" },
-  { label: "勋章积分", value: "320" },
+  { label: "我的实验", value: "12 个实验" },
+  { label: "作业", value: "8 个作业" },
+  { label: "作品", value: "5 个作品" },
+  { label: "勋章积分", value: "320 积分" },
 ] as const;
 
 const STUDENT_PRIMARY_SHORTCUTS = [
@@ -299,6 +299,7 @@ export default function MobileProfilePage() {
   const roleLabel = userContext?.role?.replace(/^role_/i, "").toUpperCase() ?? "未知";
   const stageLabel = stage === "primary" ? "小学" : "中学";
   const colorDot = audience === "primary" ? "bg-amber-500" : audience === "middle" ? "bg-slate-500" : "bg-emerald-500";
+  const isTeacher = audience === "teacher";
 
   const sections =
     audience === "parent"
@@ -313,8 +314,9 @@ export default function MobileProfilePage() {
             { title: "班级管理", desc: "班级、分组与课堂组织" },
             { title: "作业/任务", desc: "布置与进度", href: "/m/tasks" },
             { title: "实验库", desc: "我的实验", href: "/m/experiments" },
-            { title: "审核中心", desc: "含待仲裁标记" },
+            { title: "审核中心 · 含小法庭待仲裁", desc: "作品审核与小法庭仲裁" },
             { title: "数据统计", desc: "课堂数据与完成率统计" },
+            { title: "设置", desc: "账号、通知与课堂偏好", href: "/m/settings" },
           ]
         : [
             { title: "我的实验", desc: "实验过程、记录与回看", href: "/m/experiments" },
@@ -336,10 +338,7 @@ export default function MobileProfilePage() {
             <div className={cn("h-12 w-12 rounded-full", colorDot)} />
             <div>
               <div className="font-semibold">{userContext?.userNickName ?? "未知用户"}</div>
-              <div className="text-xs text-muted-foreground">
-                {roleLabel}
-                {isStudent ? ` · ${stageLabel}` : ""}
-              </div>
+              <div className="text-xs text-muted-foreground">{isStudent ? stageLabel : roleLabel}</div>
             </div>
           </div>
           {isStudent ? <StudentSummaryStats stage={stage} /> : null}
@@ -411,6 +410,12 @@ export default function MobileProfilePage() {
                 ) : null}
               </MobileCard>
             ))}
+
+            <MobileCard title="设置" subtitle="账号、通知、隐私与偏好设置">
+              <Link href="/m/settings" className="inline-flex w-full items-center justify-center rounded-3xl bg-background px-4 py-4 text-base font-semibold text-foreground shadow-sm ring-1 ring-border transition active:scale-[0.99] hover:bg-muted/40">
+                前往设置
+              </Link>
+            </MobileCard>
           </div>
         </>
       ) : audience === "teacher" ? (
@@ -430,11 +435,6 @@ export default function MobileProfilePage() {
         <>
           <MobileCard title="学生功能" subtitle={stage === "primary" ? "小学版视觉更活泼" : "中学版信息更紧凑"}>
             <StudentShortcuts stage={stage} />
-          </MobileCard>
-          <MobileCard title="班级" subtitle="当前学生所在班级">
-            <div id="class" className="rounded-3xl border bg-background px-4 py-3 text-sm font-medium text-foreground">
-              三年级一班
-            </div>
           </MobileCard>
           <MobileCard title="最近动态" subtitle="静态数据模拟">
             <StudentUpdates stage={stage} />

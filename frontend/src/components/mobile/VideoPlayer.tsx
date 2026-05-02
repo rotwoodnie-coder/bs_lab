@@ -54,9 +54,13 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
     if (locked) return;
     const step = steps[index];
     const video = videoRef.current;
-    if (!step || !video) return;
+    if (!step || !video || !document.contains(video)) return;
     video.currentTime = step.time;
-    void video.play();
+    void video.play().catch(() => {
+      if (videoRef.current && document.contains(videoRef.current)) {
+        void videoRef.current.play().catch(() => undefined);
+      }
+    });
     setActiveIndex(index);
     speak(step.safetyNote);
   };
@@ -151,7 +155,9 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
               if (locked) {
                 event.preventDefault();
                 const video = event.currentTarget;
-                video.currentTime = steps[activeIndex]?.time ?? 0;
+                if (document.contains(video)) {
+                  video.currentTime = steps[activeIndex]?.time ?? 0;
+                }
               }
             }}
           />

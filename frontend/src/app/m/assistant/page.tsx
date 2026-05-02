@@ -10,6 +10,7 @@ export default function MobileAssistantPage() {
     <div className="space-y-4 p-4">
       <MobileCard title="魔法球" subtitle="AI 实验助手（骨架）">
         <div className="space-y-4 text-sm text-muted-foreground">
+          <p>🎮 小学版游戏化场景将在二期开放，敬请期待！</p>
           <p>在此输入你的实验想法，AI 会帮你生成步骤指导和注意事项。</p>
           <textarea
             value={input}
