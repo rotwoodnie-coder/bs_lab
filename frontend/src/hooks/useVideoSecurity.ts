@@ -13,6 +13,7 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
   const [state, setState] = useState<VideoSecurityState>("idle");
   const [safetyText, setSafetyText] = useState<string | null>(null);
   const timerRef = useRef<number | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const pendingUnlockRef = useRef(false);
   const fallbackShownRef = useRef(false);
@@ -23,6 +24,10 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
   }, []);
 
   const clearSpeech = useCallback(() => {
@@ -31,6 +36,16 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
     }
     speechRef.current = null;
   }, [supported]);
+
+  const showFallback = useCallback(
+    (text: string) => {
+      if (fallbackShownRef.current) return;
+      fallbackShownRef.current = true;
+      setState("locked");
+      options.onFallbackPrompt?.(text);
+    },
+    [options],
+  );
 
   const finalizeUnlock = useCallback(() => {
     clearTimer();
@@ -41,16 +56,6 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
     setSafetyText(null);
     setState("unlocked");
   }, [clearSpeech, clearTimer]);
-
-  const unlockIfReady = useCallback(() => {
-    if (pendingUnlockRef.current && countdown <= 0) {
-      finalizeUnlock();
-    }
-  }, [countdown, finalizeUnlock]);
-
-  useEffect(() => {
-    unlockIfReady();
-  }, [countdown, unlockIfReady]);
 
   const start = useCallback(
     (text: string | null) => {
@@ -66,18 +71,22 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
       }
 
       if (!supported) {
-        setState("locked");
-        options.onFallbackPrompt?.(text);
-        fallbackShownRef.current = true;
+        showFallback(text);
         return;
       }
 
-      const seconds = Math.max(2, Math.ceil(text.length / 6));
-      setCountdown(seconds);
-      setState("locking");
+      const voices = window.speechSynthesis.getVoices();
+      const hasChineseVoice = voices.some((voice) => /zh|cmn/i.test(voice.lang) || /中文|普通话|国语/.test(voice.name));
+      if (voices.length > 0 && !hasChineseVoice) {
+        showFallback(text);
+        return;
+      }
 
       const utterance = new SpeechSynthesisUtterance(text);
       speechRef.current = utterance;
+      utterance.volume = 1;
+      utterance.rate = 1;
+      utterance.lang = "zh-CN";
       utterance.onstart = () => setState("locked");
       utterance.onend = () => {
         pendingUnlockRef.current = true;
@@ -86,14 +95,21 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
       utterance.onerror = () => {
         pendingUnlockRef.current = true;
         setCountdown(0);
-        setState("locked");
-        if (!fallbackShownRef.current) {
-          fallbackShownRef.current = true;
-          options.onFallbackPrompt?.(text);
-        }
+        showFallback(text);
       };
 
+      window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
+      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+
+      fallbackTimerRef.current = window.setTimeout(() => {
+        if (!window.speechSynthesis.speaking) {
+          showFallback(text);
+        }
+      }, 500);
 
       timerRef.current = window.setInterval(() => {
         setCountdown((current) => {
@@ -106,14 +122,14 @@ export function useVideoSecurity(options: SecurityOptions = {}) {
         });
       }, 1000);
     },
-    [clearSpeech, clearTimer, options, supported],
+    [clearSpeech, clearTimer, showFallback, supported],
   );
 
   const manuallyConfirmSafety = useCallback(() => {
     pendingUnlockRef.current = true;
-    setCountdown((current) => current);
-    if (countdown <= 0) finalizeUnlock();
-  }, [countdown, finalizeUnlock]);
+    setCountdown(0);
+    finalizeUnlock();
+  }, [finalizeUnlock]);
 
   useEffect(() => {
     return () => {

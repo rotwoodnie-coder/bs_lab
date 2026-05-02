@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { useVideoSecurity } from "@/hooks/useVideoSecurity";
 
@@ -32,8 +32,9 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
   const resolvedSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : DEFAULT_VIDEO_URL;
 
   const overlayStyle = useMemo<CSSProperties>(() => ({ backdropFilter: "blur(2px)" }), []);
+  const isIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
-  const syncByTime = () => {
+  const syncByTime = useCallback(() => {
     if (locked) return;
     const video = videoRef.current;
     if (!video || steps.length === 0) return;
@@ -43,51 +44,74 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
       if (current >= steps[i].time) nextIndex = i;
     }
     setActiveIndex(nextIndex);
+  }, [locked, steps]);
+
+  const triggerWarmUp = () => {
+    let warmUp = new SpeechSynthesisUtterance("");
+    warmUp.volume = 0;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(warmUp);
+    speechSynthesis.cancel();
   };
 
-  const speak = (note: string | null) => {
-    if (!note) return;
-    security.start(note);
-  };
+  const speak = useCallback(
+    (note: string | null) => {
+      if (!note) return;
+      security.start(note);
+    },
+    [security],
+  );
 
-  const jumpTo = (index: number) => {
-    if (locked) return;
-    const step = steps[index];
-    const video = videoRef.current;
-    if (!step || !video || !document.contains(video)) return;
-    video.currentTime = step.time;
-    void video.play().catch(() => {
-      if (videoRef.current && document.contains(videoRef.current)) {
-        void videoRef.current.play().catch(() => undefined);
+  const jumpTo = useCallback(
+    (index: number) => {
+      if (locked) return;
+      const step = steps[index];
+      const video = videoRef.current;
+      if (!step || !video || !document.contains(video)) return;
+      video.currentTime = step.time;
+      void video.play().catch(() => {
+        if (videoRef.current && document.contains(videoRef.current)) {
+          void videoRef.current.play().catch(() => undefined);
+        }
+      });
+      setActiveIndex(index);
+      speak(step.safetyNote);
+    },
+    [locked, speak, steps],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (locked) {
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+        }
+        return;
       }
-    });
-    setActiveIndex(index);
-    speak(step.safetyNote);
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (locked) {
-      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
+        jumpTo(Math.max(0, activeIndex - 1));
       }
-      return;
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        jumpTo(Math.min(steps.length - 1, activeIndex + 1));
+      }
+    },
+    [activeIndex, jumpTo, locked, steps.length],
+  );
+
+  const handleStartExperiment = useCallback(() => {
+    triggerWarmUp();
+    const first = steps[0];
+    if (first?.safetyNote) {
+      speak(first.safetyNote);
     }
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      jumpTo(Math.max(0, activeIndex - 1));
-    }
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      jumpTo(Math.min(steps.length - 1, activeIndex + 1));
-    }
-  };
+  }, [speak, steps]);
 
   useEffect(() => {
     if (!isReady) return;
     const video = videoRef.current;
     console.log("video src:", video?.src, "networkState:", video?.networkState);
-    const first = steps[0];
-    if (first?.safetyNote) speak(first.safetyNote);
   }, [isReady]);
 
   useEffect(() => {
@@ -175,6 +199,9 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
           <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="flex-1 rounded-full bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm disabled:opacity-50">
             上一步
           </button>
+          <button onClick={handleStartExperiment} disabled={locked} className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:opacity-50">
+            开始实验
+          </button>
           <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="flex-1 rounded-full bg-orange-500 px-4 py-3 text-sm font-black text-white shadow-sm disabled:opacity-50">
             下一步
           </button>
@@ -189,18 +216,21 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
           {typeof duration === "number" ? <p className="mt-2 text-xs text-slate-400">总时长 {duration}s</p> : null}
           {!security.isSupported ? <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">当前浏览器不支持语音播报，请手动确认安全提示后继续。</p> : null}
           {fallbackPrompt ? (
-            <div className="mt-3 rounded-2xl bg-orange-50 px-3 py-3 text-sm leading-6 text-orange-800">
-              <div>{fallbackPrompt}</div>
-              <button
-                type="button"
-                onClick={() => {
-                  security.manuallyConfirmSafety();
-                  setFallbackPrompt(null);
-                }}
-                className="mt-3 rounded-full bg-orange-500 px-4 py-2 text-xs font-bold text-white"
-              >
-                我已阅读安全提示
-              </button>
+            <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 md:items-center">
+              <div className="w-full max-w-md rounded-[28px] bg-white/95 p-5 shadow-2xl backdrop-blur md:p-6">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">安全提示</div>
+                <div className="mt-3 text-sm leading-7 text-slate-700">{fallbackPrompt}</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    security.manuallyConfirmSafety();
+                    setFallbackPrompt(null);
+                  }}
+                  className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-bold text-white"
+                >
+                  我已阅读安全提示
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
@@ -208,6 +238,9 @@ export function VideoPlayer({ src, steps, title, coverUrl, duration }: Props) {
         <div className="flex gap-3 md:flex-row">
           <button onClick={() => jumpTo(Math.max(0, activeIndex - 1))} disabled={locked || activeIndex === 0} className="hidden flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition disabled:opacity-50 md:block">
             上一步
+          </button>
+          <button onClick={handleStartExperiment} disabled={locked} className="hidden flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 md:block">
+            开始实验
           </button>
           <button onClick={() => jumpTo(Math.min(steps.length - 1, activeIndex + 1))} disabled={locked || activeIndex >= steps.length - 1} className="hidden flex-1 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 md:block">
             下一步
