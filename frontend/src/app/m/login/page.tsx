@@ -84,9 +84,21 @@ export default function MobileLoginPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username: loginName, password: loginPwd, role: selectedRole }),
       });
-      let payload: LoginResponse;
-      if (!response.ok) throw new Error(`login failed: ${response.status}`);
-      payload = (await response.json()) as LoginResponse;
+      if (!response.ok) {
+        if (process.env.NODE_ENV === "development") {
+          const fallback = buildMockLoginResponse(selectedRole);
+          const data = fallback.data ?? {};
+          const token = data.token ?? data.accessToken ?? data.access_token;
+          if (!token) throw new Error("missing token");
+          setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? null);
+          if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
+          await refreshUserContext();
+          router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
+          return;
+        }
+        throw new Error(response.status === 401 || response.status === 403 ? "账号或密码错误" : `login failed: ${response.status}`);
+      }
+      const payload = (await response.json()) as LoginResponse;
       const data = payload.data ?? {};
       const token = data.token ?? data.accessToken ?? data.access_token;
       if (!token) throw new Error("missing token");
@@ -95,17 +107,8 @@ export default function MobileLoginPage() {
       await refreshUserContext();
       router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
     } catch (error) {
-      const fallback = buildMockLoginResponse(selectedRole);
-      const data = fallback.data ?? {};
-      const token = data.token ?? data.accessToken ?? data.access_token;
-      if (token) {
-        setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? null);
-        if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
-        await refreshUserContext();
-        router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
-        return;
-      }
-      throw error;
+      const message = error instanceof Error ? error.message : "登录失败";
+      window.alert(message);
     } finally {
       setLoading(false);
     }

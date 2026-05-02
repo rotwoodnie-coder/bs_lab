@@ -139,15 +139,25 @@ export function MobileProvider({ children }: { children: ReactNode }) {
   const refreshUserContext = async () => {
     try {
       const response = await fetch("/v2/auth/profile", { method: "GET", credentials: "include" });
-      if (!response.ok) throw new Error(`profile failed: ${response.status}`);
+      if (!response.ok) {
+        if (process.env.NODE_ENV === "development") {
+          const mock = buildMockProfile();
+          setUserContext(mock);
+          return mock;
+        }
+        throw new Error(`profile failed: ${response.status}`);
+      }
       const payload = (await response.json()) as ProfileResponse;
       const normalized = normalizeProfileResponse(payload);
       setUserContext(normalized);
       return normalized;
     } catch {
-      const mock = buildMockProfile();
-      setUserContext(mock);
-      return mock;
+      if (process.env.NODE_ENV === "development") {
+        const mock = buildMockProfile();
+        setUserContext(mock);
+        return mock;
+      }
+      throw new Error("获取用户信息失败，请重新登录");
     }
   };
 
