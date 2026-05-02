@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMobileContext } from "@/contexts/MobileContext";
 import { resolveMobileAudience } from "@/components/mobile/mobile-role";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,17 @@ const MAGIC_PROFESSOR = {
     default: "选择一个实验卡片，魔法教授会继续提示你。",
   },
 } as const;
+
+function TeacherSearchBar() {
+  return (
+    <div className="rounded-[1.5rem] border border-white/15 bg-white/10 p-3 backdrop-blur">
+      <div className="flex items-center gap-3 rounded-[1.25rem] bg-white/95 px-4 py-3 text-slate-500 shadow-inner">
+        <span className="text-lg">🔎</span>
+        <span className="text-sm">搜索实验名称、年级、知识点</span>
+      </div>
+    </div>
+  );
+}
 
 const HOME_DATA = {
   student_001: {

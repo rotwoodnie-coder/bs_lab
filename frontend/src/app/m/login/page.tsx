@@ -1,14 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MobileCard } from "@/components/mobile/MobileCard";
 import { useMobileContext } from "@/contexts/MobileContext";
 
 const ROLE_OPTIONS = [
-  { id: "parent", label: "家长", hint: "未绑定时跳转绑定页", defaultHasBinding: false },
-  { id: "student", label: "学生", hint: "直接进入移动端", defaultHasBinding: true },
-  { id: "teacher", label: "老师", hint: "直接进入移动端", defaultHasBinding: true },
+  { id: "parent", label: "家长", defaultHasBinding: false },
+  { id: "student", label: "学生", defaultHasBinding: true },
+  { id: "teacher", label: "老师", defaultHasBinding: true },
 ] as const;
 
 type LoginRole = (typeof ROLE_OPTIONS)[number]["id"];
@@ -50,8 +50,6 @@ export default function MobileLoginPage() {
   const [loginPwd, setLoginPwd] = useState("123456");
   const [loading, setLoading] = useState(false);
 
-  const activeRoleMeta = useMemo(() => ROLE_OPTIONS.find((item) => item.id === selectedRole) ?? ROLE_OPTIONS[0], [selectedRole]);
-
   const submit = async () => {
     setLoading(true);
     try {
@@ -67,7 +65,7 @@ export default function MobileLoginPage() {
 
   return (
     <div className="p-4">
-      <MobileCard title="登录页" subtitle="使用静态逻辑切换角色，验证 UI 分流">
+      <MobileCard title="登录">
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
             {ROLE_OPTIONS.map((item) => {
@@ -79,14 +77,9 @@ export default function MobileLoginPage() {
                   className={`rounded-[28px] border px-4 py-5 text-left transition ${active ? "border-primary bg-primary/10 shadow-sm" : "border-border bg-background hover:bg-muted/50"}`}
                 >
                   <div className="text-lg font-semibold">{item.label}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">{item.hint}</div>
                 </button>
               );
             })}
-          </div>
-
-          <div className="rounded-3xl bg-muted/40 p-4 text-sm text-muted-foreground">
-            当前选中：<span className="font-semibold text-foreground">{activeRoleMeta.label}</span>。学生/老师直接进入，家长按绑定状态决定是否进入绑定页。
           </div>
 
           <input className="w-full rounded-2xl border px-4 py-3" value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="登录名" />

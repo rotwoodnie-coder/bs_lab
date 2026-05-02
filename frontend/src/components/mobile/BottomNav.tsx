@@ -11,8 +11,10 @@ const items = [
   { href: "/m/profile", label: "我的", icon: "👤", kidIcon: "🐣", middleIcon: "🧑‍🎓" },
 ] as const;
 
+const HIDDEN_ROUTES = ["/m/login", "/m/bind/child", "/m/bind/success"] as const;
+
 function isActivePath(pathname: string, href: string) {
-  if (href === "/m") return pathname === "/m" || pathname.startsWith("/m/");
+  if (href === "/m") return pathname === "/m" || pathname === "/m/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -21,6 +23,9 @@ export function BottomNav() {
   const { getSchoolStage } = useMobileContext();
   const variant = getSchoolStage();
   const isPrimary = variant === "primary";
+  const hide = HIDDEN_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+
+  if (hide) return null;
 
   return (
     <nav
