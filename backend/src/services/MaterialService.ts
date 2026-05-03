@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { getMysqlPool } from "../infrastructure/mysql/mysql-client.ts";
 import { resolveVarchar32PrimaryKey } from "../infrastructure/ids/identifiable-varchar32.ts";
 import { sanitizeAndNormalizeRichText } from "../utils/text.ts";
-import { getPublicObjectUrl, tryStorageKeyFromFileUrl } from "../infrastructure/storage/s3-storage.ts";
+import { presignPublicUrl, tryStorageKeyFromFileUrl } from "../infrastructure/storage/s3-storage.ts";
 import type {
   MaterialMsgRecord,
   MaterialPicRecord,
@@ -34,11 +34,12 @@ function normalizeText(input: unknown, maxLen: number, code: MaterialServiceErro
   return text;
 }
 
-function materializeMaterialUrl(rawUrl: string | null): string | null {
+async function materializeMaterialUrl(rawUrl: string | null): Promise<string | null> {
   const raw = rawUrl?.trim();
   if (!raw) return null;
   const storageKey = tryStorageKeyFromFileUrl(raw);
-  return storageKey ? getPublicObjectUrl(storageKey) : raw;
+  if (!storageKey) return raw;
+  return presignPublicUrl(storageKey, 3600);
 }
 
 function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
@@ -51,7 +52,7 @@ function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
     materialUnitId: null,
     materialUnitName: null,
     materialNum: row.material_num ?? null,
-    mainPicUrl: materializeMaterialUrl(row.main_pic_url ? String(row.main_pic_url) : null),
+    mainPicUrl: row.main_pic_url ? String(row.main_pic_url) : null,
     expPurpose: row.exp_purpose ? String(row.exp_purpose) : null,
     additionalComments: row.additional_comments ? String(row.additional_comments) : null,
     comments: row.comments ? String(row.comments) : null,
@@ -63,6 +64,22 @@ function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
     updateUserId: row.update_user_id ? String(row.update_user_id) : null,
     updateTime: row.update_time ? String(row.update_time) : null,
     isDeleted: Number(row.is_deleted ?? 0) as 0 | 1,
+  };
+}
+
+// 注：对 MaterialMsgRecord 中所有 URL 字段做预签名
+async function presignMaterialRecord(rec: MaterialMsgRecord): Promise<MaterialMsgRecord> {
+  return {
+    ...rec,
+    mainPicUrl: await materializeMaterialUrl(rec.mainPicUrl),
+  };
+}
+
+// 注：对 MaterialPicRecord 做预签名
+async function presignMaterialPic(pic: MaterialPicRecord): Promise<MaterialPicRecord> {
+  return {
+    ...pic,
+    materialUrl: await materializeMaterialUrl(pic.materialUrl),
   };
 }
 
@@ -95,10 +112,34 @@ async function getMaterialDetail(connOrPool: ReturnType<typeof getMysqlPool> | P
     pics: (pics as RowDataPacket[]).map((r) => ({
       seqId: String(r.seq_id),
       materialId: String(r.material_id),
-      materialUrl: materializeMaterialUrl(r.material_url ? String(r.material_url) : null),
+      materialUrl: r.material_url ? String(r.material_url) : null,
       sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
       createTime: r.create_time ? String(r.create_time) : null,
     } as MaterialPicRecord)),
+    securities: (secs as RowDataPacket[]).map((r) => ({
+      seqId: String(r.seq_id),
+      materialId: String(r.material_id),
+      securityId: String(r.security_id),
+      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
+      createTime: r.create_time ? String(r.create_time) : null,
+    } as MaterialSecurityRecord)),
+  };
+
+  // 对主记录和 pics 预签名
+  const [signedBase, signedPics] = await Promise.all([
+    presignMaterialRecord(base),
+    Promise.all((pics as RowDataPacket[]).map(async (r) => presignMaterialPic({
+      seqId: String(r.seq_id),
+      materialId: String(r.material_id),
+      materialUrl: r.material_url ? String(r.material_url) : null,
+      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
+      createTime: r.create_time ? String(r.create_time) : null,
+    } as MaterialPicRecord))),
+  ]);
+
+  return {
+    ...signedBase,
+    pics: signedPics,
     securities: (secs as RowDataPacket[]).map((r) => ({
       seqId: String(r.seq_id),
       materialId: String(r.material_id),
@@ -155,7 +196,10 @@ export async function getMaterialList(query: MaterialListQuery): Promise<Materia
     [...params, pageSize, offset],
   );
 
-  return { items: rows.map(rowToMaterial), total, page, pageSize };
+  const items = rows.map(rowToMaterial);
+  // 注：批量预签名列表中的主封面 URL
+  const presignedItems = await Promise.all(items.map((item) => presignMaterialRecord(item)));
+  return { items: presignedItems, total, page, pageSize };
 }
 
 export async function saveMaterial(input: SaveMaterialInput, actorId?: string): Promise<MaterialMsgRecord> {

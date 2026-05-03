@@ -49,21 +49,21 @@ export function MediaPreviewDialog({ item, actor, open, onOpenChange }: Props) {
             {isImage && previewSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={sourceSrc || previewSrc}
+                src={materialStorageBrowserHref(sourceSrc || previewSrc)}
                 alt={item.title}
                 className="max-h-[60vh] max-w-full object-contain"
               />
             ) : previewSrc && (isPdf || isOffice) ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={previewSrc}
+                src={materialStorageBrowserHref(previewSrc)}
                 alt={item.title}
                 className="max-h-[60vh] max-w-full object-contain opacity-60"
               />
             ) : previewSrc ? (
               <MediaPreview
                 kind="image"
-                src={previewSrc}
+                src={materialStorageBrowserHref(previewSrc)}
                 alt={item.title}
                 className="max-h-[60vh] max-w-full"
               />

@@ -12,7 +12,7 @@ import {
   updateMainFileCover,
   validateParentIsMainFile,
 } from "../../infrastructure/repositories/v2-file-repository.ts";
-import { putObject, getPublicObjectUrl } from "../../infrastructure/storage/s3-storage.ts";
+import { putObject, createPublicPresignedReadUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 const POSTER_MAX_BYTES = 500 * 1024;
 
@@ -73,7 +73,7 @@ export async function persistClientPosterFile(
   const key = `v2/${ownerSegment}/poster/${id}-${randomUUID().slice(0, 8)}.${ext}`;
 
   await putObject(key, buf, contentType);
-  const coverFileUrl = getPublicObjectUrl(key);
+  const coverFileUrl = await createPublicPresignedReadUrl(key, { action: "view", expiresInSeconds: 3600 });
 
   // 计算封面 SHA，创建封面子行
   const contentSha256 = createHash("sha256").update(buf).digest("hex");

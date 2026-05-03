@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { getMysqlPool } from "../infrastructure/mysql/mysql-client.ts";
 import { resolveVarchar32PrimaryKey } from "../infrastructure/ids/identifiable-varchar32.ts";
 import { sanitizeAndNormalizeRichText } from "../utils/text.ts";
+import { presignPublicUrl } from "../infrastructure/storage/s3-storage.ts";
 import type {
   ExpMsgDetail,
   ExpMsgListQuery,
@@ -129,7 +130,38 @@ async function replaceMaterials(conn: PoolConnection, expId: string, materials: 
   }
 }
 
-async function getExpDetail(connOrPool: Pool | PoolConnection, expId: string): Promise<ExpMsgDetail | null> {
+// 注：对 ExpMsgRecord 中所有 URL 字段做预签名（simulatorUrl / logoUrl / coverVideoUrl）
+async function presignExpMsgRecord<T extends ExpMsgRecord>(rec: T): Promise<T> {
+  const [simulatorUrl, logoUrl, coverVideoUrl] = await Promise.all([
+    presignPublicUrl(rec.simulatorUrl, 3600),
+    presignPublicUrl(rec.logoUrl, 3600),
+    presignPublicUrl(rec.coverVideoUrl, 3600),
+  ]);
+  return { ...rec, simulatorUrl, logoUrl, coverVideoUrl };
+}
+
+// 注：对 ExpMsgDetail 中所有子记录 URL 字段预签名（videoUrl / picUrl / mainPicUrl）
+async function presignExpDetail(detail: ExpMsgDetail): Promise<ExpMsgDetail> {
+  const presigned = await presignExpMsgRecord(detail);
+  const [videos, pics, materials] = await Promise.all([
+    Promise.all(
+      presigned.videos.map(async (v) => ({ ...v, videoUrl: await presignPublicUrl(v.videoUrl, 3600) })),
+    ),
+    Promise.all(
+      presigned.pics.map(async (p) => ({ ...p, picUrl: await presignPublicUrl(p.picUrl, 3600) })),
+    ),
+    Promise.all(
+      presigned.materials.map(async (m) => ({ ...m, mainPicUrl: await presignPublicUrl(m.mainPicUrl, 3600) })),
+    ),
+  ]);
+  return { ...presigned, videos, pics, materials };
+}
+
+export async function getExpDetail(
+  connOrPool: Pool | PoolConnection,
+  expId: string,
+  options?: { presign?: boolean },
+): Promise<ExpMsgDetail | null> {
   const runner = "query" in connOrPool ? connOrPool : getMysqlPool();
   const [rows] = await runner.query<RowDataPacket[]>(
     `SELECT m.*, owner.user_name AS display_owner_name
@@ -147,7 +179,7 @@ async function getExpDetail(connOrPool: Pool | PoolConnection, expId: string): P
   const [refs] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_reference WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId]);
   const [scientists] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_scientist WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId]);
 
-  return {
+  const detail: ExpMsgDetail = {
     ...base,
     videos: (videos as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null } as ExpVideoRecord)),
     pics: (pics as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), picUrl: r.pic_url ? String(r.pic_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null } as ExpPicRecord)),
@@ -157,6 +189,11 @@ async function getExpDetail(connOrPool: Pool | PoolConnection, expId: string): P
     references: (refs as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expId: String(r.exp_id), referenceName: r.reference_name ? String(r.reference_name) : null, referenceSource: r.reference_source ? String(r.reference_source) : null, referenceComments: r.reference_comments ? String(r.reference_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpReferenceRecord)),
     scientists: (scientists as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expId: String(r.exp_id), scientistName: r.scientist_name ? String(r.scientist_name) : null, storyName: r.story_name ? String(r.story_name) : null, storyComments: r.story_comments ? String(r.story_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpScientistRecord)),
   };
+
+  if (options?.presign !== false) {
+    return presignExpDetail(detail);
+  }
+  return detail;
 }
 
 export async function getExpList(query: ExpMsgListQuery) {
@@ -249,8 +286,6 @@ export async function saveExp(input: (CreateExpMsgInput | PutExpMsgDraftInput) &
     conn.release();
   }
 }
-
-export { getExpDetail };
 
 /** 实验列表聚合统计（按学科/年级分组计数），用于学科树显示各级统计数字 */
 export async function getExpStats(): Promise<{

@@ -72,7 +72,7 @@ async function presignLogoUrlFromRecord(rawLogoUrl: string | null | undefined): 
 }
 
 async function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null; ownerAvatarUrl?: string | null }>(record: T): Promise<T> {
-  const fileUrl = normalizeStoredOrPublicUrl(record.fileUrl);
+  const fileUrl = await presignPublicUrl(record.fileUrl);
   const logoUrl = await presignLogoUrlFromRecord(record.logoUrl);
   const ownerAvatarUrl = await presignPublicUrl(record.ownerAvatarUrl);
   return {
