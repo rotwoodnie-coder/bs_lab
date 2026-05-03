@@ -257,6 +257,12 @@ function fail(msg: string, status = 400): Response {
   return Response.json({ success: false, data: null, error: { message: msg } }, { status });
 }
 
+/** 剥离完整 URL 的查询参数部分。适用于预签名 URL → 原始 materialized URL。 */
+function stripUrlQuery(url: string): string {
+  const qi = url.indexOf("?");
+  return qi >= 0 ? url.slice(0, qi) : url;
+}
+
 function hashPwd(plain: string): string {
   return bcrypt.hashSync(plain, 10);
 }
@@ -685,8 +691,10 @@ export async function routeV2Auth(req: Request): Promise<Response> {
 
       const pool = getMysqlPool();
 
-      // 注：前端发来的 userLogo 可能是预签名长 URL，需提取原始 storage key 再存库
-      const shortKey = body.userLogo ? (tryStorageKeyFromFileUrl(body.userLogo) || body.userLogo) : null;
+      // 注：前端发来的 userLogo 可能是预签名长 URL（含 ?X-Amz-* 查询参数，远超 user_logo varchar(200) 上限），
+      // 先无条件剥离查询参数，再尝试提取 storage key；都无法提取时至少保留短 materialized URL。
+      const cleanUrl = body.userLogo ? stripUrlQuery(body.userLogo) : null;
+      const shortKey = cleanUrl ? (tryStorageKeyFromFileUrl(cleanUrl) || cleanUrl) : null;
 
       await pool.query(
         `UPDATE sys_user SET user_logo = ?, update_user_id = ?, update_time = NOW()

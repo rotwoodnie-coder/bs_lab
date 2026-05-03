@@ -8,10 +8,10 @@ export PATH="/www/server/nodejs/v22.22.2/bin:/usr/local/sbin:/usr/local/bin:/usr
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# 从根目录 .env.local 提取 MinIO 相关变量，避免全量 source 污染 NODE_ENV 等
+# 从根目录 .env.local 提取 MinIO 相关变量及 NODE_ENV（兜底），避免全量 source 污染
 if [[ -f "$PROJECT_ROOT/.env.local" ]]; then
   # 用 grep+sed 提取指定行，tr -d '\r' 剥离 CRLF
-  eval "$(grep -E '^(MINIO_|MEDIA_APP_)' "$PROJECT_ROOT/.env.local" | tr -d '\r' | sed 's/^/export /')"
+  eval "$(grep -E '^(MINIO_|MEDIA_APP_|NODE_ENV)' "$PROJECT_ROOT/.env.local" | tr -d '\r' | sed 's/^/export /')"
 else
   echo "[start-with-env] WARN: .env.local not found at $PROJECT_ROOT/.env.local"
 fi

@@ -15,6 +15,11 @@ function minioStoredUrlPrefix(): string {
  * 仅允许以当前服务配置的 MinIO 公共前缀开头的地址，防止开放重定向。
  * 对对象做 **同源流式直出**（200 + body），避免 302 到预签名内网地址时 `<img>` / `<video poster>` 的二次往返与裂图。
  */
+/**
+ * @deprecated 不再在新代码中使用。后端现已直接下发预签名 URL（?X-Amz-Signature），
+ * 前端只需直接放入 <img>/<video> 的 src 即可。本路由仅作为兼容保留，
+ * 供旧数据或缓存中还包含代理路径时临时降级。新开发中不应再产生到此路由的引用。
+ */
 export async function GET(request: Request) {
   const reqUrl = new URL(request.url);
   const u = reqUrl.searchParams.get("u");

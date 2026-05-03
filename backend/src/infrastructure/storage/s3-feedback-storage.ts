@@ -89,3 +89,29 @@ export function getFeedbackDirectUrl(storageKey: string): string {
   const bucket = getConfig().bucket;
   return `${endpoint}/${bucket}/${normalizeKey(storageKey)}`;
 }
+
+/**
+ * 生成反馈图片的公网可访问预签名 URL（隔离桶 bs-lab-feedback）。
+ * 与主业务桶的 createPublicPresignedReadUrl 逻辑一致，但使用反馈桶配置。
+ */
+export async function createFeedbackPublicPresignedReadUrl(
+  storageKey: string,
+  options?: { action?: "view" | "download"; expiresInSeconds?: number },
+): Promise<string> {
+  const endpoint = (process.env.MINIO_PUBLIC_URL ?? process.env.MINIO_ENDPOINT ?? "http://localhost:9000").replace(/\/+$/, "");
+  const bucket = (process.env.MINIO_FEEDBACK_BUCKET ?? "bs-lab-feedback").trim();
+  const presignClient = new S3Client({
+    region: getConfig().region,
+    endpoint,
+    forcePathStyle: true,
+    credentials: getConfig().credentials,
+  });
+  const action = options?.action ?? "view";
+  const command = new GetObjectCommand({
+    Bucket: bucket,
+    Key: normalizeKey(storageKey),
+    ResponseContentDisposition: action === "download" ? "attachment" : "inline",
+  });
+  const expiresIn = Math.min(3600, Math.max(60, options?.expiresInSeconds ?? 3600));
+  return getSignedUrl(presignClient, command, { expiresIn });
+}

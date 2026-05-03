@@ -42,6 +42,8 @@ function spawnEnvForNodeChild() {
     if (kept.length) env.NODE_OPTIONS = kept.join(" ");
     else delete env.NODE_OPTIONS;
   }
+  // 开发环境强制为 development，避免 .env.local 中误写 NODE_ENV=production
+  env.NODE_ENV = "development";
   return env;
 }
 

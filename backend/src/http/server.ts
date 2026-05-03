@@ -36,17 +36,47 @@ import { routeV2Version } from "./routes/v2-version.ts";
 import { parseCookies, verifyV2AccessToken } from "../lib/auth/v2-session.ts";
 
 const port = Number(process.env.PORT ?? 4100);
+const NODE_ENV = (process.env.NODE_ENV ?? "development").trim();
 
-function warnIfMinioEndpointIsLocalhostInProduction(): void {
-  const endpoint = (process.env.MINIO_ENDPOINT ?? "http://localhost:9000").trim();
-  const isProd = process.env.NODE_ENV === "production";
-  const isLocalhost = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(endpoint);
-  if (isProd && isLocalhost) {
-    console.error("\x1b[31m%s\x1b[0m", `[bootstrap] MINIO_ENDPOINT is localhost in production: ${endpoint}. 请切换为可被宝山内测服务器访问的对象存储地址。`);
+/**
+ * 启动前环境校验：确保生产环境配置正确，开发环境不会误连生产资源。
+ */
+function validateBootstrapEnvironment(): void {
+  const isProd = NODE_ENV === "production";
+
+  // １）生产环境必须配置 MINIO_PUBLIC_URL，否则预签名 URL 指向内网地址不可用
+  if (isProd) {
+    const endpoint = (process.env.MINIO_ENDPOINT ?? "http://localhost:9000").trim();
+    const isLocalhost = /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(endpoint);
+    if (isLocalhost) {
+      console.error("\x1b[31m%s\x1b[0m", `[bootstrap] MINIO_ENDPOINT is localhost in production: ${endpoint}. 请切换为可被宝山内测服务器访问的对象存储地址。`);
+    }
+
+    const publicUrl = (process.env.MINIO_PUBLIC_URL ?? "").trim();
+    if (!publicUrl) {
+      console.error(
+        "\x1b[31m%s\x1b[0m",
+        "[bootstrap] 生产环境必须配置 MINIO_PUBLIC_URL（如 https://lab.aliberg.cn），否则预签名 URL 指向内网地址不可用。",
+      );
+      process.exit(1);
+    }
+  }
+
+  // ２）非 production 环境：检查是否误连了生产数据库
+  if (!isProd) {
+    const dbUrl = (process.env.DATABASE_URL ?? "").toLowerCase();
+    const dbName = (process.env.DB_NAME ?? "").toLowerCase();
+    const hasProdMarker = dbUrl.includes("_prod") || dbName.includes("_prod");
+    if (hasProdMarker) {
+      console.error(
+        "\x1b[33m%s\x1b[0m",
+        `[bootstrap] ⚠️  警告：当前 NODE_ENV=${NODE_ENV}，但数据库连接指向了含 "_prod" 的库（${dbUrl || dbName}）。确认是否意图操作生产数据。`,
+      );
+    }
   }
 }
 
-warnIfMinioEndpointIsLocalhostInProduction();
+validateBootstrapEnvironment();
 
 function normalizeIncomingCoreUrl(rawUrl: string | undefined): string {
   const pathAndQuery = rawUrl && rawUrl.length > 0 ? rawUrl : "/";
@@ -61,7 +91,7 @@ function normalizeIncomingCoreUrl(rawUrl: string | undefined): string {
 function buildCorsHeaders(origin: string | null): HeadersInit {
   const allowedOrigins = (process.env.ALLOWED_ORIGINS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const requestOrigin = origin && origin.trim().length > 0 ? origin.trim() : null;
-  const isProd = process.env.NODE_ENV === "production";
+  const isProd = NODE_ENV === "production";
   const matchedOrigin = requestOrigin && allowedOrigins.includes(requestOrigin) ? requestOrigin : null;
 
   // 开发环境：若未配置白名单，直接回显请求 Origin，避免前后端分离调试时 CORS 空值。
@@ -137,7 +167,7 @@ createServer(async (req, res) => {
   const incomingHeaders = { ...(req.headers as HeadersInit), "x-trace-id": traceId } as Record<string, string>;
   const pathname = normalizedUrl.split("?")[0] ?? "";
   const allowHeaderActor =
-    process.env.ALLOW_HEADER_ACTOR === "true" && process.env.NODE_ENV !== "production";
+    process.env.ALLOW_HEADER_ACTOR === "true" && NODE_ENV !== "production";
   const isAuthRoute = pathname.startsWith("/v2/auth/");
 
   if (!allowHeaderActor && !isAuthRoute) {

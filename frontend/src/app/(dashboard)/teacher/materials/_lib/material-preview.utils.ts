@@ -11,30 +11,23 @@ import type { MaterialPreviewPayload } from "./material-preview.types";
 const FALLBACK_PREVIEW_URL = "/illustrations/media-missing.svg";
 
 /**
- * 可作为 `<img src>` 且无需 Cookie 的地址：站内路径、`/api/materials/open`、registry 代理。
- * 裸 `http(s)://…`（常见为 MinIO 直链）在私有桶下浏览器加载会失败，不应作为列表缩略图首选。
+ * 可作为 `<img src>` 且无需 Cookie 的地址。
+ * 后端现已下发预签名 URL（完整 http(s) 带 ?X-Amz-Signature），
+ * 可直接作为 `<img src>`；外部资源 URL 同样可直接嵌入。
  */
 export function isEmbeddableWithoutCookie(href: string): boolean {
   const t = href.trim();
   if (!t) return false;
   if (t.includes("/api/media/registry-stream")) return true;
-  if (t.startsWith("/api/materials/open")) return true;
+  if (t.startsWith("http://") || t.startsWith("https://")) return true;
   if (t.startsWith("/") && !t.startsWith("//")) return true;
   return false;
 }
 
-/** 从同源代理路径还原库内 MinIO 直链，供后缀推断类型。 */
+/** 后端已预签名，直接返回原值，供后缀推断。 */
 function storageUrlFromBrowserHref(href: string): string | null {
   const t = href.trim();
   if (t.startsWith("http://") || t.startsWith("https://")) return t;
-  if (t.startsWith("/api/materials/open?")) {
-    try {
-      const raw = new URL(t, "http://localhost").searchParams.get("u");
-      return raw?.trim() || null;
-    } catch {
-      return null;
-    }
-  }
   return null;
 }
 

@@ -63,6 +63,9 @@ function mergeRepoRootEnvLocal(baseEnv) {
 function spawnNextDev() {
   const childEnv = mergeRepoRootEnvLocal(spawnEnvForNodeChild());
 
+  // 开发环境强制为 development，避免 .env.local 中误写 NODE_ENV=production
+  childEnv.NODE_ENV = "development";
+
   // 透传 MINIO_ENDPOINT → NEXT_PUBLIC_MINIO_ENDPOINT、MINIO_PUBLIC_URL → NEXT_PUBLIC_MINIO_PUBLIC_URL
   if (childEnv.MINIO_ENDPOINT?.trim()) {
     childEnv.NEXT_PUBLIC_MINIO_ENDPOINT = childEnv.MINIO_ENDPOINT.trim();

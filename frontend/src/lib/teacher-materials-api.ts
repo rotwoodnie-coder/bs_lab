@@ -138,16 +138,11 @@ function isUsableDirectUrl(s: string): boolean {
   return t.startsWith("http://") || t.startsWith("https://") || t.startsWith("/");
 }
 
-/** 解析 `data_file.logo_url`：纯 URL 或 storage key */
+/** 解析 `data_file.logo_url`：后端已预签名，直接透传 */
 function parseDataFileLogoMeta(raw: string | null | undefined): { coverDisplayHref: string | null } {
   const t = (raw ?? "").trim();
   if (!t) return { coverDisplayHref: null };
-  // 已经是直链 → 通过同源代理访问
-  if (isUsableDirectUrl(t)) {
-    return { coverDisplayHref: materialStorageBrowserHref(t) };
-  }
-  // storage key（非 http，如 v2/user/thumb/uuid.jpg）→ 用同源代理地址
-  return { coverDisplayHref: `/api/materials/open?${new URLSearchParams({ u: t }).toString()}` };
+  return { coverDisplayHref: materialStorageBrowserHref(t) };
 }
 
 /** 列表/截帧落库前：与后端 `dataFileRenderableLogoUrl` 展示语义一致的可浏览封面地址 */
@@ -445,18 +440,10 @@ export function normalizeTeacherMaterialKind(raw: string | null | undefined): Te
   return "word";
 }
 
-/** 从同源代理路径还原真实存储 URL，供后缀推断（与 `materialStorageBrowserHref` 对称）。 */
+/** 后端已预签名，直接返回原值（供后缀推断时解析扩展名）。 */
 function urlForKindInference(href: string | null | undefined): string {
   const t = (href ?? "").trim();
   if (!t) return "";
-  if (t.startsWith("/api/materials/open?")) {
-    try {
-      const raw = new URL(t, "http://localhost").searchParams.get("u");
-      return raw?.trim() || "";
-    } catch {
-      return "";
-    }
-  }
   return t;
 }
 

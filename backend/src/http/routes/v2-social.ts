@@ -14,6 +14,7 @@ import {
   listScaleLogs,
 } from "../../infrastructure/repositories/v2-social-repository.ts";
 import { routeV2ScaleAdmin } from "./v2-scale-admin-routes.ts";
+import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 function ok(data: unknown): Response {
   return Response.json({ success: true, data, error: null });
@@ -78,7 +79,10 @@ export async function routeV2Social(req: Request): Promise<Response> {
       const body = await req.json();
       const input = evaluateSchema.parse(body);
       const record = await addEvaluate(input);
-      return ok(record);
+      return ok({
+        ...record,
+        evaluateUrl: await presignPublicUrl(record.evaluateUrl),
+      });
     }
 
     // ── 查询评价列表 ──────────────────────────────────────
@@ -86,7 +90,11 @@ export async function routeV2Social(req: Request): Promise<Response> {
     if (evalMatch && req.method === "GET") {
       const expId = decodeURIComponent(evalMatch[1]!);
       const data = await listEvaluates(expId);
-      return ok(data);
+      const presignedData = await Promise.all(data.map(async (item) => ({
+        ...item,
+        evaluateUrl: await presignPublicUrl(item.evaluateUrl),
+      })));
+      return ok(presignedData);
     }
 
     // ── 试验互动统计 ──────────────────────────────────────

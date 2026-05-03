@@ -24,7 +24,6 @@ export function readRasterPosterFromSession(src: string): string | null {
     const v = sessionStorage.getItem(posterSessionStorageKey(src));
     if (!v) return null;
     if (v.startsWith("data:image/")) return v;
-    if (v.startsWith("/api/materials/open")) return v;
     if (v.startsWith("http://") || v.startsWith("https://")) return v;
     return null;
   } catch {

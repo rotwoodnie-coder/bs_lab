@@ -107,24 +107,6 @@ async function getMaterialDetail(connOrPool: ReturnType<typeof getMysqlPool> | P
     `SELECT * FROM material_security WHERE material_id = ? ORDER BY sort_order ASC, seq_id ASC`,
     [materialId],
   );
-  return {
-    ...base,
-    pics: (pics as RowDataPacket[]).map((r) => ({
-      seqId: String(r.seq_id),
-      materialId: String(r.material_id),
-      materialUrl: r.material_url ? String(r.material_url) : null,
-      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
-      createTime: r.create_time ? String(r.create_time) : null,
-    } as MaterialPicRecord)),
-    securities: (secs as RowDataPacket[]).map((r) => ({
-      seqId: String(r.seq_id),
-      materialId: String(r.material_id),
-      securityId: String(r.security_id),
-      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
-      createTime: r.create_time ? String(r.create_time) : null,
-    } as MaterialSecurityRecord)),
-  };
-
   // 对主记录和 pics 预签名
   const [signedBase, signedPics] = await Promise.all([
     presignMaterialRecord(base),

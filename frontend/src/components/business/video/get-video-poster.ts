@@ -3,13 +3,12 @@ function isRegistryStreamVideoProxy(u: string): boolean {
   return u.includes("/api/media/registry-stream");
 }
 
-/** 可作为封面 `<img src>`：明显图片后缀，或站内非 registry-stream 路径，或 materials/open */
+/** 可作为封面 `<img src>`：明显图片后缀，或站内非 registry-stream 路径 */
 function isLikelyRasterPosterUrl(u: string): boolean {
   const t = u.trim();
   if (!t) return false;
   if (isRegistryStreamVideoProxy(t)) return false;
   if (/\.(png|jpe?g|gif|webp|bmp|ico|avif)(\?|#|$)/i.test(t)) return true;
-  if (t.startsWith("/api/materials/open")) return true;
   if (t.startsWith("/") && !t.startsWith("//")) return true;
   return false;
 }

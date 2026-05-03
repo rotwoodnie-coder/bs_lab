@@ -5,6 +5,7 @@ import { getMysqlPool } from "../../infrastructure/mysql/mysql-client.ts";
 import { listStudentWorksForReview, patchExpMsgForReview } from "../../infrastructure/repositories/v2-exp-repository.ts";
 import { listSubjectGroupsForReview, patchSubjectGroupForReview, type SubjectGroupMembership } from "../../infrastructure/repositories/subject-group-repository.ts";
 import type { ExpMsgRecord } from "../../domain/v2-exp/v2-exp-types.ts";
+import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 function ok(data: unknown): Response {
   return Response.json({ success: true, data, error: null });
@@ -61,7 +62,13 @@ async function handleListStudentWorks(req: Request, actorRoleId: string | null |
   const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
   const pageSize = Math.min(100, Number(url.searchParams.get("page_size")) || 20);
   const result = await listStudentWorksForReview(page, pageSize);
-  return ok(result);
+  const presignedItems = await Promise.all(result.items.map(async (item) => ({
+    ...item,
+    logoUrl: await presignPublicUrl(item.logoUrl),
+    simulatorUrl: await presignPublicUrl(item.simulatorUrl),
+    coverVideoUrl: await presignPublicUrl(item.coverVideoUrl),
+  })));
+  return ok({ ...result, items: presignedItems });
 }
 
 /**

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Avatar,
   AvatarFallback,
+  AvatarImage,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ import {
 import { fetchV2Profile, postV2Logout, postV2SwitchRole } from "@/lib/v2/v2-auth-api";
 import { DASHBOARD_MAIN_CONTAINER_CLASS } from "@/lib/layout-container-classes";
 import { cn } from "@/lib/utils";
+import { materialStorageBrowserHref } from "@/lib/material-asset-url";
 import { UserRole, userRoleLabelZh } from "@/types/auth";
 import { useSessionActor } from "@/hooks/use-session-actor";
 import { useAuth } from "@/hooks/use-auth";
@@ -368,6 +370,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             aria-label={`帐户与角色：${userRoleLabelZh(role)}，个人设置`}
           >
             <Avatar className="size-8 border border-border md:size-9">
+              {auth.user.userLogo?.trim() ? (
+                <AvatarImage src={materialStorageBrowserHref(auth.user.userLogo.trim())} alt="头像" />
+              ) : null}
               <AvatarFallback className="bg-muted text-xs text-muted-foreground">
                 {AVATAR_FALLBACK[role]}
               </AvatarFallback>

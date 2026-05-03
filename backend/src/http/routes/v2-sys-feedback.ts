@@ -24,7 +24,7 @@ import {
   type FeedbackType,
   type FeedbackStatus,
 } from "../../infrastructure/repositories/v2-sys-feedback-repository.ts";
-import { putFeedbackObject, getFeedbackDirectUrl } from "../../infrastructure/storage/s3-feedback-storage.ts";
+import { putFeedbackObject, createFeedbackPublicPresignedReadUrl } from "../../infrastructure/storage/s3-feedback-storage.ts";
 import { assertAnyPermission } from "../../lib/auth/permission-guard.ts";
 import { PERMISSIONS } from "../../lib/auth/role-permissions.ts";
 
@@ -124,7 +124,7 @@ export async function routeV2SysFeedback(req: Request): Promise<Response> {
       const storageKey = `feedback/${actorId ?? "anon"}/${randomUUID()}.${fileExt}`;
 
       await putFeedbackObject(storageKey, buffer, file.type || "image/png");
-      const url = getFeedbackDirectUrl(storageKey);
+      const url = await createFeedbackPublicPresignedReadUrl(storageKey);
 
       return ok({ url, storageKey });
     }
