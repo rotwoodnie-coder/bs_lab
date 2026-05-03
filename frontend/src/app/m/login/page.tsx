@@ -17,14 +17,7 @@ type LoginRole = (typeof ROLE_OPTIONS)[number]["id"];
 type LoginResponse = {
   success?: boolean;
   data?: {
-    token?: string;
-    accessToken?: string;
-    access_token?: string;
-    refreshToken?: string;
-    refresh_token?: string;
-    role?: string;
     has_binding?: boolean;
-    school_level_id?: string | null;
   };
 };
 
@@ -37,19 +30,6 @@ async function readJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-function readCookie(name: string) {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-function setAuthCookie(token: string, refreshToken?: string | null) {
-  document.cookie = `v2_access_token=${encodeURIComponent(token)}; path=/m; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  if (refreshToken) {
-    document.cookie = `v2_refresh_token=${encodeURIComponent(refreshToken)}; path=/m; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  }
-}
-
 function getMockBindingState(role: LoginRole) {
   if (typeof window === "undefined") return role !== "parent";
   if (role !== "parent") return true;
@@ -58,22 +38,10 @@ function getMockBindingState(role: LoginRole) {
 
 function buildMockLoginResponse(role: LoginRole): LoginResponse {
   const hasBinding = getMockBindingState(role);
-  const tokenPayload = {
-    role_id: role,
-    role,
-    has_binding: hasBinding,
-    login_name: `${role}_mock_user`,
-    issued_at: Date.now(),
-  };
-  const token = `${btoa(unescape(encodeURIComponent(JSON.stringify(tokenPayload))))}.mock-signature`;
   return {
     success: true,
     data: {
-      token,
-      refresh_token: "mock-refresh-token",
-      role,
       has_binding: hasBinding,
-      school_level_id: role === "teacher" ? "middle" : role === "student" ? "primary" : hasBinding ? "primary" : null,
     },
   };
 }
@@ -104,9 +72,6 @@ export default function MobileLoginPage() {
       }
       const payload = await readJsonResponse<LoginResponse>(response);
       const data = payload.data ?? {};
-      const token = data.token ?? data.accessToken ?? data.access_token;
-      if (!token) throw new Error("missing token");
-      setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? readCookie("v2_refresh_token"));
       if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
       await refreshUserContext();
       router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
