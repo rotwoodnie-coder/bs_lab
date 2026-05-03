@@ -24,6 +24,7 @@ import { allocateUniqueMysqlVarchar32Id } from "../../infrastructure/ids/identif
 import { assertSysOrgCreateScope } from "./v2-sys-org-create-scope.ts";
 import { assertAnyPermission, assertPermission } from "../../lib/auth/permission-guard.ts";
 import { PERMISSIONS } from "../../lib/auth/role-permissions.ts";
+import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 function ok(data: unknown): Response {
   return Response.json({ success: true, data, error: null });
@@ -102,6 +103,14 @@ const sendMsgSchema = z.object({
   msgContent: z.string().min(1),
 });
 
+async function presignUserRecords<T extends { userLogo?: string | null }>(items: T[]): Promise<T[]> {
+  return Promise.all(items.map(async (item) => ({ ...item, userLogo: await presignPublicUrl(item.userLogo) })));
+}
+
+async function presignSingleUser<T extends { userLogo?: string | null }>(item: T): Promise<T> {
+  return { ...item, userLogo: await presignPublicUrl(item.userLogo) };
+}
+
 // ─── 主路由 ───────────────────────────────────────────────
 export async function routeV2Sys(req: Request): Promise<Response> {
   try {
@@ -116,7 +125,8 @@ export async function routeV2Sys(req: Request): Promise<Response> {
       if (req.method === "GET") {
         const keyword = String(url.searchParams.get("keyword") ?? "").trim();
         const pageSize = Math.min(200, Math.max(1, Number(url.searchParams.get("pageSize") ?? 200)));
-        return ok(await searchSysTeachersByKeyword(keyword, pageSize));
+        const result = await searchSysTeachersByKeyword(keyword, pageSize);
+        return ok({ ...result, items: await presignUserRecords(result.items) });
       }
     }
 
@@ -127,11 +137,13 @@ export async function routeV2Sys(req: Request): Promise<Response> {
         const pageSize = Math.min(50, Math.max(1, Number(url.searchParams.get("pageSize") ?? 20)));
         if (keyword && !url.searchParams.has("userOrgId") && !url.searchParams.has("userRoleId") && !url.searchParams.has("status")) {
           // 纯 keyword 搜索不走管理权限（供 UserSearchDialog 等选人场景使用）
-          return ok(await searchSysUsersByKeyword(keyword, pageSize));
+          const result = await searchSysUsersByKeyword(keyword, pageSize);
+          return ok({ ...result, items: await presignUserRecords(result.items) });
         }
         assertAnyPermission(actorRoleId, [PERMISSIONS.USER_MANAGE, PERMISSIONS.ROLE_MANAGE, PERMISSIONS.ORG_MANAGE]);
         const query = userQuerySchema.parse(Object.fromEntries(url.searchParams));
-        return ok(await listSysUsers(query));
+        const result = await listSysUsers(query);
+        return ok({ ...result, items: await presignUserRecords(result.items) });
       }
       if (req.method === "POST") {
         assertPermission(actorRoleId, PERMISSIONS.USER_MANAGE);
@@ -147,7 +159,7 @@ export async function routeV2Sys(req: Request): Promise<Response> {
         assertAnyPermission(actorRoleId, [PERMISSIONS.USER_MANAGE, PERMISSIONS.ROLE_MANAGE, PERMISSIONS.ORG_MANAGE]);
         const row = await getSysUserById(userId);
         if (!row) return fail("用户不存在", 404);
-        return ok(row);
+        return ok(await presignSingleUser(row));
       }
       if (req.method === "PATCH" || req.method === "PUT") {
         assertPermission(actorRoleId, PERMISSIONS.USER_MANAGE);

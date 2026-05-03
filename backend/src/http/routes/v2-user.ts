@@ -1,5 +1,6 @@
 import { getMysqlPool } from "../../infrastructure/mysql/mysql-client.ts";
 import { loadV2UserContext } from "../../infrastructure/repositories/v2-user-context-repository.ts";
+import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
 
 function ok(data: unknown): Response {
   return Response.json({ success: true, data, error: null });
@@ -22,11 +23,13 @@ export async function routeV2User(req: Request): Promise<Response> {
     const context = await loadV2UserContext(pool, userId);
     if (!context) return fail("用户不存在", 404);
 
+    const presignedLogo = await presignPublicUrl(context.userLogo);
+
     return ok({
       userId: context.userId,
       userName: context.userName,
       userNickName: context.userNickName,
-      userLogo: context.userLogo,
+      userLogo: presignedLogo,
       role: context.role,
       hasBinding: context.hasBinding,
       schoolLevelId: context.schoolLevelId,

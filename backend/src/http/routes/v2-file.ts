@@ -25,7 +25,7 @@ import { dataFileHasRenderableLogoUrl } from "../../domain/v2-file/data-file-log
 import { runV2DataFileMetadataRepair } from "../../domain/v2-file/v2-file-data-repair.ts";
 import { persistClientPosterFile } from "../../domain/v2-file/v2-file-poster-upload.ts";
 import type { DataFileRecord } from "../../domain/v2-file/v2-file-types.ts";
-import { putObject, deleteObject, createPresignedReadUrl, createPublicPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
+import { putObject, deleteObject, createPresignedReadUrl, createPublicPresignedReadUrl, presignPublicUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
 import {
   s3CreateMultipartUpload,
   s3PresignUploadPartUrl,
@@ -71,13 +71,15 @@ async function presignLogoUrlFromRecord(rawLogoUrl: string | null | undefined): 
   }
 }
 
-async function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null }>(record: T): Promise<T> {
+async function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null; ownerAvatarUrl?: string | null }>(record: T): Promise<T> {
   const fileUrl = normalizeStoredOrPublicUrl(record.fileUrl);
   const logoUrl = await presignLogoUrlFromRecord(record.logoUrl);
+  const ownerAvatarUrl = await presignPublicUrl(record.ownerAvatarUrl);
   return {
     ...record,
     fileUrl,
     logoUrl,
+    ownerAvatarUrl,
   };
 }
 

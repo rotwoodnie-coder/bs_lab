@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { RowDataPacket } from "mysql2/promise";
 import { getMysqlPool } from "../../infrastructure/mysql/mysql-client.ts";
 import { createSysUser, getSysOrgById, getSysUserById } from "../../infrastructure/repositories/v2-sys-user-repository.ts";
+import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
 import { listSubjectGroupsByMember } from "../../infrastructure/repositories/subject-group-repository.ts";
 import { resolvePermissionCodes } from "../../lib/auth/role-permissions.ts";
 import { countApprovedBindingsForParent } from "../../infrastructure/repositories/v2-parent-student-rel-repository.ts";
@@ -529,6 +530,8 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       const headers = new Headers();
       setCookies.forEach((c) => headers.append("set-cookie", c));
 
+      const responseUserLogo = await presignPublicUrl(row.user_logo ? String(row.user_logo) : null);
+
       return ok(
         {
           userId,
@@ -539,7 +542,7 @@ export async function routeV2Auth(req: Request): Promise<Response> {
           roleName: typeof row.role_name === "string" && row.role_name ? String(row.role_name) : null,
           userOrgId: currentOrgId,
           orgName: row.org_name ? String(row.org_name) : null,
-          userLogo: row.user_logo ? String(row.user_logo) : null,
+          userLogo: responseUserLogo,
           perScore: Number(row.per_score ?? 0),
           permissions: finalPermissions,
           availableContexts: contexts.map((c) => ({
@@ -636,9 +639,12 @@ export async function routeV2Auth(req: Request): Promise<Response> {
         return { approvedCount };
       })();
 
+      const profileUserLogo = await presignPublicUrl(user.userLogo);
+
       return ok(
         {
           ...user,
+          userLogo: profileUserLogo,
           recordUserOrgId,
           recordUserRoleId,
           recordOrgName,

@@ -1,7 +1,7 @@
 {
   "name": "new-core-frontend",
   "private": true,
-  "version": "0.1.046",
+  "version": "0.1.047",
   "scripts": {
     "dev": "node scripts/dev-entry.mjs",
     "build": "node scripts/build-with-feedback.mjs",

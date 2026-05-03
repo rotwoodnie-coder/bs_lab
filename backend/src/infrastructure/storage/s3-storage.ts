@@ -211,6 +211,36 @@ export function tryStorageKeyFromFileUrl(fileUrl: string): string | null {
   return raw.replace(/^\/+/, "") || null;
 }
 
+/**
+ * 通用预签名：接受原始文件 URL（key 或完整 MinIO URL），若命中本 MinIO 环境则返回带签名的公网 URL。
+ * 适用于 `sys_user.user_logo`、`ownerAvatarUrl`、`exp_msg.logo_url` 等任意存储在本桶的私有文件 URL。
+ *
+ * @param rawUrl — 可为空、storage key（`v2/anon/xxx.jpg`）、或已 materialized 的完整 URL
+ * @param expiresInSeconds — 签名有效期，默认 3600 秒
+ * @returns 预签名 URL，或降级为普通 materialize 后的 URL（非 MinIO 文件或出错时）
+ */
+export async function presignPublicUrl(rawUrl: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
+  const raw = (rawUrl ?? "").trim();
+  if (!raw) return null;
+  // 若已是完整 URL 但非公网 MinIO 前缀（外部链接），直接返回
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    const storageKey = tryStorageKeyFromFileUrl(raw);
+    if (!storageKey) return raw; // 外部 URL，不属本桶
+    // storageKey 是本桶对象 key，继续签名
+    try {
+      return await createPublicPresignedReadUrl(storageKey, { action: "view", expiresInSeconds });
+    } catch {
+      return raw;
+    }
+  }
+  // 纯 key
+  try {
+    return await createPublicPresignedReadUrl(raw, { action: "view", expiresInSeconds });
+  } catch {
+    return getPublicObjectUrl(raw);
+  }
+}
+
 export function isLocalhostEndpoint(): boolean {
   const endpoint = getConfig().endpoint.trim();
   return /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?(\/.*)?$/i.test(endpoint);
