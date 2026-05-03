@@ -151,6 +151,10 @@ function rowToFile(row: RowDataPacket): DataFileRecord {
     contentSha256: row.content_sha256 != null && String(row.content_sha256).trim() !== ""
       ? String(row.content_sha256).trim()
       : null,
+    isHiddenFromGallery: row.is_hidden_from_gallery != null ? Number(row.is_hidden_from_gallery) as 0 | 1 : 0,
+    bizType: row.biz_type != null && String(row.biz_type).trim() !== ""
+      ? String(row.biz_type).trim()
+      : null,
     parentFileId: row.parent_file_id != null && String(row.parent_file_id).trim() !== ""
       ? String(row.parent_file_id).trim()
       : null,
@@ -174,6 +178,11 @@ export async function listFiles(query: FileListQuery): Promise<FileListPage> {
   // 默认仅展示媒体库资源（有正确 file_type_id）；includePrivate=true 时不过滤
   if (!query.includePrivate) {
     where.push("df.file_type_id IS NOT NULL");
+  }
+
+  // 默认排除隐藏记录（头像等系统私有文件）；includeHidden=true 时不过滤
+  if (!query.includeHidden) {
+    where.push("(df.is_hidden_from_gallery IS NULL OR df.is_hidden_from_gallery = 0)");
   }
 
   if (query.keyword?.trim()) {
@@ -207,6 +216,7 @@ export async function listFiles(query: FileListQuery): Promise<FileListPage> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
@@ -239,6 +249,7 @@ export async function findActiveFileByContentSha(
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
@@ -281,6 +292,7 @@ export async function getFileById(fileId: string): Promise<DataFileRecord | null
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
@@ -306,6 +318,7 @@ export async function getFilesByIds(fileIds: string[]): Promise<DataFileRecord[]
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
@@ -337,9 +350,9 @@ export async function createFileRecord(input: CreateFileInput): Promise<DataFile
   await pool.query<ResultSetHeader>(
     `INSERT INTO data_file
       (file_id, file_name, file_url, file_type_id, status, owner_user_id, logo_url, file_size, file_ext, content_sha256,
-       parent_file_id, relation_type)
+       is_hidden_from_gallery, biz_type, parent_file_id, relation_type)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-             ?, ?)`,
+             ?, ?, ?, ?)`,
     [
       fileId,
       input.fileName,
@@ -351,6 +364,8 @@ export async function createFileRecord(input: CreateFileInput): Promise<DataFile
       input.fileSize ?? null,
       input.fileExt ?? null,
       sha,
+      input.isHiddenFromGallery ? 1 : 0,
+      input.bizType ?? null,
       input.parentFileId ?? null,
       input.relationType ?? null,
     ],
@@ -372,6 +387,7 @@ export async function findCoverChildByParentId(parentFileId: string): Promise<Da
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,
@@ -405,6 +421,8 @@ export async function updateFileRecord(
     params.push(resolved);
   }
   if (input.status !== undefined) { sets.push("status = ?"); params.push(input.status); }
+  if (input.isHiddenFromGallery !== undefined) { sets.push("is_hidden_from_gallery = ?"); params.push(input.isHiddenFromGallery ? 1 : 0); }
+  if (input.bizType !== undefined) { sets.push("biz_type = ?"); params.push(input.bizType); }
 
   if (sets.length > 0) {
     await pool.query<ResultSetHeader>(
@@ -469,6 +487,7 @@ export async function getChildFilesByParentId(parentFileId: string): Promise<Dat
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT df.file_id, df.file_name, df.file_url, df.file_type_id, df.status, df.owner_user_id,
             df.logo_url, df.file_size, df.file_ext, df.content_sha256,
+            df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
             df.create_time, df.update_time,

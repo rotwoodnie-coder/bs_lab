@@ -191,6 +191,8 @@ const fileQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).optional(),
   /** 1/true 时不过滤 file_type_id IS NULL 的私有资源 */
   includePrivate: z.coerce.boolean().optional(),
+  /** 1/true 时包含隐藏记录（头像等系统私有文件）；默认过滤掉隐藏记录 */
+  includeHidden: z.coerce.boolean().optional(),
 });
 
 const updateFileSchema = z.object({

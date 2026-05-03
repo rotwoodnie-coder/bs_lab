@@ -27,6 +27,10 @@ export type V2DataFileRecord = {
   fileExt: string | null;
   /** 后端写入；列表/单条可能返回 */
   contentSha256?: string | null;
+  /** 是否在媒体库列表中隐藏（1=隐藏，0=展示）；头像等系统私有文件标记为 1 */
+  isHiddenFromGallery?: number;
+  /** 业务类型：avatar（头像）、media（媒体素材）、document（文档），空表示未归类 */
+  bizType?: string | null;
   /** 父文件ID（自引用），表达从属关系 */
   parentFileId?: string | null;
   /** 关系类型：logo（封面）、transcoded（转码）等 */
@@ -53,6 +57,8 @@ export type V2FileListQuery = {
   pageSize?: number;
   /** 1/true 时不过滤 file_type_id IS NULL 的私有资源 */
   includePrivate?: boolean;
+  /** 1/true 时包含隐藏记录（头像等系统私有文件）；默认过滤掉隐藏记录 */
+  includeHidden?: boolean;
 };
 
 async function v2DeleteJson<T>(path: string, actor: CoreApiActor): Promise<T> {

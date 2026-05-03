@@ -30,6 +30,10 @@ export interface DataFileRecord {
   fileExt: string | null;
   /** 内容 SHA-256(hex)；上传写入，用于全库去重 */
   contentSha256?: string | null;
+  /** 是否在媒体库列表中隐藏（1=隐藏，0=展示）；头像等系统私有文件标记为 1 */
+  isHiddenFromGallery?: number;
+  /** 业务类型：avatar（头像）、media（媒体素材）、document（文档），空表示未归类 */
+  bizType?: string | null;
   /** 父文件ID（自引用），表达从属关系 */
   parentFileId?: string | null;
   /** 关系类型：logo（封面）、transcoded（转码）等 */
@@ -52,6 +56,10 @@ export interface CreateFileInput {
   logoUrl?: string;
   fileSize?: number;
   fileExt?: string;
+  /** 是否在媒体库列表中隐藏（头像等系统私有文件设为 true） */
+  isHiddenFromGallery?: boolean;
+  /** 业务类型：avatar（头像）、media（媒体素材）、document（文档） */
+  bizType?: string;
   /** 父文件ID（自引用），表达从属关系 */
   parentFileId?: string;
   /** 关系类型：logo（封面）、transcoded（转码）等 */
@@ -66,6 +74,8 @@ export interface UpdateFileInput {
   logoUrl?: string | null;
   fileTypeId?: string;
   status?: string;
+  isHiddenFromGallery?: boolean;
+  bizType?: string | null;
 }
 
 export type FileListQuery = {
@@ -77,6 +87,8 @@ export type FileListQuery = {
   pageSize?: number;
   /** true 时不过滤 `file_type_id IS NULL` 的私有资源；默认 false 仅展示媒体库资源 */
   includePrivate?: boolean;
+  /** 是否包含隐藏记录（头像等）；默认 false 隐藏头条像记录。设为 true 时可查看全量（含已标记隐藏的） */
+  includeHidden?: boolean;
 };
 
 export type FileListPage = {

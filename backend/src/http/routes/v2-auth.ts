@@ -689,6 +689,25 @@ export async function routeV2Auth(req: Request): Promise<Response> {
          WHERE user_id = ? AND is_deleted = 0`,
         [body.userLogo ?? null, actor.userId, actor.userId],
       );
+
+      // 标记对应 data_file 记录为隐藏，使其不在媒体库列表中展示
+      if (body.userLogo) {
+        try {
+          await pool.query(
+            `UPDATE data_file
+             SET is_hidden_from_gallery = 1, biz_type = 'avatar'
+             WHERE file_url = ? AND (is_hidden_from_gallery IS NULL OR is_hidden_from_gallery = 0)`,
+            [body.userLogo],
+          );
+        } catch (e) {
+          // 非关键路径：标记失败不影响头像更新本身
+          console.warn("[v2/auth/profile/logo] mark avatar file hidden failed", {
+            userLogo: body.userLogo,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+
       return ok({ message: "ok" });
     }
 
