@@ -56,7 +56,7 @@ type VideoCard = {
   refCount?: number;
 };
 
-/** 降级静态数据 */
+/** 降级静态数据：确保每组至少 3 条 */
 const HOME_DATA: Record<string, { title: string; subtitle: string; searchHint?: string; list: VideoCard[] }> = {
   student_001: {
     title: "探索广场",
@@ -95,6 +95,7 @@ const HOME_DATA: Record<string, { title: string; subtitle: string; searchHint?: 
     list: [
       { title: "安全实验：自制简易风向标", desc: "420s · 基础实验", href: "/m/video/video_demo", accent: "from-slate-500 to-slate-700" },
       { title: "相关实验 1", desc: "360s · 推荐", href: "/m/video/video_demo_1", accent: "from-slate-500 to-slate-600" },
+      { title: "创意手工：纸杯电话", desc: "300s · 动手实践", href: "/m/video/video_demo", accent: "from-teal-500 to-cyan-600" },
     ],
   },
 };
@@ -166,10 +167,12 @@ function HomeContent() {
     let cancelled = false;
     setRealCards(null);
     fetchExpList(schoolLevelId).then((cards) => {
-      if (!cancelled) setRealCards(cards);
+      if (cancelled) return;
+      // 后端返回空数组时也降级（不走 realCards）
+      if (cards.length === 0) return;
+      setRealCards(cards);
     }).catch(() => {
-      // 请求失败 → 使用静态降级数据
-      if (!cancelled) setRealCards(null);
+      // 请求失败 → 保持 null，触发静态数据降级
     });
     return () => { cancelled = true; };
   }, [schoolLevelId]);
@@ -223,7 +226,7 @@ function HomeContent() {
               <div className={cn("h-24 rounded-[1.25rem] bg-gradient-to-br", item.accent)} />
               <div className="mt-4 text-base font-semibold leading-snug">{item.title}</div>
               <div className="mt-1 text-sm text-muted-foreground">{item.desc}</div>
-              <div className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">被引用 {item.refCount} 次</div>
+              <div className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">被引用 {item.refCount ?? 0} 次</div>
             </Link>
           ))}
         </div>
