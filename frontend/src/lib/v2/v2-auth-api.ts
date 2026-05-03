@@ -114,7 +114,7 @@ function hasMobileMockRoleInStorage(): boolean {
 }
 
 function shouldMockProfile(input: string): boolean {
-  return process.env.NODE_ENV === "development" && input.includes("/v2/auth/profile") && getCurrentPathname().startsWith("/m") && hasMobileMockRoleInStorage();
+  return process.env.NODE_ENV !== "production" && input.includes("/v2/auth/profile") && getCurrentPathname().startsWith("/m") && hasMobileMockRoleInStorage();
 }
 
 async function v2Fetch(input: string, init?: RequestInit): Promise<Response> {
