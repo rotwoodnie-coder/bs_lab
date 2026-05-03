@@ -18,9 +18,9 @@ module.exports = {
   apps: [
     {
       name: "bs-lab-backend",
-      cwd: "./backend",
-      script: "scripts/start-with-env.sh",
-      interpreter: "bash",
+      cwd: "/opt/bs-lab/backend",
+      script: "bash",
+      args: "-c \"set -a && source /opt/bs-lab/.env.local && set +a && cd /opt/bs-lab/backend && bash scripts/start-with-env.sh\"",
       env: {
         PORT: "4100",
         NODE_ENV: "production",
