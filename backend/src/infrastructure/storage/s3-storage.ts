@@ -202,7 +202,12 @@ export function tryStorageKeyFromFileUrl(fileUrl: string): string | null {
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     try {
       const publicBase = getPublicObjectUrl("__probe_key__").replace(/__probe_key__$/, "");
-      if (raw.startsWith(publicBase)) return raw.slice(publicBase.length);
+      if (raw.startsWith(publicBase)) {
+        const afterBase = raw.slice(publicBase.length);
+        // 剥离查询参数（预签名 URL 携带 X-Amz-* 等参数）
+        const qIdx = afterBase.indexOf("?");
+        return qIdx >= 0 ? afterBase.slice(0, qIdx) : afterBase;
+      }
     } catch {
       return null;
     }

@@ -9,7 +9,7 @@ import { z } from "zod";
 import type { RowDataPacket } from "mysql2/promise";
 import { getMysqlPool } from "../../infrastructure/mysql/mysql-client.ts";
 import { createSysUser, getSysOrgById, getSysUserById } from "../../infrastructure/repositories/v2-sys-user-repository.ts";
-import { presignPublicUrl } from "../../infrastructure/storage/s3-storage.ts";
+import { presignPublicUrl, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
 import { listSubjectGroupsByMember } from "../../infrastructure/repositories/subject-group-repository.ts";
 import { resolvePermissionCodes } from "../../lib/auth/role-permissions.ts";
 import { countApprovedBindingsForParent } from "../../infrastructure/repositories/v2-parent-student-rel-repository.ts";
@@ -684,25 +684,29 @@ export async function routeV2Auth(req: Request): Promise<Response> {
       }).parse(await req.json());
 
       const pool = getMysqlPool();
+
+      // 注：前端发来的 userLogo 可能是预签名长 URL，需提取原始 storage key 再存库
+      const shortKey = body.userLogo ? (tryStorageKeyFromFileUrl(body.userLogo) || body.userLogo) : null;
+
       await pool.query(
         `UPDATE sys_user SET user_logo = ?, update_user_id = ?, update_time = NOW()
          WHERE user_id = ? AND is_deleted = 0`,
-        [body.userLogo ?? null, actor.userId, actor.userId],
+        [shortKey, actor.userId, actor.userId],
       );
 
       // 标记对应 data_file 记录为隐藏，使其不在媒体库列表中展示
-      if (body.userLogo) {
+      if (shortKey) {
         try {
           await pool.query(
             `UPDATE data_file
              SET is_hidden_from_gallery = 1, biz_type = 'avatar'
              WHERE file_url = ? AND (is_hidden_from_gallery IS NULL OR is_hidden_from_gallery = 0)`,
-            [body.userLogo],
+            [shortKey],
           );
         } catch (e) {
           // 非关键路径：标记失败不影响头像更新本身
           console.warn("[v2/auth/profile/logo] mark avatar file hidden failed", {
-            userLogo: body.userLogo,
+            userLogo: shortKey,
             error: e instanceof Error ? e.message : String(e),
           });
         }
