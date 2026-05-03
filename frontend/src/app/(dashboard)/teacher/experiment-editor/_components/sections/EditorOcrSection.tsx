@@ -58,6 +58,28 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
       [gradeDictOptions, onExpNameOcr, onGradeOcr],
     );
 
+    // 预检查缩略图是否是有效图片
+    const validateCoverImage = React.useCallback(async (imageUrl: string): Promise<boolean> => {
+      // 先尝试 HEAD 请求检测 Content-Type
+      try {
+        const probe = await fetch(imageUrl, { method: "HEAD", signal: AbortSignal.timeout(8000) });
+        const ct = (probe.headers.get("content-type") ?? "").toLowerCase();
+        if (ct && !ct.startsWith("image/")) {
+          return false;
+        }
+      } catch {
+        // HEAD 失败（如 CORS 限制），回退到 Image 加载检测
+      }
+
+      // 通过 Image 对象实际加载验证
+      return new Promise<boolean>((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = imageUrl;
+      });
+    }, []);
+
     const runOcr = React.useCallback(
       async (imageUrl: string) => {
         if (!imageUrl) return;
@@ -69,6 +91,13 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
         const cached = getOcrCache(imageUrl);
         if (cached) {
           applyOcrResult(cached);
+          return;
+        }
+
+        // 执行 OCR 前先检查封面图是否有效
+        const isValid = await validateCoverImage(imageUrl);
+        if (!isValid) {
+          setOcrError("无封面图，无法进行 OCR 识别");
           return;
         }
 
@@ -89,7 +118,7 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
         }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [expId, userId, applyOcrResult],
+      [expId, userId, applyOcrResult, validateCoverImage],
     );
 
     React.useImperativeHandle(

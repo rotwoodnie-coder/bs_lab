@@ -43,7 +43,8 @@ export async function GET(req: Request) {
       return Response.json({ ok: false, error: "缺少 registryId" }, { status: 400 });
     }
     const action = url.searchParams.get("action") === "download" ? "download" : "view";
-    const thumbnail = url.searchParams.get("thumbnail") === "true";
+    const variant = url.searchParams.get("variant")?.trim();
+    const thumbnail = url.searchParams.get("thumbnail") === "true" || variant === "thumb_sm";
 
     // 1. 从后端获取文件记录（获取 MinIO object key）
     const role = (await resolveDemoRoleCookie()) as UserRole;

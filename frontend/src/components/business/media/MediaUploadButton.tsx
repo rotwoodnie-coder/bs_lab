@@ -47,7 +47,10 @@ export function MediaUploadButton({
             let result;
             try {
               result = await uploadMediaFileToPlatform(actor, f, { kind, title: f.name });
-            } catch {
+            } catch (err) {
+              sonnerToast.error("上传失败", {
+                description: err instanceof Error ? err.message : "未知错误",
+              });
               return;
             }
             try {

@@ -84,14 +84,15 @@ export function useMediaUpload(actor: ApiActor) {
           );
         }
         if (options?.fileTypeId) fd.append("fileTypeId", options.fileTypeId);
-        const res = await fetch("/api/media/upload", { method: "POST", body: fd });
+        const res = await fetch("/api/media/upload", { method: "POST", body: fd, credentials: "include" });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
-          error?: string;
+          error?: string | { message?: string };
           data?: { registryId?: string; assetId?: string; viewUrl?: string; fileUrl?: string };
         };
         if (!res.ok || !json.ok || !json.data?.registryId || !json.data?.viewUrl) {
-          throw new Error(json.error ?? "上传失败");
+          const errMsg = typeof json.error === "object" && json.error?.message ? json.error.message : (typeof json.error === "string" ? json.error : "上传失败");
+          throw new Error(errMsg);
         }
         options?.onProgress?.({ percent: 100 });
         const result = { objectKey: json.data.viewUrl, fileId: json.data.registryId, fileUrl: json.data.fileUrl ?? json.data.viewUrl };

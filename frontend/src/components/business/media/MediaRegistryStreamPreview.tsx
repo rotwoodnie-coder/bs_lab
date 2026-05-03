@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { MediaPreview } from "@bs-lab/ui";
+import { Film } from "@bs-lab/ui/icons";
 
 import type { ApiActor } from "@/lib/new-core-api";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ export function MediaRegistryStreamPreview({
 }: MediaRegistryStreamPreviewProps) {
   const streamUrl = React.useMemo(() => mediaRegistryStreamUrl(fileId, "view", actor), [fileId, actor]);
   const previewKind = resolveRegistryStreamPreviewKind({ assetMediaType, fileExt, title });
+  const [posterFailed, setPosterFailed] = React.useState(false);
 
   const rawLogo = logoUrl?.trim();
   const poster = rawLogo ? materialStorageBrowserHref(rawLogo) : mediaRegistryStreamUrl(fileId, "view", actor, { variant: "thumb_sm" });
@@ -64,13 +66,35 @@ export function MediaRegistryStreamPreview({
     !/\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(poster) &&
     (/\.(png|jpe?g|gif|webp|bmp)(\?|#|$)/i.test(poster) || poster.startsWith("data:image") || poster.includes("variant=thumb_sm"));
 
+  // 预检查缩略图是否能正常加载为图片
+  React.useEffect(() => {
+    if (previewKind !== "video" || !posterIsLikelyRaster) return;
+    setPosterFailed(false);
+    const img = new Image();
+    img.onload = () => setPosterFailed(false);
+    img.onerror = () => setPosterFailed(true);
+    img.src = poster;
+  }, [previewKind, posterIsLikelyRaster, poster]);
+
   if (previewKind === "video") {
+    // 缩略图加载失败时展示默认视频占位图标
+    if (posterFailed) {
+      return (
+        <div
+          className={cn("flex size-full items-center justify-center bg-muted/30 text-muted-foreground/60", className)}
+          title={title}
+        >
+          <Film className="size-10" />
+        </div>
+      );
+    }
+
     return (
       <MediaPreview
         kind="video"
         src={streamUrl}
         variant="hover-play"
-        posterSrc={posterIsLikelyRaster ? poster : undefined}
+        posterSrc={posterIsLikelyRaster && !posterFailed ? poster : undefined}
         alt={title}
         className={cn("size-full min-h-0", className)}
         previewMaxSeconds={5}
