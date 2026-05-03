@@ -27,6 +27,15 @@ type LoginResponse = {
   };
 };
 
+async function readJsonResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const text = await response.text();
+    throw new Error(text.trim().startsWith("<html") ? "服务返回了 HTML 页面，请检查代理或接口地址" : text || "服务响应不是 JSON");
+  }
+  return (await response.json()) as T;
+}
+
 function readCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -103,7 +112,7 @@ export default function MobileLoginPage() {
         }
         throw new Error(response.status === 401 || response.status === 403 ? "账号或密码错误" : `login failed: ${response.status}`);
       }
-      const payload = (await response.json()) as LoginResponse;
+      const payload = await readJsonResponse<LoginResponse>(response);
       const data = payload.data ?? {};
       const token = data.token ?? data.accessToken ?? data.access_token;
       if (!token) throw new Error("missing token");
@@ -113,7 +122,11 @@ export default function MobileLoginPage() {
       router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
     } catch (error) {
       const message = error instanceof Error ? error.message : "登录失败";
-      window.alert(message);
+      if (process.env.NODE_ENV === "development" && message.includes("HTML 页面")) {
+        console.warn(message);
+      } else {
+        window.alert(message);
+      }
     } finally {
       setLoading(false);
     }
