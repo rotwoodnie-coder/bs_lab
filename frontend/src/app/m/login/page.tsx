@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MobileCard } from "@/components/mobile/MobileCard";
 import { useMobileContext } from "@/contexts/MobileContext";
+import { buildApiUrl } from "@/lib/core-api-shared";
 
 const ROLE_OPTIONS = [
   { id: "parent", label: "家长" },
@@ -88,7 +89,7 @@ export default function MobileLoginPage() {
   const submit = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/v2/auth/login", {
+      const response = await fetch(buildApiUrl("/v2/auth/login"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -99,17 +100,6 @@ export default function MobileLoginPage() {
         }),
       });
       if (!response.ok) {
-        if (process.env.NODE_ENV === "development") {
-          const fallback = buildMockLoginResponse(selectedRole);
-          const data = fallback.data ?? {};
-          const token = data.token ?? data.accessToken ?? data.access_token;
-          if (!token) throw new Error("missing token");
-          setAuthCookie(token, data.refreshToken ?? data.refresh_token ?? null);
-          if (selectedRole !== "parent" || data.has_binding) forceBindingComplete();
-          await refreshUserContext();
-          router.push(selectedRole === "parent" && !data.has_binding ? "/m/bind/child" : "/m");
-          return;
-        }
         throw new Error(response.status === 401 || response.status === 403 ? "账号或密码错误" : `login failed: ${response.status}`);
       }
       const payload = await readJsonResponse<LoginResponse>(response);
