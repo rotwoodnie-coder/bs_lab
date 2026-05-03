@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { buildApiUrl } from "@/lib/core-api-shared";
 
 export type MobileUserContext = {
   userId?: string;
@@ -79,6 +80,19 @@ const MOCK_CHILDREN: MobileChild[] = [
   { studentUserId: "student_003", studentUserName: "小宇", classOrgName: "初一一班", schoolOrgName: "实验中学", avatar: "XY", relationLabel: "三宝" },
 ];
 
+// ── 后端返回值类型 ─────────────────────────────────────
+type MyBindingRow = {
+  studentUserId: string;
+  studentUserName: string | null;
+  classOrgId: string | null;
+  classOrgName: string | null;
+  gradeOrgId: string | null;
+  gradeOrgName: string | null;
+  schoolOrgIdResolved: string | null;
+  schoolOrgName: string | null;
+  auditStatus: "T" | "Y" | "N";
+};
+
 function readCookie(name: string) {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
@@ -131,34 +145,50 @@ function normalizeProfileResponse(payload: ProfileResponse): MobileUserContext {
   };
 }
 
+function bindingToChild(item: MyBindingRow, idx: number): MobileChild {
+  const name = item.studentUserName ?? "未知";
+  return {
+    studentUserId: item.studentUserId,
+    studentUserName: name,
+    classOrgName: item.classOrgName ?? null,
+    schoolOrgName: item.schoolOrgName ?? null,
+    avatar: name[0] ?? "学",
+    relationLabel: idx === 0 ? "大宝" : idx === 1 ? "二宝" : "三宝",
+  };
+}
+
+async function fetchApprovedChildren(): Promise<MobileChild[] | null> {
+  const res = await fetch(buildApiUrl("/v2/parent/my-bindings"), { credentials: "include" });
+  if (!res.ok) return null;
+  const json = await res.json();
+  const items = (json?.data?.items ?? []) as MyBindingRow[];
+  if (items.length === 0) return null;
+  const approved = items.filter((i) => i.auditStatus === "Y");
+  if (approved.length === 0) return null;
+  return approved.map((item, idx) => bindingToChild(item, idx));
+}
+
 export function MobileProvider({ children }: { children: ReactNode }) {
   const [userContext, setUserContext] = useState<MobileUserContext | null>(null);
-  const [childrenList] = useState<MobileChild[]>(MOCK_CHILDREN);
+  const [childrenList, setChildrenList] = useState<MobileChild[]>(MOCK_CHILDREN);
   const [currentChildId, setCurrentChildId] = useState<string | null>(MOCK_CHILDREN[0]?.studentUserId ?? null);
 
   const refreshUserContext = async () => {
-    try {
-      const response = await fetch("/v2/auth/profile", { method: "GET", credentials: "include" });
-      if (!response.ok) {
-        if (process.env.NODE_ENV === "development") {
-          const mock = buildMockProfile();
-          setUserContext(mock);
-          return mock;
-        }
-        throw new Error(`profile failed: ${response.status}`);
-      }
-      const payload = (await response.json()) as ProfileResponse;
-      const normalized = normalizeProfileResponse(payload);
-      setUserContext(normalized);
-      return normalized;
-    } catch {
-      if (process.env.NODE_ENV === "development") {
-        const mock = buildMockProfile();
-        setUserContext(mock);
-        return mock;
-      }
-      throw new Error("获取用户信息失败，请重新登录");
+    const response = await fetch("/v2/auth/profile", { method: "GET", credentials: "include" });
+    if (!response.ok) {
+      throw new Error(`profile failed: ${response.status}`);
     }
+    const payload = (await response.json()) as ProfileResponse;
+    const normalized = normalizeProfileResponse(payload);
+    setUserContext(normalized);
+    // 刷新用户信息后，同时拉取已通过绑定孩子列表
+    const approved = await fetchApprovedChildren();
+    if (approved) {
+      setChildrenList(approved);
+      const firstId = approved[0]?.studentUserId ?? null;
+      if (firstId) setCurrentChildId(firstId);
+    }
+    return normalized;
   };
 
   useEffect(() => {
@@ -195,7 +225,7 @@ export function MobileProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ userContext, children: childrenList, currentChildId, currentChild, setCurrentChildId, refreshUserContext, getSchoolStage, forceBindingComplete }),
-    [userContext, childrenList, currentChildId, currentChild, getSchoolStage],
+    [userContext, childrenList, currentChildId, currentChild, getSchoolStage, forceBindingComplete],
   );
 
   return <MobileContext.Provider value={value}>{children}</MobileContext.Provider>;

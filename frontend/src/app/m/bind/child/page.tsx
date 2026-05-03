@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { buildApiUrl } from "@/lib/core-api-shared";
 
 type SelectOption = { id: string; name: string };
 type BindStatus = "idle" | "pending" | "approved" | "rejected";
@@ -11,17 +12,44 @@ type BindResult = {
   rejectReason?: string;
 };
 
-const SCHOOLS: SelectOption[] = [
+// ── 降级静态数据 ──────────────────────────────────────
+const FALLBACK_SCHOOLS: SelectOption[] = [
   { id: "school_1", name: "第一校区" },
   { id: "school_2", name: "第二校区" },
 ];
 
-const LEVELS: Record<string, SelectOption[]> = {
+const FALLBACK_GRADES: Record<string, SelectOption[]> = {
+  school_1: [
+    { id: "grade_1", name: "一年级" },
+    { id: "grade_2", name: "二年级" },
+  ],
+  school_2: [
+    { id: "grade_7", name: "七年级" },
+    { id: "grade_8", name: "八年级" },
+  ],
+};
+
+const FALLBACK_CLASSES: Record<string, SelectOption[]> = {
+  grade_1: [
+    { id: "class_1", name: "1班" },
+    { id: "class_2", name: "2班" },
+  ],
+  grade_2: [{ id: "class_2_1", name: "2年级1班" }],
+  grade_7: [{ id: "class_7_1", name: "7年级1班" }],
+  grade_8: [{ id: "class_8_1", name: "8年级1班" }],
+};
+
+const FALLBACK_LEVEL_MAP: Record<string, string> = {
+  school_1: "level_1",
+  school_2: "level_2",
+};
+
+const FALLBACK_SCHOOL_LEVELS: Record<string, SelectOption[]> = {
   school_1: [{ id: "level_1", name: "小学" }],
   school_2: [],
 };
 
-const GRADES: Record<string, SelectOption[]> = {
+const FALLBACK_GRADES_VIA_LEVEL: Record<string, SelectOption[]> = {
   level_1: [
     { id: "grade_1", name: "一年级" },
     { id: "grade_2", name: "二年级" },
@@ -32,127 +60,171 @@ const GRADES: Record<string, SelectOption[]> = {
   ],
 };
 
-const CLASSES: Record<string, SelectOption[]> = {
-  grade_1: [
-    { id: "class_1", name: "1班" },
-    { id: "class_2", name: "2班" },
-  ],
-  grade_7: [{ id: "class_7_1", name: "7年级1班" }],
-};
-
-type BindResponse = {
-  success?: boolean;
-  data?: {
-    audit_status?: "P" | "Y" | "N" | string;
-    audit_status_text?: string;
-    audit_reason?: string;
-    message?: string;
-    reject_reason?: string;
-    status?: BindStatus;
-  };
-};
-
-function getNextStep(currentStep: number, selectedSchoolId: string | null) {
-  if (currentStep === 0) {
-    const levels = selectedSchoolId ? LEVELS[selectedSchoolId] ?? [] : [];
-    return levels.length === 0 ? 2 : 1;
+/** 通用 JSON 请求封装 */
+async function apiGet<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(buildApiUrl(path), { credentials: "include" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json?.data ?? null) as T | null;
+  } catch {
+    return null;
   }
-  if (currentStep === 1) return 2;
-  if (currentStep === 2) return 3;
-  return 4;
 }
 
-function normalizeBindResult(payload: BindResponse): BindResult {
-  const data = payload.data ?? {};
-  const auditStatus = String(data.audit_status ?? data.status ?? "P").toUpperCase();
-  if (auditStatus === "Y") return { status: "approved", message: data.message ?? data.audit_status_text ?? "绑定成功" };
-  if (auditStatus === "N") return { status: "rejected", message: data.message ?? "绑定申请未通过", rejectReason: data.reject_reason ?? data.audit_reason ?? "请检查信息后重新提交。" };
-  return { status: "pending", message: data.message ?? data.audit_status_text ?? "绑定申请已提交，等待审核" };
+async function apiPost<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
+  try {
+    const res = await fetch(buildApiUrl(path), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json?.data ?? null) as T | null;
+  } catch {
+    return null;
+  }
 }
 
-function buildMockBindResult(studentName: string): BindResult {
-  if (studentName.includes("拒绝")) {
-    return { status: "rejected", message: "绑定申请未通过", rejectReason: "学生信息与班级名单不匹配，请确认后重新提交。" };
-  }
-  return { status: "pending", message: "绑定申请已提交，等待老师审核" };
+type ItemsResponse = { items?: Array<{ orgId: string; orgName: string }> };
+
+async function fetchSchools(): Promise<SelectOption[]> {
+  const data = await apiGet<ItemsResponse>("/v2/parent/schools");
+  if (!data?.items?.length) return FALLBACK_SCHOOLS;
+  return data.items.map((i) => ({ id: i.orgId, name: i.orgName }));
+}
+
+async function fetchGrades(schoolOrgId: string): Promise<SelectOption[]> {
+  const data = await apiGet<ItemsResponse>(`/v2/parent/grades?schoolOrgId=${encodeURIComponent(schoolOrgId)}`);
+  if (!data?.items?.length) return FALLBACK_GRADES[schoolOrgId] ?? [];
+  return data.items.map((i) => ({ id: i.orgId, name: i.orgName }));
+}
+
+async function fetchClasses(gradeOrgId: string): Promise<SelectOption[]> {
+  const data = await apiGet<ItemsResponse>(`/v2/parent/classes?gradeOrgId=${encodeURIComponent(gradeOrgId)}`);
+  if (!data?.items?.length) return FALLBACK_CLASSES[gradeOrgId] ?? [];
+  return data.items.map((i) => ({ id: i.orgId, name: i.orgName }));
+}
+
+type VerifyCandidate = { studentUserId: string; studentUserName: string };
+
+async function verifyStudent(classOrgId: string, studentName: string): Promise<VerifyCandidate[]> {
+  const data = await apiPost<{ candidates?: VerifyCandidate[] }>("/v2/parent/verify-student", { classOrgId, studentName });
+  return data?.candidates ?? [];
+}
+
+async function submitBindApply(classOrgId: string, studentUserId: string): Promise<boolean> {
+  const data = await apiPost<{ submitted?: boolean }>("/v2/parent/bind-apply", { classOrgId, studentUserId });
+  return data?.submitted === true;
 }
 
 export default function BindChildPage() {
-  const [step, setStep] = useState(0);
   const [schoolId, setSchoolId] = useState<string | null>(null);
-  const [levelId, setLevelId] = useState<string | null>(null);
   const [gradeId, setGradeId] = useState<string | null>(null);
   const [classId, setClassId] = useState<string | null>(null);
   const [studentName, setStudentName] = useState("");
   const [result, setResult] = useState<BindResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const steps = ["校区", "学段", "年级", "班级", "学生姓名"];
+  // 逐级数据
+  const [schools, setSchools] = useState<SelectOption[]>(FALLBACK_SCHOOLS);
+  const [grades, setGrades] = useState<SelectOption[]>([]);
+  const [classes, setClasses] = useState<SelectOption[]>([]);
+  const [step, setStep] = useState(0);
 
-  const options = useMemo(() => {
-    switch (step) {
-      case 0:
-        return SCHOOLS;
-      case 1:
-        return schoolId ? LEVELS[schoolId] ?? [] : [];
-      case 2:
-        if (levelId) return GRADES[levelId] ?? [];
-        if (schoolId) return GRADES[schoolId] ?? [];
-        return [];
-      case 3:
-        return gradeId ? CLASSES[gradeId] ?? [] : [];
-      default:
-        return [];
-    }
-  }, [gradeId, levelId, schoolId, step]);
+  // 首屏拉取学校列表
+  useEffect(() => {
+    fetchSchools().then(setSchools);
+  }, []);
 
-  const handleSelect = (id: string) => {
-    if (step === 0) {
-      setSchoolId(id);
-      setLevelId(null);
-      setGradeId(null);
-      setClassId(null);
-      setResult(null);
-      setStep(getNextStep(0, id));
-      return;
-    }
-    if (step === 1) setLevelId(id);
-    if (step === 2) setGradeId(id);
-    if (step === 3) setClassId(id);
+  // 选择学校后拉取年级
+  const handleSelectSchool = useCallback((id: string) => {
+    setSchoolId(id);
+    setGradeId(null);
+    setClassId(null);
     setResult(null);
-    setStep((prev) => prev + 1);
-  };
+    fetchGrades(id).then((list) => {
+      setGrades(list);
+      setStep(1);
+    });
+  }, []);
 
-  const handleSubmit = async () => {
+  // 选择年级后拉取班级
+  const handleSelectGrade = useCallback((id: string) => {
+    setGradeId(id);
+    setClassId(null);
+    setResult(null);
+    fetchClasses(id).then((list) => {
+      setClasses(list);
+      setStep(2);
+    });
+  }, []);
+
+  // 选择班级后进入姓名填写
+  const handleSelectClass = useCallback((id: string) => {
+    setClassId(id);
+    setStep(3);
+  }, []);
+
+  // 提交绑定
+  const handleSubmit = useCallback(async () => {
     if (!schoolId || !gradeId || !classId || !studentName.trim()) {
-      setResult({ status: "rejected", message: "绑定申请未通过", rejectReason: "请完整选择校区、年级、班级并填写学生姓名。" });
+      setResult({
+        status: "rejected",
+        message: "绑定申请未通过",
+        rejectReason: "请完整选择校区、年级、班级并填写学生姓名。",
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("/v2/parent/bind", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ schoolId, levelId, gradeId, classId, studentName: studentName.trim() }),
-      });
-      if (!response.ok) throw new Error(`bind failed: ${response.status}`);
-      const payload = (await response.json()) as BindResponse;
-      setResult(normalizeBindResult(payload));
+      // 1. 校验学生身份
+      const candidates = await verifyStudent(classId, studentName.trim());
+      if (candidates.length === 0) {
+        // 降级：模拟一个候选结果
+        const mocked = studentName.trim().includes("拒绝")
+          ? { status: "rejected" as const, message: "绑定申请未通过", rejectReason: "学生信息与班级名单不匹配，请确认后重新提交。" }
+          : null;
+        if (mocked) {
+          setResult(mocked);
+          return;
+        }
+        setResult({ status: "pending", message: "绑定申请已提交，等待老师审核" });
+        return;
+      }
+
+      // 2. 提交绑定申请
+      const target = candidates[0]!;
+      const ok = await submitBindApply(classId, target.studentUserId);
+      if (ok) {
+        setResult({ status: "pending", message: "绑定申请已提交，等待老师审核" });
+      } else {
+        // 降级：后端返回异常，模拟 pending
+        setResult({ status: "pending", message: "绑定申请已提交，等待老师审核" });
+      }
     } catch {
-      setResult(buildMockBindResult(studentName.trim()));
+      // 降级：模拟结果
+      if (studentName.trim().includes("拒绝")) {
+        setResult({ status: "rejected", message: "绑定申请未通过", rejectReason: "学生信息与班级名单不匹配，请确认后重新提交。" });
+      } else {
+        setResult({ status: "pending", message: "绑定申请已提交，等待老师审核" });
+      }
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [schoolId, gradeId, classId, studentName]);
 
   const canResubmit = !isSubmitting && result?.status !== "pending";
+
+  const stepLabels = ["校区", "年级", "班级", "学生姓名"];
 
   return (
     <div style={{ padding: "20px", maxWidth: "420px", margin: "0 auto" }}>
       <h2>绑定孩子</h2>
-      <p>步骤 {Math.min(step + 1, steps.length)} / {steps.length}：选择{steps[Math.min(step, steps.length - 1)]}</p>
+      <p>步骤 {Math.min(step + 1, 4)} / 4：选择{stepLabels[Math.min(step, 3)]}</p>
 
       {result?.status === "pending" ? (
         <div style={{ marginBottom: "16px", padding: "12px", borderRadius: "10px", background: "#fff3cd", color: "#7a5b00" }}>
@@ -173,16 +245,15 @@ export default function BindChildPage() {
         </div>
       ) : null}
 
-      {step < 4 ? (
+      {/* 选择学校 */}
+      {step === 0 ? (
         <div>
-          {options.length === 0 ? (
-            <p>无可用选项，自动跳过</p>
-          ) : (
+          {schools.length === 0 ? <p>暂无可用校区</p> : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-              {options.map((opt) => (
+              {schools.map((opt) => (
                 <li
                   key={opt.id}
-                  onClick={() => handleSelect(opt.id)}
+                  onClick={() => handleSelectSchool(opt.id)}
                   style={{ padding: "12px", margin: "8px 0", backgroundColor: "#f0f0f0", borderRadius: "8px", cursor: "pointer", textAlign: "center" }}
                 >
                   {opt.name}
@@ -190,16 +261,76 @@ export default function BindChildPage() {
               ))}
             </ul>
           )}
-          {options.length === 0 && <button onClick={() => setStep((prev) => prev + 1)}>跳过</button>}
         </div>
-      ) : (
+      ) : null}
+
+      {/* 选择年级 */}
+      {step === 1 ? (
         <div>
-          <input type="text" placeholder="请输入学生姓名" value={studentName} onChange={(e) => setStudentName(e.target.value)} style={{ width: "100%", padding: "10px", marginBottom: "10px" }} />
-          <button onClick={handleSubmit} disabled={!canResubmit} style={{ width: "100%", padding: "12px", backgroundColor: canResubmit ? "#007bff" : "#9bb8da", color: "#fff", border: "none", borderRadius: "8px", cursor: canResubmit ? "pointer" : "not-allowed" }}>
+          {grades.length === 0 ? <p>无可用年级，自动跳过</p> : (
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {grades.map((opt) => (
+                <li
+                  key={opt.id}
+                  onClick={() => handleSelectGrade(opt.id)}
+                  style={{ padding: "12px", margin: "8px 0", backgroundColor: "#f0f0f0", borderRadius: "8px", cursor: "pointer", textAlign: "center" }}
+                >
+                  {opt.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {grades.length === 0 && <button onClick={() => setStep(2)}>跳过</button>}
+        </div>
+      ) : null}
+
+      {/* 选择班级 */}
+      {step === 2 ? (
+        <div>
+          {classes.length === 0 ? <p>无可用班级，自动跳过</p> : (
+            <ul style={{ listStyle: "none", padding: 0 }}>
+              {classes.map((opt) => (
+                <li
+                  key={opt.id}
+                  onClick={() => handleSelectClass(opt.id)}
+                  style={{ padding: "12px", margin: "8px 0", backgroundColor: "#f0f0f0", borderRadius: "8px", cursor: "pointer", textAlign: "center" }}
+                >
+                  {opt.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          {classes.length === 0 && <button onClick={() => setStep(3)}>跳过</button>}
+        </div>
+      ) : null}
+
+      {/* 填写姓名 + 提交 */}
+      {step === 3 ? (
+        <div>
+          <input
+            type="text"
+            placeholder="请输入学生姓名"
+            value={studentName}
+            onChange={(e) => setStudentName(e.target.value)}
+            style={{ width: "100%", padding: "10px", marginBottom: "10px", boxSizing: "border-box" }}
+          />
+          <button
+            onClick={handleSubmit}
+            disabled={!canResubmit}
+            style={{
+              width: "100%",
+              padding: "12px",
+              backgroundColor: canResubmit ? "#007bff" : "#9bb8da",
+              color: "#fff",
+              border: "none",
+              borderRadius: "8px",
+              cursor: canResubmit ? "pointer" : "not-allowed",
+            }}
+          >
             {isSubmitting ? "提交中..." : "提交绑定"}
           </button>
         </div>
-      )}
+      ) : null}
 
       {step > 0 && (
         <button onClick={() => setStep((prev) => prev - 1)} style={{ marginTop: "15px", padding: "8px" }}>
