@@ -102,7 +102,7 @@ export async function rejectStudentWork(
   const res = await fetch(url, {
     method: "POST",
     headers: buildCoreApiJsonHeaders(actor),
-    body: JSON.stringify({ exp_id: expId, reject_reason: rejectReason }),
+    body: JSON.stringify({ exp_id: expId, confirm_comments: rejectReason }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => null);

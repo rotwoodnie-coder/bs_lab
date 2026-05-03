@@ -36,7 +36,7 @@ const reviewApprovalSchema = z.object({
 
 const reviewRejectSchema = z.object({
   exp_id: z.string().min(1).max(32),
-  reject_reason: z.string().min(4, "驳回理由至少 4 个字符"),
+  confirm_comments: z.string().min(4, "驳回理由至少 4 个字符"),
 });
 
 // ─── 课题组审核 DTO ──────────────────────────────────────
@@ -120,7 +120,7 @@ async function handleRejectStudentWork(req: Request, actorId: string | undefined
   assertPageWrite(actorRoleId, "review_student_works");
 
   const body = reviewRejectSchema.parse(await req.json());
-  const updated = await patchExpMsgForReview(body.exp_id, { status: "n", reject_reason: body.reject_reason }, actorId);
+  const updated = await patchExpMsgForReview(body.exp_id, { status: "n", confirm_comments: body.confirm_comments }, actorId);
 
   await writeSysLog(getMysqlPool(), {
     userId: actorId ?? null,
@@ -131,7 +131,7 @@ async function handleRejectStudentWork(req: Request, actorId: string | undefined
       traceId, action: "reject",
       expId: body.exp_id,
       expName: updated.expName,
-      reason: body.reject_reason,
+      reason: body.confirm_comments,
     }),
   });
 
@@ -228,14 +228,14 @@ async function handleRejectExperiment(req: Request, actorId: string | undefined,
   assertPageWrite(actorRoleId, "review_experiments");
 
   const body = reviewRejectSchema.parse(await req.json());
-  const updated = await patchExpMsgForReview(body.exp_id, { status: "n", reject_reason: body.reject_reason }, actorId);
+  const updated = await patchExpMsgForReview(body.exp_id, { status: "n", confirm_comments: body.confirm_comments }, actorId);
 
   await writeSysLog(getMysqlPool(), {
     userId: actorId ?? null,
     logType: "review_experiment_reject",
     logDataType: "exp_msg",
     logDataId: body.exp_id,
-    logDataContent: JSON.stringify({ traceId, action: "reject", expId: body.exp_id, expName: updated.expName, reason: body.reject_reason }),
+    logDataContent: JSON.stringify({ traceId, action: "reject", expId: body.exp_id, expName: updated.expName, reason: body.confirm_comments }),
   });
 
   return ok({ expId: body.exp_id, status: "n" });

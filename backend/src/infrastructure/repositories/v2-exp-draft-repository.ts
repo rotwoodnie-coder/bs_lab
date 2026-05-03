@@ -27,7 +27,7 @@ function rowToExpMsg(row: RowDataPacket): ExpMsgRecord {
     confirmUserId: row.confirm_user_id ? String(row.confirm_user_id) : null,
     confirmTime: row.confirm_time ? String(row.confirm_time) : null,
     confirmComments: row.confirm_comments ? String(row.confirm_comments) : null,
-    rejectReason: row.reject_reason != null ? String(row.reject_reason) : null,
+    rejectReason: row.confirm_comments != null ? String(row.confirm_comments) : null,
     status: (row.status as ExpMsgRecord["status"]) ?? null,
     standardExpId: row.standard_exp_id ? String(row.standard_exp_id) : null,
     linkExpId: row.link_exp_id ? String(row.link_exp_id) : null,
@@ -275,7 +275,6 @@ export async function putExpMsgDraft(
     // 驳回后重新保存草稿 → 自动重置为待审状态并清空驳回原因
     if (st === "n") {
       fragments.push("status = 't'");
-      fragments.push("reject_reason = NULL");
       fragments.push("confirm_user_id = NULL");
       fragments.push("confirm_time = NULL");
       fragments.push("confirm_comments = NULL");

@@ -247,7 +247,6 @@ export type CreateV2ExpInput = {
 export type PatchV2ExpMsgReviewBody = {
   status: "y" | "n";
   confirm_comments?: string | null;
-  reject_reason?: string | null;
 };
 
 export type V2ExpDraftMaterialRowPut = {

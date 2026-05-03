@@ -361,7 +361,7 @@ export function useEditorActions(a: EditorActionsInput) {
       try {
         await patchV2ExpMsgReview(a.v2Actor, a.expId, {
           status: "n",
-          reject_reason: reason,
+          confirm_comments: reason,
         });
         close();
         sonnerToast.message("已驳回", { description: "请继续完善后重新提交。" });

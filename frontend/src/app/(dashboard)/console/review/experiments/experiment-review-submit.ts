@@ -24,7 +24,6 @@ export async function submitReviewApproveFlow(params: {
   await patchV2ExpMsgReview(actor, expId, {
     status: "y",
     confirm_comments: note.trim().slice(0, 200) || null,
-    reject_reason: null,
   });
   playReviewChime("approve");
   sonnerToast.success("评审通过", { description: `「${title}」已更新为已通过` });
@@ -56,8 +55,7 @@ export async function submitReviewRejectFlow(params: {
   const short = confirmShort.trim().slice(0, 200);
   await patchV2ExpMsgReview(actor, expId, {
     status: "n",
-    confirm_comments: short.length > 0 ? short : null,
-    reject_reason: reason.trim(),
+    confirm_comments: short.length > 0 ? short : reason.trim().slice(0, 200),
   });
   playReviewChime("reject");
   sonnerToast.error("已驳回", {

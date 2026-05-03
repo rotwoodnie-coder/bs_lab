@@ -171,13 +171,11 @@ export interface CreateExpMsgInput {
   simulatorUrl?: string;
 }
 
-/** 教研评审：仅允许 status 由 t → y / n，写入 confirm_* 与 reject_reason */
+/** 教研评审：仅允许 status 由 t → y / n，写入 confirm_* */
 export type PatchExpMsgReviewInput = {
   status: "y" | "n";
-  /** 审批短意见，与列 `confirm_comments` 对齐，最长 200 */
+  /** 审批意见，驳回/通过时写入 `confirm_comments`；status=n 时至少 4 字符 */
   confirm_comments?: string | null;
-  /** 驳回全文，与列 `reject_reason` 对齐；status=n 时必填（业务校验） */
-  reject_reason?: string | null;
 };
 
 /** `PUT /v2/exp/:id/draft` 子行；key 与对应表列一致（snake_case） */

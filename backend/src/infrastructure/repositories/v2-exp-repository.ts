@@ -198,7 +198,7 @@ function rowToExpMsg(row: RowDataPacket): ExpMsgRecord {
     confirmUserId: row.confirm_user_id ? String(row.confirm_user_id) : null,
     confirmTime: row.confirm_time ? String(row.confirm_time) : null,
     confirmComments: row.confirm_comments ? String(row.confirm_comments) : null,
-    rejectReason: row.reject_reason != null ? String(row.reject_reason) : null,
+    rejectReason: row.confirm_comments != null ? String(row.confirm_comments) : null,
     status: (row.status as ExpMsgRecord["status"]) ?? null,
     standardExpId: row.standard_exp_id ? String(row.standard_exp_id) : null,
     linkExpId: row.link_exp_id ? String(row.link_exp_id) : null,
@@ -648,19 +648,14 @@ export async function patchExpMsgForReview(
   const curStatus = curRows[0]!.status != null ? String(curRows[0]!.status) : null;
   if (curStatus !== "t") throw new Error("NOT_PENDING_REVIEW");
 
-  const rawReject = input.reject_reason != null ? String(input.reject_reason).trim() : "";
   const rawConfirm =
     input.confirm_comments != null ? String(input.confirm_comments).trim().slice(0, 200) : "";
 
-  if (input.status === "n" && rawReject.length < 4) {
+  if (input.status === "n" && rawConfirm.length < 4) {
     throw new Error("REJECT_REASON_TOO_SHORT");
   }
 
-  const confirmCommentsDb =
-    input.status === "y"
-      ? (rawConfirm.length > 0 ? rawConfirm : null)
-      : (rawConfirm.length > 0 ? rawConfirm : rawReject.slice(0, 200));
-  const rejectReasonDb = input.status === "y" ? null : rawReject;
+  const confirmCommentsDb = rawConfirm.length > 0 ? rawConfirm : null;
 
   const [hdr] = await pool.query<ResultSetHeader>(
     `UPDATE exp_msg SET
@@ -668,11 +663,10 @@ export async function patchExpMsgForReview(
        confirm_user_id = ?,
        confirm_time = NOW(),
        confirm_comments = ?,
-       reject_reason = ?,
        update_user_id = ?,
        update_time = NOW()
      WHERE exp_id = ? AND is_deleted = 0 AND status = 't'`,
-    [input.status, actorId ?? null, confirmCommentsDb, rejectReasonDb, actorId ?? null, expId],
+    [input.status, actorId ?? null, confirmCommentsDb, actorId ?? null, expId],
   );
   if (hdr.affectedRows === 0) throw new Error("NOT_PENDING_REVIEW");
 
