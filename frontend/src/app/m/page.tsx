@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMobileContext } from "@/contexts/MobileContext";
 import { resolveMobileAudience } from "@/components/mobile/mobile-role";
 import { ChildSwitcher } from "@/components/mobile/ChildSwitcher";
 import { cn } from "@/lib/utils";
+import { buildApiUrl } from "@/lib/core-api-shared";
 
 const MAGIC_PROFESSOR = {
   name: "魔法教授",
@@ -33,7 +35,29 @@ function TeacherSearchBar() {
   );
 }
 
-const HOME_DATA = {
+const ACCENT_PALETTE = [
+  "from-orange-400 to-amber-500",
+  "from-fuchsia-500 to-pink-500",
+  "from-cyan-400 to-sky-500",
+  "from-rose-400 to-red-500",
+  "from-violet-500 to-purple-600",
+  "from-emerald-400 to-teal-500",
+  "from-sky-500 to-cyan-600",
+  "from-amber-500 to-orange-600",
+  "from-rose-500 to-pink-600",
+  "from-slate-500 to-slate-700",
+] as const;
+
+type VideoCard = {
+  title: string;
+  desc: string;
+  href: string;
+  accent: string;
+  refCount?: number;
+};
+
+/** 降级静态数据 */
+const HOME_DATA: Record<string, { title: string; subtitle: string; searchHint?: string; list: VideoCard[] }> = {
   student_001: {
     title: "探索广场",
     subtitle: "大标题 + 风格化背景，轻松进入实验广场",
@@ -73,7 +97,7 @@ const HOME_DATA = {
       { title: "相关实验 1", desc: "360s · 推荐", href: "/m/video/video_demo_1", accent: "from-slate-500 to-slate-600" },
     ],
   },
-} as const;
+};
 
 function MagicProfessorBubble({ lines }: { lines: string[] }) {
   return (
@@ -99,21 +123,66 @@ function MagicProfessorPanel({ lines }: { lines: string[] }) {
   );
 }
 
+async function fetchExpList(schoolLevelId: string | null): Promise<VideoCard[]> {
+  const params = new URLSearchParams();
+  params.set("status", "y");
+  params.set("pageSize", "30");
+  if (schoolLevelId) params.set("schoolLevelId", schoolLevelId);
+
+  const res = await fetch(buildApiUrl(`/v2/exp?${params.toString()}`), { credentials: "include" });
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+  const json = await res.json();
+  const items: Record<string, unknown>[] = json?.data?.items ?? [];
+
+  return items.map((item, index) => {
+    const owner = item.displayOwnerName ?? item.createUserId ?? "未知";
+    const classHour = typeof item.classHour === "number" ? item.classHour : null;
+    const durationStr = classHour != null ? `${Math.round(classHour * 60)}s` : "";
+    const parts = [String(owner), durationStr].filter(Boolean);
+    return {
+      title: String(item.expName ?? "未命名实验"),
+      desc: parts.join(" · "),
+      href: `/m/video/${encodeURIComponent(String(item.expId))}`,
+      accent: ACCENT_PALETTE[index % ACCENT_PALETTE.length],
+      refCount: typeof item.collectionNum === "number" ? item.collectionNum : 0,
+    };
+  });
+}
+
 function HomeContent() {
   const { userContext, getSchoolStage, currentChildId } = useMobileContext();
+  const [realCards, setRealCards] = useState<VideoCard[] | null>(null);
+
   const audience = resolveMobileAudience({ schoolLevelId: userContext?.schoolLevelId, role: userContext?.role });
   const schoolStage = getSchoolStage();
   const isPrimary = schoolStage === "primary";
   const isTeacher = audience === "teacher";
   const isParent = audience === "parent";
   const isMiddle = schoolStage === "middle";
-  const data = isTeacher
+  const schoolLevelId = userContext?.schoolLevelId ?? null;
+
+  // 页面挂载 & schoolLevelId 变化时重新获取实验列表
+  useEffect(() => {
+    let cancelled = false;
+    setRealCards(null);
+    fetchExpList(schoolLevelId).then((cards) => {
+      if (!cancelled) setRealCards(cards);
+    }).catch(() => {
+      // 请求失败 → 使用静态降级数据
+      if (!cancelled) setRealCards(null);
+    });
+    return () => { cancelled = true; };
+  }, [schoolLevelId]);
+
+  const staticData = isTeacher
     ? HOME_DATA.teacher
     : isPrimary
       ? HOME_DATA.student_001
       : HOME_DATA.default;
-  const headerTitle = isTeacher ? data.title : isPrimary ? "探索广场" : data.title;
-  const headerSubtitle = data.subtitle;
+  const cards = realCards ?? staticData.list;
+
+  const headerTitle = isTeacher ? staticData.title : isPrimary ? "探索广场" : staticData.title;
+  const headerSubtitle = staticData.subtitle;
 
   const cardShellClass = isPrimary
     ? "rounded-[20px] border-white/55 bg-white/82 shadow-[0_16px_40px_rgba(244,114,182,0.14)]"
@@ -145,7 +214,7 @@ function HomeContent() {
 
       {isTeacher ? (
         <div className="columns-2 gap-3 space-y-3 md:columns-3">
-          {data.list.map((item) => (
+          {cards.map((item) => (
             <Link
               key={item.title}
               href={item.href}
@@ -154,13 +223,13 @@ function HomeContent() {
               <div className={cn("h-24 rounded-[1.25rem] bg-gradient-to-br", item.accent)} />
               <div className="mt-4 text-base font-semibold leading-snug">{item.title}</div>
               <div className="mt-1 text-sm text-muted-foreground">{item.desc}</div>
-              <div className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">引用次数：静态数据</div>
+              <div className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">被引用 {item.refCount} 次</div>
             </Link>
           ))}
         </div>
       ) : isMiddle ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          {data.list.map((item) => (
+          {cards.map((item) => (
             <Link
               key={item.title}
               href={item.href}
@@ -174,7 +243,7 @@ function HomeContent() {
         </div>
       ) : (
         <div className="space-y-3">
-          {data.list.map((item, index) => (
+          {cards.map((item, index) => (
             <Link
               key={item.title}
               href={item.href}

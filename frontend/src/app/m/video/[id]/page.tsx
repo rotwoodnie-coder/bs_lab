@@ -1,9 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { VideoPlayer } from "@/components/mobile/VideoPlayer";
 import type { VideoStep } from "@/components/mobile/VideoPlayer";
+import { buildApiUrl } from "@/lib/core-api-shared";
 
+const DEFAULT_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4";
+
+/** 降级静态数据 */
 const VIDEO_LIBRARY: Record<string, { title: string; url: string; coverUrl: string; duration: number; steps: VideoStep[] }> = {
   "1": {
     title: "安全实验：彩虹液体分层",
@@ -31,10 +36,82 @@ const VIDEO_LIBRARY: Record<string, { title: string; url: string; coverUrl: stri
   },
 };
 
+type ExpVideoRow = { videoUrl: string | null };
+type ExpStepRow = { stepName: string | null; stepComments: string | null; sortOrder: number | null };
+
+type ExpDetailPayload = {
+  expName?: string;
+  logoUrl?: string | null;
+  coverVideoUrl?: string | null;
+  classHour?: number | null;
+  videos?: ExpVideoRow[];
+  steps?: ExpStepRow[];
+  expCaution?: string | null;
+};
+
+type Envelope = { success: boolean; data: unknown };
+
+/** 从后端步进记录 + 安全提示 映射为 VideoStep[] */
+function mapSteps(steps: ExpStepRow[], caution: string | null, duration: number): VideoStep[] {
+  if (steps.length === 0) {
+    return [{ time: 0, title: "开始实验", safetyNote: caution }];
+  }
+  const segCount = steps.length;
+  const segDuration = segCount > 0 ? Math.floor(duration / segCount) : duration;
+  return steps.map((step, index) => ({
+    time: index * segDuration,
+    title: step.stepName ?? `步骤 ${index + 1}`,
+    safetyNote: step.stepComments ?? (index === 0 ? caution : null),
+  }));
+}
+
+async function fetchExpDetail(expId: string): Promise<{
+  title: string;
+  url: string;
+  coverUrl: string;
+  duration: number;
+  steps: VideoStep[];
+}> {
+  const res = await fetch(buildApiUrl(`/v2/exp/${encodeURIComponent(expId)}`), { credentials: "include" });
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+  const json = await res.json();
+  const data = json?.data as ExpDetailPayload | undefined;
+  if (!data) throw new Error("empty response data");
+
+  const title = data.expName ?? "科学实验";
+  const firstVideo = data.videos?.[0];
+  const url = firstVideo?.videoUrl ?? DEFAULT_VIDEO_URL;
+  const coverUrl = data.logoUrl ?? data.coverVideoUrl ?? "";
+  const duration = (data.classHour ?? 1) * 60;
+  const steps = mapSteps(data.steps ?? [], data.expCaution ?? null, duration);
+
+  return { title, url, coverUrl, duration, steps };
+}
+
 export default function MobileVideoPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "1";
-  const data = VIDEO_LIBRARY[id] ?? VIDEO_LIBRARY["1"];
+  const [remote, setRemote] = useState<{
+    title: string;
+    url: string;
+    coverUrl: string;
+    duration: number;
+    steps: VideoStep[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchExpDetail(id).then((detail) => {
+      if (!cancelled) setRemote(detail);
+    }).catch(() => {
+      // 请求失败 → 降级到静态数据
+      if (!cancelled) setRemote(null);
+    });
+    return () => { cancelled = true; };
+  }, [id]);
+
+  const fallback = VIDEO_LIBRARY[id] ?? VIDEO_LIBRARY["1"];
+  const data = remote ?? fallback;
 
   return (
     <VideoPlayer
