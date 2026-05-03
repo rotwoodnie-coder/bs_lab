@@ -3,112 +3,150 @@
 import * as React from "react";
 
 import type { StandardVideoExpPlayerProps } from "./exp-video-player.types";
-import { useExpVideoListInteractions } from "./exp-video-player-interaction";
-import { useExpVideoContentStartSeek } from "./exp-video-player-content-start";
-import {
-  useExpVideoPlaybackSync,
-  useExpVideoPosterResetOnSrcChange,
-  useExpVideoStreamRasterCapture,
-  useExpVideoVisibleGate,
-} from "./exp-video-player-poster-effects";
-import { useExpVideoPosterPersist } from "./exp-video-player-poster-persist";
-import { useExpVideoBaseState } from "./exp-video-player-state";
 
-function useExpId(src: string): string {
-  return React.useId() + ":" + src;
-}
-
+/**
+ * 点击播放延迟桥接 Hook：
+ * 1. goActive → status="active", videoReady=false → video 挂载但隐藏，封面+spinner 可见
+ * 2. video canplay → videoReady=true → 封面淡出，视频淡入清晰播放
+ * 3. 停止/回退 → status="poster", videoReady=false → 封面淡入恢复
+ */
 export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
-  const { src, poster, ratio = 16 / 9, title = "视频", rasterPosterCapture = "eager", posterPersist, contentStartSeconds, onPlayRequest } =
-    props;
+  const {
+    src,
+    poster,
+    ratio = 16 / 9,
+    title = "视频",
+    contentStartSeconds,
+    onPlayRequest,
+  } = props;
   const trimmedSrc = src.trim();
   const propPoster = poster?.trim() ?? "";
-  const expId = useExpId(trimmedSrc);
 
-  const st = useExpVideoBaseState(rasterPosterCapture);
-  const imgSrc = propPoster || st.livePoster;
+  const [status, setStatus] = React.useState<"poster" | "active">("poster");
+  const [videoReady, setVideoReady] = React.useState(false);
+  const [videoKey, setVideoKey] = React.useState(0);
+  const [posterFailed, setPosterFailed] = React.useState(false);
 
-  useExpVideoPosterResetOnSrcChange(trimmedSrc, rasterPosterCapture, st.resetOnSrc);
-  useExpVideoVisibleGate(st.rootRef, rasterPosterCapture, trimmedSrc, st.setViewportOk);
-  useExpVideoStreamRasterCapture(
-    trimmedSrc,
-    propPoster,
-    rasterPosterCapture,
-    st.viewportOk,
-    st.setLivePoster,
-    st.setCapturePhase,
-  );
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
 
-  useExpVideoPosterPersist(posterPersist ?? null, st.livePoster, propPoster, trimmedSrc, st.setLivePoster);
+  const isActive = status === "active";
+  const mountVideo = isActive;
+  const displayPoster = propPoster && !posterFailed ? propPoster : undefined;
 
-  // 注：延时加载封面—未进入视口前不请求封面图，减少首屏并发请求数
-  const [posterInView, setPosterInView] = React.useState(false);
-  React.useEffect(() => {
-    const el = st.rootRef.current;
-    if (!el) return;
-    if (el.getBoundingClientRect().top < window.innerHeight + 200) {
-      setPosterInView(true);
-      return;
-    }
-    const ob = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setPosterInView(true);
-          ob.disconnect();
-        }
-      },
-      { rootMargin: "200px 0px", threshold: 0.01 },
-    );
-    ob.observe(el);
-    return () => ob.disconnect();
-  }, [st.rootRef, trimmedSrc]);
+  // 全局互斥锁
+  const expIdRef = React.useRef(useIdSuffix(trimmedSrc));
+  const statusRef = React.useRef(status);
+  statusRef.current = status;
 
-  const { goActive, cleanup } = useExpVideoListInteractions(
-    expId,
-    st.status,
-    st.setStatus,
-    st.bumpVideoKey,
-  );
+  const entryRef = React.useRef<LockEntry | null>(null);
+  if (!entryRef.current) {
+    entryRef.current = makeLockEntry(expIdRef, statusRef, () => {
+      setStatus("poster");
+      setVideoReady(false);
+      setVideoKey((k) => k + 1);
+    });
+  }
 
-  // 组件卸载时释放全局锁
-  React.useEffect(() => cleanup, [cleanup]);
-
-  // 注：有 onPlayRequest 时，播放点击转调父级（如打开弹窗），同时卡片回 poster 态
-  const handlePlayRequest = React.useCallback(() => {
+  // 点击播放
+  const goActive = React.useCallback(() => {
     if (onPlayRequest) {
       onPlayRequest();
-      st.setStatus("poster");
-      st.bumpVideoKey();
-      cleanup();
       return;
     }
-    goActive();
-  }, [onPlayRequest, goActive, cleanup, st.setStatus, st.bumpVideoKey]);
+    setVideoKey((k) => k + 1);
+    setVideoReady(false);
+    takeActiveExpLock(entryRef.current!);
+    setStatus("active");
+  }, [onPlayRequest]);
 
-  useExpVideoPlaybackSync(st.videoRef, st.mountVideo, st.status, st.videoKey);
-  useExpVideoContentStartSeek(
-    st.videoRef,
-    st.mountVideo,
-    contentStartSeconds == null ? undefined : contentStartSeconds,
-    st.videoKey,
+  // video 首帧就绪
+  const handleVideoReady = React.useCallback(() => {
+    setVideoReady(true);
+  }, []);
+
+  // 组件卸载释放锁
+  const cleanup = React.useCallback(() => {
+    releaseActiveExpLock(entryRef.current!);
+    if (statusRef.current === "active") {
+      setVideoKey((k) => k + 1);
+      setVideoReady(false);
+      setStatus("poster");
+    }
+  }, []);
+
+  React.useEffect(() => cleanup, [cleanup]);
+
+  // 首帧就绪后 seek 跳过片头
+  const handleVideoMeta = React.useCallback(
+    (e: React.SyntheticEvent<HTMLVideoElement>) => {
+      if (contentStartSeconds != null && Number.isFinite(contentStartSeconds) && contentStartSeconds > 0) {
+        const v = e.currentTarget;
+        const t = Math.min(contentStartSeconds, Math.max(0, (v.duration ?? 0) - 0.1));
+        if (t > 0 && Math.abs(v.currentTime - t) > 0.05) {
+          v.currentTime = t;
+        }
+      }
+    },
+    [contentStartSeconds],
   );
 
   return {
-    rootRef: st.rootRef,
+    rootRef,
     trimmedSrc,
     ratio,
     title,
-    status: st.status,
-    mountVideo: st.mountVideo,
-    isActive: st.isActive,
-    imgSrc,
-    posterFailed: st.posterFailed,
-    setPosterFailed: st.setPosterFailed,
-    capturePhase: st.capturePhase,
-    posterInView,
-    videoRef: st.videoRef,
-    videoKey: st.videoKey,
-    goActive: handlePlayRequest,
+    status,
+    videoReady,
+    videoKey,
+    mountVideo,
+    isActive,
+    displayPoster,
+    posterFailed,
+    setPosterFailed,
+    videoRef,
+    goActive,
+    handleVideoReady,
+    handleVideoMeta,
     className: props.className,
   };
+}
+
+// ── 全局互斥锁 ──────────────────────────────────────────
+
+type LockEntry = { id: string; onRelease: (releasedId: string) => void };
+
+let activeEntry: LockEntry | null = null;
+
+function takeActiveExpLock(entry: LockEntry): void {
+  if (activeEntry && activeEntry.id !== entry.id) {
+    try { activeEntry.onRelease(activeEntry.id); } catch { /* ignore */ }
+  }
+  activeEntry = entry;
+}
+
+function releaseActiveExpLock(entry: LockEntry): void {
+  if (activeEntry === entry) {
+    activeEntry = null;
+  }
+}
+
+function makeLockEntry(
+  expIdRef: React.RefObject<string>,
+  statusRef: React.RefObject<"poster" | "active">,
+  onKick: () => void,
+): LockEntry {
+  return {
+    get id() { return expIdRef.current; },
+    onRelease: (releasedId: string) => {
+      if (releasedId === expIdRef.current && statusRef.current === "active") {
+        onKick();
+      }
+    },
+  };
+}
+
+function useIdSuffix(src: string): string {
+  const [id] = React.useState(() => ":" + src.slice(-20));
+  return id;
 }
