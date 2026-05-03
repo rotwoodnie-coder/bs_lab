@@ -82,7 +82,12 @@ export default function MobileLoginPage() {
       const response = await fetch("/v2/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username: loginName, password: loginPwd, role_id: selectedRole || "parent" }),
+        body: JSON.stringify({
+          loginName,
+          loginPwd,
+          role_id: selectedRole || "parent",
+          role: selectedRole,
+        }),
       });
       if (!response.ok) {
         if (process.env.NODE_ENV === "development") {
