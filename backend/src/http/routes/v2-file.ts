@@ -25,7 +25,7 @@ import { dataFileHasRenderableLogoUrl } from "../../domain/v2-file/data-file-log
 import { runV2DataFileMetadataRepair } from "../../domain/v2-file/v2-file-data-repair.ts";
 import { persistClientPosterFile } from "../../domain/v2-file/v2-file-poster-upload.ts";
 import type { DataFileRecord } from "../../domain/v2-file/v2-file-types.ts";
-import { putObject, deleteObject, createPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
+import { putObject, deleteObject, createPresignedReadUrl, createPublicPresignedReadUrl, getPublicObjectUrl, getStorageKey, getObjectBuffer, tryStorageKeyFromFileUrl } from "../../infrastructure/storage/s3-storage.ts";
 import {
   s3CreateMultipartUpload,
   s3PresignUploadPartUrl,
@@ -51,11 +51,33 @@ function normalizeStoredOrPublicUrl(rawUrl: string | null | undefined): string |
   return materializeFileUrl(raw);
 }
 
-function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null }>(record: T): T {
+/**
+ * 对 record.logoUrl 生成预签名 URL（bucket 为私有桶，浏览器直接访问需携带签名）。
+ * 若生成失败，降级为普通 materialize URL。
+ */
+async function presignLogoUrlFromRecord(rawLogoUrl: string | null | undefined): Promise<string | null> {
+  const raw = (rawLogoUrl ?? "").trim();
+  if (!raw) return null;
+  const storageKey = tryStorageKeyFromFileUrl(raw);
+  if (!storageKey) {
+    // 不是本环境 MinIO 中的文件（如外部公网 URL），直接返回
+    return normalizeStoredOrPublicUrl(raw);
+  }
+  try {
+    return await createPublicPresignedReadUrl(storageKey, { action: "view", expiresInSeconds: 3600 });
+  } catch {
+    // 预签名失败时降级
+    return normalizeStoredOrPublicUrl(raw);
+  }
+}
+
+async function materializeRecordFileUrls<T extends { fileUrl?: string | null; logoUrl?: string | null }>(record: T): Promise<T> {
+  const fileUrl = normalizeStoredOrPublicUrl(record.fileUrl);
+  const logoUrl = await presignLogoUrlFromRecord(record.logoUrl);
   return {
     ...record,
-    fileUrl: normalizeStoredOrPublicUrl(record.fileUrl),
-    logoUrl: normalizeStoredOrPublicUrl(record.logoUrl),
+    fileUrl,
+    logoUrl,
   };
 }
 
@@ -266,7 +288,7 @@ export async function routeV2File(req: Request): Promise<Response> {
           contentSha256,
         });
         scheduleThumbnailFinalizeFromStorageIfNoLogo(dup, file.type || "");
-        return ok({ ...materializeRecordFileUrls(record), contentDeduped: true, existingFileId: dup.fileId });
+        return ok({ ...(await materializeRecordFileUrls(record)), contentDeduped: true, existingFileId: dup.fileId });
       }
 
       // 全新文件：上传到 S3 并创建行
@@ -291,7 +313,7 @@ export async function routeV2File(req: Request): Promise<Response> {
           if (again) {
             // 并发写入冲突：另一请求已创建相同 SHA 的行
             scheduleThumbnailFinalizeFromStorageIfNoLogo(again, file.type || "");
-            return ok({ ...materializeRecordFileUrls(again), contentDeduped: true });
+            return ok({ ...(await materializeRecordFileUrls(again)), contentDeduped: true });
           }
         }
         throw e;
@@ -308,7 +330,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       }).catch((err) => {
         console.error("[v2/file/upload] thumbnail finalize", record.fileId, err);
       });
-      return ok({ ...materializeRecordFileUrls(record), contentDeduped: false });
+      return ok({ ...(await materializeRecordFileUrls(record)), contentDeduped: false });
     }
 
     // ── 分片上传：init ───────────────────────────────────
@@ -318,7 +340,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       // SHA-256 去重检查
       const dup = await findActiveFileByContentSha(body.sha256);
       if (dup) {
-        return ok({ deduped: true, fileRecord: materializeRecordFileUrls(dup) });
+        return ok({ deduped: true, fileRecord: await materializeRecordFileUrls(dup) });
       }
 
       const fileExt = (body.fileName.includes(".") ? body.fileName.split(".").pop()! : "").toLowerCase();
@@ -375,7 +397,7 @@ export async function routeV2File(req: Request): Promise<Response> {
         }
       })();
 
-      return ok({ deduped: false, fileRecord: materializeRecordFileUrls(record) });
+      return ok({ deduped: false, fileRecord: await materializeRecordFileUrls(record) });
     }
 
     // ── 分片上传：abort ─────────────────────────────────
@@ -390,7 +412,8 @@ export async function routeV2File(req: Request): Promise<Response> {
       const params = Object.fromEntries(url.searchParams.entries());
       const query = fileQuerySchema.parse(params);
       const result = await listFiles(query);
-      return ok(result);
+      const materializedItems = await Promise.all(result.items.map((item) => materializeRecordFileUrls(item)));
+      return ok({ ...result, items: materializedItems });
     }
 
     // ── 前端截帧封面上传 ─────────────────────────────────
@@ -437,7 +460,8 @@ export async function routeV2File(req: Request): Promise<Response> {
       const body = await req.json();
       const { fileIds } = fileLookupSchema.parse(body);
       const items = await getFilesByIds(fileIds);
-      return ok({ items });
+      const materialized = await Promise.all(items.map((item) => materializeRecordFileUrls(item)));
+      return ok({ items: materialized });
     }
 
     // ── 单条 ─────────────────────────────────────────────
@@ -448,7 +472,7 @@ export async function routeV2File(req: Request): Promise<Response> {
       if (req.method === "GET") {
         const record = await getFileById(fileId);
         if (!record) return fail("未找到该文件", 404);
-        return ok(materializeRecordFileUrls(record));
+        return ok(await materializeRecordFileUrls(record));
       }
 
       if (req.method === "PUT" || req.method === "PATCH") {
@@ -464,7 +488,7 @@ export async function routeV2File(req: Request): Promise<Response> {
           if (ft) patch.fileTypeId = ft;
         }
         const record = await updateFileRecord(fileId, patch);
-        return ok(materializeRecordFileUrls(record));
+        return ok(await materializeRecordFileUrls(record));
       }
 
       if (req.method === "DELETE") {

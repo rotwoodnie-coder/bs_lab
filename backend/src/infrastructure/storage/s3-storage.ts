@@ -156,6 +156,35 @@ export async function createPresignedReadUrl(
   return getSignedUrl(client, command, { expiresIn });
 }
 
+/**
+ * 生成公网可访问的预签名 URL。
+ * 使用 `MINIO_PUBLIC_URL`（若配置）作为 endpoint，使得生成的 signed URL 指向公网入口，
+ * 浏览器可直接加载，无需前端 S3 代理路由。
+ *
+ * `getSignedUrl` 为纯本地运算，不发起网络请求，每次创建新 S3Client 的开销可忽略。
+ */
+export async function createPublicPresignedReadUrl(
+  storageKey: string,
+  options?: { action?: "view" | "download"; expiresInSeconds?: number },
+): Promise<string> {
+  const cfg = getConfig();
+  const endpoint = (cfg.publicUrl || cfg.endpoint).replace(/\/+$/, "");
+  const action = options?.action ?? "view";
+  const presignClient = new S3Client({
+    region: cfg.region,
+    endpoint,
+    forcePathStyle: true,
+    credentials: cfg.credentials,
+  });
+  const command = new GetObjectCommand({
+    Bucket: cfg.bucket,
+    Key: normalizeKey(storageKey),
+    ResponseContentDisposition: action === "download" ? "attachment" : "inline",
+  });
+  const expiresIn = Math.min(3600, Math.max(60, options?.expiresInSeconds ?? 3600));
+  return getSignedUrl(presignClient, command, { expiresIn });
+}
+
 export function getStorageKey(storageKey: string): string {
   return normalizeKey(storageKey);
 }
