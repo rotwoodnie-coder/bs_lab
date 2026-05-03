@@ -224,14 +224,22 @@ export function tryStorageKeyFromFileUrl(fileUrl: string): string | null {
  * @param expiresInSeconds — 签名有效期，默认 3600 秒
  * @returns 预签名 URL，或降级为普通 materialize 后的 URL（非 MinIO 文件或出错时）
  */
+/**
+ * URL 指向本机或内网地址时，浏览器客户端无法直接访问，应视为不可用。
+ * 匹配：localhost、127.0.0.1、10.x.x.x、172.16-31.x.x、192.168.x.x
+ */
+function isPrivateOrLoopbackHost(url: string): boolean {
+  return /:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)/i.test(url);
+}
+
 export async function presignPublicUrl(rawUrl: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
   const raw = (rawUrl ?? "").trim();
   if (!raw) return null;
-  // 若已是完整 URL 但非公网 MinIO 前缀（外部链接），直接返回
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    // 本机/内网地址浏览器不可达 → 返回 null，UI 自动降级为「无封面」
+    if (isPrivateOrLoopbackHost(raw)) return null;
     const storageKey = tryStorageKeyFromFileUrl(raw);
-    if (!storageKey) return raw; // 外部 URL，不属本桶
-    // storageKey 是本桶对象 key，继续签名
+    if (!storageKey) return raw; // 外部公网 URL，直接透传
     try {
       return await createPublicPresignedReadUrl(storageKey, { action: "view", expiresInSeconds });
     } catch {

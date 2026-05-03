@@ -224,7 +224,7 @@ export async function getExpList(query: ExpMsgListQuery) {
             e.like_num, e.notlike_num, e.collection_num, e.evaluate_num,
             e.confirm_user_id, e.confirm_time, e.confirm_comments, e.reject_reason,
             e.update_user_id, e.update_time,
-            e.logo_url, e.cover_video_url, e.simulator_url,
+            e.logo_url, e.cover_video_url,
             owner.user_name AS display_owner_name,
             s.subject_name AS subject_name, g.grade_name AS grade_name,
             c.coursebook_name AS coursebook_name, ch.chapter_name AS chapter_name, u.unit_name AS unit_name
