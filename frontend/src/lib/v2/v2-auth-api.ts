@@ -103,14 +103,23 @@ async function parseEnvelope<T>(res: Response): Promise<T> {
   return json.data;
 }
 
-function readRoleHint(): string {
-  if (typeof window === "undefined") return "student";
-  return window.localStorage.getItem("mock-mobile-login-role") ?? window.localStorage.getItem("mock-mobile-last-role") ?? "student";
+function getCurrentPathname(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.pathname || "";
+}
+
+function hasMobileMockRoleInStorage(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean(window.localStorage.getItem("mock-mobile-login-role") || window.localStorage.getItem("mock-mobile-last-role"));
+}
+
+function shouldMockProfile(input: string): boolean {
+  return process.env.NODE_ENV === "development" && input.includes("/v2/auth/profile") && getCurrentPathname().startsWith("/m") && hasMobileMockRoleInStorage();
 }
 
 async function v2Fetch(input: string, init?: RequestInit): Promise<Response> {
-  if (input.includes("/v2/auth/profile")) {
-    const role = readRoleHint();
+  if (shouldMockProfile(input)) {
+    const role = window.localStorage.getItem("mock-mobile-login-role") ?? window.localStorage.getItem("mock-mobile-last-role") ?? "student";
     const userRoleId = role === "parent" ? "Role_Parent" : role === "teacher" ? "Role_Teacher" : "Role_Student";
     const userName = role === "parent" ? "测试家长" : role === "teacher" ? "测试老师" : "测试学生";
     return new Response(
