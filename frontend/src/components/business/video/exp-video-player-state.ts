@@ -27,9 +27,8 @@ export function useExpVideoBaseState(rasterPosterCapture: RasterPosterCaptureMod
     setViewportOk(rasterPosterCapture !== "visible");
   }, [rasterPosterCapture]);
 
-  const isPreview = status === "preview";
   const isActive = status === "active";
-  const mountVideo = isPreview || isActive;
+  const mountVideo = isActive;
 
   return {
     status,
@@ -46,7 +45,6 @@ export function useExpVideoBaseState(rasterPosterCapture: RasterPosterCaptureMod
     setViewportOk,
     videoRef,
     rootRef,
-    isPreview,
     isActive,
     mountVideo,
     resetOnSrc,

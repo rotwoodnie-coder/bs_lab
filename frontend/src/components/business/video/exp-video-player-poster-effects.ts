@@ -46,15 +46,14 @@ export function useExpVideoVisibleGate(
 export function useExpVideoPlaybackSync(
   videoRef: React.RefObject<HTMLVideoElement | null>,
   mountVideo: boolean,
-  isPreview: boolean,
   status: PlayerVisualStatus,
   videoKey: number,
 ): void {
   React.useLayoutEffect(() => {
     const el = videoRef.current;
     if (!el || !mountVideo) return;
-    applyPlaybackToVideo(el, isPreview ? "preview" : "active");
-  }, [videoRef, mountVideo, isPreview, status, videoKey]);
+    applyPlaybackToVideo(el);
+  }, [videoRef, mountVideo, status, videoKey]);
 }
 
 export function useExpVideoStreamRasterCapture(

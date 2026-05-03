@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+
 import type { StandardVideoExpPlayerProps } from "./exp-video-player.types";
 import { useExpVideoListInteractions } from "./exp-video-player-interaction";
 import { useExpVideoContentStartSeek } from "./exp-video-player-content-start";
@@ -13,13 +14,16 @@ import {
 import { useExpVideoPosterPersist } from "./exp-video-player-poster-persist";
 import { useExpVideoBaseState } from "./exp-video-player-state";
 
-export type { PlayerVisualStatus } from "./exp-video-player.types";
+function useExpId(src: string): string {
+  return React.useId() + ":" + src;
+}
 
 export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   const { src, poster, ratio = 16 / 9, title = "视频", rasterPosterCapture = "eager", posterPersist, contentStartSeconds, onPlayRequest } =
     props;
   const trimmedSrc = src.trim();
   const propPoster = poster?.trim() ?? "";
+  const expId = useExpId(trimmedSrc);
 
   const st = useExpVideoBaseState(rasterPosterCapture);
   const imgSrc = propPoster || st.livePoster;
@@ -42,7 +46,6 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   React.useEffect(() => {
     const el = st.rootRef.current;
     if (!el) return;
-    // 检查是否已经可见（避免 src 变化时闪一下再加载）
     if (el.getBoundingClientRect().top < window.innerHeight + 200) {
       setPosterInView(true);
       return;
@@ -60,40 +63,33 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     return () => ob.disconnect();
   }, [st.rootRef, trimmedSrc]);
 
-  const { onMouseEnter, onMouseLeave, goActive } = useExpVideoListInteractions(
+  const { goActive, cleanup } = useExpVideoListInteractions(
+    expId,
     st.status,
     st.setStatus,
     st.bumpVideoKey,
   );
 
-  // 注：有 onPlayRequest 时，播放和预览点击转调父级（如打开弹窗），同时卡片恢复 poster 态
-  // 仅回退 status 并卸载 <video>，不清除封面缓存（livePoster 保留），避免回到卡片时黑屏
+  // 组件卸载时释放全局锁
+  React.useEffect(() => cleanup, [cleanup]);
+
+  // 注：有 onPlayRequest 时，播放点击转调父级（如打开弹窗），同时卡片回 poster 态
   const handlePlayRequest = React.useCallback(() => {
     if (onPlayRequest) {
       onPlayRequest();
       st.setStatus("poster");
       st.bumpVideoKey();
+      cleanup();
       return;
     }
     goActive();
-  }, [onPlayRequest, goActive, st.setStatus, st.bumpVideoKey]);
+  }, [onPlayRequest, goActive, cleanup, st.setStatus, st.bumpVideoKey]);
 
-  const handlePreviewClick = React.useCallback(() => {
-    if (onPlayRequest) {
-      onPlayRequest();
-      st.setStatus("poster");
-      st.bumpVideoKey();
-      return;
-    }
-    goActive();
-  }, [onPlayRequest, goActive, st.setStatus, st.bumpVideoKey]);
-
-  useExpVideoPlaybackSync(st.videoRef, st.mountVideo, st.isPreview, st.status, st.videoKey);
+  useExpVideoPlaybackSync(st.videoRef, st.mountVideo, st.status, st.videoKey);
   useExpVideoContentStartSeek(
     st.videoRef,
     st.mountVideo,
     contentStartSeconds == null ? undefined : contentStartSeconds,
-    st.isPreview,
     st.videoKey,
   );
 
@@ -104,7 +100,6 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     title,
     status: st.status,
     mountVideo: st.mountVideo,
-    isPreview: st.isPreview,
     isActive: st.isActive,
     imgSrc,
     posterFailed: st.posterFailed,
@@ -113,10 +108,7 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     posterInView,
     videoRef: st.videoRef,
     videoKey: st.videoKey,
-    onMouseEnter,
-    onMouseLeave,
     goActive: handlePlayRequest,
-    handlePreviewClick,
     className: props.className,
   };
 }

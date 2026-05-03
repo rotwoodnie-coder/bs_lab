@@ -2,7 +2,7 @@ import type { ApiActor } from "@/lib/new-core-api";
 
 export type RasterPosterCaptureMode = "eager" | "visible" | "never";
 
-export type PlayerVisualStatus = "poster" | "preview" | "active";
+export type PlayerVisualStatus = "poster" | "active";
 
 /** Canvas 截帧成功后回传 `data_file.logo_url`（需后端已登记 `fileId`） */
 export type PosterPersistConfig = {
