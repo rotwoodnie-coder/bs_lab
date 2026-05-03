@@ -34,6 +34,7 @@ import { routeV2TeacherClassConfig } from "./routes/v2-teacher-class-config.ts";
 import { routeV2Review } from "./routes/v2-review.ts";
 import { routeV2Version } from "./routes/v2-version.ts";
 import { parseCookies, verifyV2AccessToken } from "../lib/auth/v2-session.ts";
+import { deepPresignResponse } from "../lib/presign-response.ts";
 
 const port = Number(process.env.PORT ?? 4100);
 const NODE_ENV = (process.env.NODE_ENV ?? "development").trim();
@@ -241,7 +242,23 @@ createServer(async (req, res) => {
         res.setHeader(k, v);
       });
     }
-    res.end(await response.text());
+    // 对所有 JSON 响应自动预签名白名单中的 MinIO URL 字段
+    const ct = response.headers.get("content-type") ?? "";
+    if (ct.includes("application/json")) {
+      const rawBody = await response.text();
+      try {
+        const json = JSON.parse(rawBody);
+        if (json && typeof json === "object" && (json.data !== undefined || json.success !== undefined)) {
+          json.data = await deepPresignResponse(json.data);
+        }
+        res.end(JSON.stringify(json));
+      } catch {
+        // 解析失败则原样透传（非标准 JSON 响应，如纯字符串 body）
+        res.end(rawBody);
+      }
+    } else {
+      res.end(await response.text());
+    }
     const latencyMs = Date.now() - startedAt;
     console.log(`${req.method} ${req.url} status=${response.status} latencyMs=${latencyMs} traceId=${traceId}`);
   } catch (err) {

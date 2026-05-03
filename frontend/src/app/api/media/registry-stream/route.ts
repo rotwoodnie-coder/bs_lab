@@ -29,10 +29,18 @@ function resolveObjectKey(fileUrl: string): string | null {
   if (!raw) return null;
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     const prefix = minioStoredUrlPrefix();
-    if (raw.startsWith(prefix)) return raw.slice(prefix.length);
+    if (raw.startsWith(prefix)) {
+      // 剥离前缀后，去掉查询参数（预签名 URL 携带 ?X-Amz-Algorithm=...）
+      const afterPrefix = raw.slice(prefix.length);
+      const qIdx = afterPrefix.indexOf("?");
+      return qIdx >= 0 ? afterPrefix.slice(0, qIdx) : afterPrefix;
+    }
     return null;
   }
-  return raw.replace(/^\/+/, "") || null;
+  // 纯 key 也可能携带了查询参数
+  const qIdx = raw.indexOf("?");
+  const clean = qIdx >= 0 ? raw.slice(0, qIdx) : raw;
+  return clean.replace(/^\/+/, "") || null;
 }
 
 export async function GET(req: Request) {
@@ -71,6 +79,12 @@ export async function GET(req: Request) {
 
     // 非 MinIO 存储的文件：302 跳转（如外部公网 URL）
     if (!objectKey) {
+      return Response.redirect(fileUrl, 302);
+    }
+
+    // 如果 fileUrl 已经是预签名 URL（包含签名参数），直接 302 跳转，
+    // 避免通过 Node 代理中转（代理会丢失 Range 头且增加服务端负担）
+    if (fileUrl.includes("X-Amz-Signature=")) {
       return Response.redirect(fileUrl, 302);
     }
 

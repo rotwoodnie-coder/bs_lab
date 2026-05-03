@@ -8,9 +8,14 @@ function requiredEnv(name: string): string {
 
 /**
  * 规范化对象键：与本地 `storageKey` 对齐，禁止路径穿越与空键。
+ * 同时剥离可能附带的查询参数（如预签名 URL 残留的 ?X-Amz-*）。
  */
 export function normalizeMediaS3ObjectKey(storageKey: string): string {
-  const key = storageKey.replace(/\\/g, "/").trim().replace(/^\/+/, "");
+  let key = storageKey.replace(/\\/g, "/").trim();
+  // 去掉查询参数（? 及之后的所有内容）
+  const qIdx = key.indexOf("?");
+  if (qIdx >= 0) key = key.slice(0, qIdx);
+  key = key.replace(/^\/+/, "");
   if (!key || key.includes("..")) {
     throw new Error("INVALID_STORAGE_KEY");
   }

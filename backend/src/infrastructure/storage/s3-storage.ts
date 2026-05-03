@@ -235,6 +235,8 @@ function isPrivateOrLoopbackHost(url: string): boolean {
 export async function presignPublicUrl(rawUrl: string | null | undefined, expiresInSeconds = 3600): Promise<string | null> {
   const raw = (rawUrl ?? "").trim();
   if (!raw) return null;
+  // 已包含签名参数说明是上一次签名结果，直接透传避免重复签名
+  if (raw.includes("X-Amz-Expires=") || raw.includes("X-Amz-Signature=")) return raw;
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     // 本机/内网地址浏览器不可达 → 返回 null，UI 自动降级为「无封面」
     if (isPrivateOrLoopbackHost(raw)) return null;
