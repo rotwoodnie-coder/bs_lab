@@ -219,6 +219,12 @@ export async function getExpList(query: ExpMsgListQuery) {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT e.exp_id, e.exp_name, e.class_hour, e.status, e.create_time, e.exp_principle,
             e.unit_id, e.coursebook_id, e.create_user_id,
+            e.choose_type, e.difficulty_id, e.exp_caution, e.exp_danger,
+            e.standard_exp_id, e.link_exp_id, e.exp_task_type,
+            e.like_num, e.notlike_num, e.collection_num, e.evaluate_num,
+            e.confirm_user_id, e.confirm_time, e.confirm_comments, e.reject_reason,
+            e.update_user_id, e.update_time,
+            e.logo_url, e.cover_video_url, e.simulator_url,
             owner.user_name AS display_owner_name,
             s.subject_name AS subject_name, g.grade_name AS grade_name,
             c.coursebook_name AS coursebook_name, ch.chapter_name AS chapter_name, u.unit_name AS unit_name
@@ -234,7 +240,9 @@ export async function getExpList(query: ExpMsgListQuery) {
      LIMIT ? OFFSET ?`,
     [...params, pageSize, (page - 1) * pageSize],
   );
-  return { items: rows.map(rowToExpMsg), total, page, pageSize };
+  const items = rows.map(rowToExpMsg);
+  const presignedItems = await Promise.all(items.map((item) => presignExpMsgRecord(item)));
+  return { items: presignedItems, total, page, pageSize };
 }
 
 /** 将实验挂载到教材小节（或取消挂载）。unitId 为 null 时视为解除绑定。 */
