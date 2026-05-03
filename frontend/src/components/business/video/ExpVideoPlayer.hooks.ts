@@ -3,12 +3,16 @@
 import * as React from "react";
 
 import type { StandardVideoExpPlayerProps } from "./exp-video-player.types";
+import { useExpVideoContentStartSeek } from "./exp-video-player-content-start";
+import { useExpVideoPlaybackSync, useExpVideoPosterResetOnSrcChange, useExpVideoStreamRasterCapture, useExpVideoVisibleGate } from "./exp-video-player-poster-effects";
+import { useExpVideoPosterPersist } from "./exp-video-player-poster-persist";
 
 /**
  * 点击播放延迟桥接 Hook：
- * 1. goActive → status="active", videoReady=false → video 挂载但隐藏，封面+spinner 可见
- * 2. video canplay → videoReady=true → 封面淡出，视频淡入清晰播放
- * 3. 停止/回退 → status="poster", videoReady=false → 封面淡入恢复
+ * 1. 封面优先使用后端 poster（coverFileId 预签名 URL），否则用客户端截帧（raster capture）
+ * 2. goActive → status="active", videoReady=false → video 挂载但隐藏，封面+spinner 可见
+ * 3. video canplay → videoReady=true → 封面淡出，视频淡入清晰播放
+ * 4. 停止/回退 → status="poster", videoReady=false → 封面淡入恢复
  */
 export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   const {
@@ -16,6 +20,8 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     poster,
     ratio = 16 / 9,
     title = "视频",
+    rasterPosterCapture = "eager",
+    posterPersist,
     contentStartSeconds,
     onPlayRequest,
   } = props;
@@ -26,13 +32,17 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
   const [videoReady, setVideoReady] = React.useState(false);
   const [videoKey, setVideoKey] = React.useState(0);
   const [posterFailed, setPosterFailed] = React.useState(false);
+  const [livePoster, setLivePoster] = React.useState<string | null>(null);
+  const [capturePhase, setCapturePhase] = React.useState<"idle" | "pending" | "done" | "miss">("idle");
+  const [viewportOk, setViewportOk] = React.useState(rasterPosterCapture !== "visible");
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
 
   const isActive = status === "active";
   const mountVideo = isActive;
-  const displayPoster = propPoster && !posterFailed ? propPoster : undefined;
+  // 封面优先级：propPoster（后端给） > livePoster（客户端截帧） > undefined（无封面）
+  const displayPoster = (propPoster && !posterFailed) ? propPoster : (livePoster ?? undefined);
 
   // 全局互斥锁
   const expIdRef = React.useRef(useIdSuffix(trimmedSrc));
@@ -47,6 +57,34 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
       setVideoKey((k) => k + 1);
     });
   }
+
+  useExpVideoPosterResetOnSrcChange(trimmedSrc, rasterPosterCapture, () => {
+    setStatus("poster");
+    setVideoReady(false);
+    setVideoKey((k) => k + 1);
+    setPosterFailed(false);
+    setLivePoster(null);
+    setCapturePhase("idle");
+    setViewportOk(rasterPosterCapture !== "visible");
+  });
+  useExpVideoVisibleGate(rootRef, rasterPosterCapture, trimmedSrc, setViewportOk);
+  useExpVideoStreamRasterCapture(
+    trimmedSrc,
+    propPoster,
+    rasterPosterCapture,
+    viewportOk,
+    setLivePoster,
+    setCapturePhase,
+  );
+
+  useExpVideoPosterPersist(posterPersist ?? null, livePoster, propPoster, trimmedSrc, setLivePoster);
+
+  useExpVideoContentStartSeek(
+    videoRef,
+    mountVideo,
+    contentStartSeconds == null ? undefined : contentStartSeconds,
+    videoKey,
+  );
 
   // 点击播放
   const goActive = React.useCallback(() => {
@@ -104,6 +142,9 @@ export function useStandardVideoExpPlayer(props: StandardVideoExpPlayerProps) {
     displayPoster,
     posterFailed,
     setPosterFailed,
+    capturePhase,
+    viewportOk,
+    setViewportOk,
     videoRef,
     goActive,
     handleVideoReady,

@@ -70,13 +70,11 @@ export function MaterialPreviewCard(props: Props) {
       : "";
   const previewSrc = props.preview.previewUrl || FALLBACK_POSTER;
   const videoPlaySrc = props.preview.sourceUrl?.trim() || previewSrc;
-  const isThumbnailUrl =
-    props.preview.previewUrl?.trim().includes("thumbnail=true") ?? false;
   const posterForVideo =
     props.preview.previewUrl?.trim() &&
     props.preview.previewUrl.trim() !== FALLBACK_POSTER &&
     props.preview.previewUrl.trim() !== videoPlaySrc.trim() &&
-    (isThumbnailUrl || (!props.preview.previewUrl.includes("/api/media/registry-stream") && isEmbeddableWithoutCookie(props.preview.previewUrl)))
+    isEmbeddableWithoutCookie(props.preview.previewUrl)
       ? props.preview.previewUrl.trim()
       : undefined;
   return (
