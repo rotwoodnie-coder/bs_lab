@@ -613,12 +613,13 @@ export function teacherMaterialsDataFileListBaseQuery(actor: ApiActor): { ownerU
 
 export async function listTeacherMaterialsApi(
   actor: ApiActor,
-  filters?: { keyword?: string; materialTypeCode?: string },
+  filters?: { keyword?: string; materialTypeCode?: string; fileTypeId?: string },
 ): Promise<TeacherMaterialItem[]> {
   void filters?.materialTypeCode;
   const files = await fetchV2FilesAll(actor, {
     ...teacherMaterialsDataFileListBaseQuery(actor),
     keyword: filters?.keyword?.trim() || undefined,
+    fileTypeId: filters?.fileTypeId?.trim() || undefined,
   });
 
   // 按 contentSha256 去重：相同哈希只保留最新一条（遍历顺序即最新排序）

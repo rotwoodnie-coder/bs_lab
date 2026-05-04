@@ -9,11 +9,10 @@ import {
   listTeacherMaterialsApi,
   type TeacherMaterialItem,
 } from "@/lib/teacher-materials-api";
-import { filterTeacherMaterials, type KindFilterId } from "@/app/(dashboard)/teacher/materials/_lib/material-filters";
 import type { ViewMode } from "@/components/business/material";
 
 const MODE_STORAGE_KEY = "bs-lab:video-square:view-mode";
-const KIND_FILTER_STORAGE_KEY = "bs-lab:video-square:kind-filter";
+const SEARCH_DEBOUNCE_MS = 350;
 
 function readStored<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -52,9 +51,7 @@ export function useVideoSquarePage() {
     () => readStored<ViewMode>(MODE_STORAGE_KEY, "waterfall"),
   );
   const [keyword, setKeyword] = React.useState("");
-  const [kindFilter, setKindFilterState] = React.useState<KindFilterId>(
-    () => readStored<KindFilterId>(KIND_FILTER_STORAGE_KEY, "video"),
-  );
+  const [debouncedKeyword, setDebouncedKeyword] = React.useState("");
   const [items, setItems] = React.useState<TeacherMaterialItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -64,16 +61,11 @@ export function useVideoSquarePage() {
     writeStored(MODE_STORAGE_KEY, m);
   }, []);
 
-  const setKindFilter = React.useCallback((k: KindFilterId) => {
-    setKindFilterState(k);
-    writeStored(KIND_FILTER_STORAGE_KEY, k);
-  }, []);
-
-  /** 清除所有筛选条件 */
-  const clearFilters = React.useCallback(() => {
-    setKeyword("");
-    setKindFilter("all");
-  }, [setKindFilter]);
+  // 搜索防抖
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(keyword), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [keyword]);
 
   const fetchData = React.useCallback(() => {
     if (!hydrated) return;
@@ -81,7 +73,8 @@ export function useVideoSquarePage() {
     setError(null);
 
     void listTeacherMaterialsApi(actor, {
-      keyword: keyword.trim() || undefined,
+      keyword: debouncedKeyword.trim() || undefined,
+      fileTypeId: "FT_Video",
     })
       .then((rows) => {
         setItems(rows);
@@ -94,17 +87,11 @@ export function useVideoSquarePage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [actor, hydrated, keyword]);
+  }, [actor, hydrated, debouncedKeyword]);
 
   React.useEffect(() => {
-    // TODO: Refactor to server-side pagination if items > 500
     fetchData();
   }, [fetchData]);
-
-  const filtered = React.useMemo(
-    () => filterTeacherMaterials(items, kindFilter, keyword),
-    [items, kindFilter, keyword],
-  );
 
   const retry = React.useCallback(() => {
     fetchData();
@@ -117,13 +104,9 @@ export function useVideoSquarePage() {
     setMode,
     keyword,
     setKeyword,
-    kindFilter,
-    setKindFilter,
     items,
-    filtered,
     loading,
     error,
     retry,
-    clearFilters,
   };
 }

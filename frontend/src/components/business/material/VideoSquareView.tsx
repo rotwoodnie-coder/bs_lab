@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Badge, Button, Input, Spinner } from "@bs-lab/ui";
 import {
   Search,
@@ -8,20 +9,27 @@ import {
   Table2,
   Rows3,
   RotateCcw,
-  X,
 } from "@bs-lab/ui/icons";
 
 import { useSessionActor } from "@/hooks/use-session-actor";
-import { VideoSquareWaterfall, VideoPreviewDialog, MediaPreviewDialog } from "@/components/business/material";
+import {
+  VideoSquareWaterfall,
+} from "@/components/business/material";
 import type { TeacherMaterialItem } from "@/lib/teacher-materials-api";
-import { TEACHER_MATERIALS_KIND_FILTER } from "@/app/(dashboard)/teacher/materials/_lib/teacher-materials-ui.config";
 import { useVideoSquarePage } from "@/app/(dashboard)/video-square/page.hooks";
 
 export function VideoSquareView() {
+  const router = useRouter();
   const st = useVideoSquarePage();
   const { hydrated } = useSessionActor();
 
-  const [previewItem, setPreviewItem] = React.useState<TeacherMaterialItem | null>(null);
+  // 必须放在所有 early return 之前：hooks 调用次序需恒定
+  const handleClickItem = React.useCallback(
+    (item: TeacherMaterialItem) => {
+      router.push(`/resource/${item.materialId}`);
+    },
+    [router],
+  );
 
   if (!hydrated) {
     return (
@@ -55,21 +63,9 @@ export function VideoSquareView() {
           />
         </div>
 
-        {/* 类型筛选 + 视图切换 */}
+        {/* 视图切换（已移除类型筛选） */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {TEACHER_MATERIALS_KIND_FILTER.map((f) => (
-              <Badge
-                key={f.id}
-                variant={st.kindFilter === f.id ? "default" : "outline"}
-                className="cursor-pointer select-none px-3 py-1.5 text-sm"
-                onClick={() => st.setKindFilter(f.id)}
-              >
-                {f.label}
-              </Badge>
-            ))}
-          </div>
-
+          <div className="flex-1" />
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -119,49 +115,18 @@ export function VideoSquareView() {
             重试
           </Button>
         </div>
-      ) : st.filtered.length === 0 ? (
+      ) : st.items.length === 0 ? (
         /* 空态 */
         <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3">
-          <p className="text-sm text-muted-foreground">
-            {st.items.length === 0
-              ? "暂无素材数据"
-              : "当前筛选无匹配素材"}
-          </p>
-          {(st.keyword || st.kindFilter !== "all") ? (
-            <Button type="button" variant="outline" size="sm" onClick={st.clearFilters}>
-              <X className="mr-1 size-3.5" />
-              清除筛选
-            </Button>
-          ) : null}
+          <p className="text-sm text-muted-foreground">暂无素材数据</p>
         </div>
       ) : (
         /* 内容区 */
         <VideoSquareWaterfall
           actor={st.actor}
-          items={st.filtered}
+          items={st.items}
           mode={st.mode}
-          onClickItem={setPreviewItem}
-        />
-      )}
-
-      {/* 预览弹窗 */}
-      {previewItem?.kind === "video" ? (
-        <VideoPreviewDialog
-          item={previewItem}
-          actor={st.actor}
-          open={previewItem !== null}
-          onOpenChange={(open) => {
-            if (!open) setPreviewItem(null);
-          }}
-        />
-      ) : (
-        <MediaPreviewDialog
-          item={previewItem}
-          actor={st.actor}
-          open={previewItem !== null}
-          onOpenChange={(open) => {
-            if (!open) setPreviewItem(null);
-          }}
+          onClickItem={handleClickItem}
         />
       )}
     </div>
