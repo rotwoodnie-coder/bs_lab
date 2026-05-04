@@ -1,6 +1,7 @@
 import {
   BookOpen,
   FileQuestion,
+  Library,
   ListChecks,
   Package,
   Scale,
@@ -15,6 +16,12 @@ import type { SystemNavItemDefinition } from "@/config/nav-config.types";
 /** 教师 · 管理台 */
 export const TEACHER_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   EXP_COURSE_NAV_ITEM,
+  {
+    id: "console-res-experiments",
+    label: getNavLabel("console-res-experiments", "实验列表"),
+    href: "/console/settings/experiments",
+    Icon: Library,
+  },
   {
     id: "teacher-assignments",
     label: getNavLabel("teacher-assignments", "作业任务"),

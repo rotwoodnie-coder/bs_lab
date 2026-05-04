@@ -13,9 +13,12 @@ export function useExpVideoPosterResetOnSrcChange(
   rasterPosterCapture: RasterPosterCaptureMode,
   reset: () => void,
 ): void {
+  const resetRef = React.useRef(reset);
+  resetRef.current = reset;
+
   React.useEffect(() => {
-    reset();
-  }, [trimmedSrc, rasterPosterCapture, reset]);
+    resetRef.current();
+  }, [trimmedSrc, rasterPosterCapture]);
 }
 
 export function useExpVideoVisibleGate(
