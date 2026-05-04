@@ -10,29 +10,22 @@ import type { CoreApiActor } from "@/lib/core-api-shared";
 import { listSysRoles, type SysRoleRecord } from "@/lib/v2/v2-sys-role-api";
 import { getRoleMenuPermissions, listSysMenus, saveRoleMenuPermissions, type RoleMenuPermissionRecord, type SysMenuRecord } from "@/lib/v2/v2-role-permission-api";
 import { sonnerToast } from "@bs-lab/ui";
-import { getPermissionPresetByRole } from "@/lib/permissions/page-permissions";
+import { getPermissionPresetByRole, PAGE_PERMISSIONS } from "@/lib/permissions/page-permissions";
 import type { UseRolesPageReturn, AuthRole, PageAccessRow, RolePermissionRow, PermissionGroup } from "./page.types";
 import { roleLabel } from "@/lib/console/users/format";
 import { buildPagePermissionCode } from "@/lib/permissions/page-permissions";
 
 const GROUPS: Record<string, string> = {
-  "系统设置": "系统设置",
-  "运维中心": "运维中心",
-  "教师端": "教师端",
-  "教研端": "教研端",
-  "学生端": "学生端",
-  "家长端": "家长端",
   "通用": "通用",
+  "治理层": "治理层",
+  "业务层": "业务层",
+  "使用层": "使用层",
 };
 
 function groupByMenuCode(menuCode: string): string {
-  if (menuCode.startsWith("user_") || menuCode.startsWith("role_") || menuCode.startsWith("org_") || menuCode.startsWith("class_") || menuCode.startsWith("parent_")) return "系统设置";
-  if (menuCode.startsWith("ops_") || menuCode.includes("statistics")) return "运维中心";
-  if (menuCode.startsWith("teacher_")) return "教师端";
-  if (menuCode.startsWith("review_research_") || menuCode.startsWith("resource_")) return "教研端";
-  if (menuCode.startsWith("student_")) return "学生端";
-  if (menuCode.startsWith("family_")) return "家长端";
-  return "通用";
+  // 从 PAGE_PERMISSIONS 读取分组，保持与前端权限目录一致
+  const page = PAGE_PERMISSIONS.find((p) => p.menuCode === menuCode);
+  return page?.group ?? "通用";
 }
 
 function buildPermissionRows(menus: SysMenuRecord[], permissions: RoleMenuPermissionRecord[]): RolePermissionRow[] {

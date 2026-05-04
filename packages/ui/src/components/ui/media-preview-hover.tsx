@@ -81,10 +81,13 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
 
   const [showVideo, setShowVideo] = React.useState(false);
   const [loadError, setLoadError] = React.useState(false);
+  const [videoReady, setVideoReady] = React.useState(false);
+  const [posterImgError, setPosterImgError] = React.useState(false);
 
   const cleanupRef = React.useRef<() => void>(() => {});
   cleanupRef.current = () => {
     setShowVideo(false);
+    setVideoReady(false);
   };
 
   const boundCleanup = React.useCallback(() => cleanupRef.current(), []);
@@ -106,6 +109,7 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
   const onPointerEnter = React.useCallback(() => {
     if (mobileStatic || reducedMotion || !inView || !videoSrc.trim()) return;
     setLoadError(false);
+    setVideoReady(false);
     takeHoverVideoPlayLock(boundCleanup);
     setShowVideo(true);
   }, [mobileStatic, reducedMotion, inView, videoSrc, boundCleanup]);
@@ -132,9 +136,14 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
 
   const onVideoError = React.useCallback(() => {
     setLoadError(true);
+    setVideoReady(false);
     boundCleanup();
     releaseHoverVideoPlayLock(boundCleanup);
   }, [boundCleanup]);
+
+  const onVideoCanPlay = React.useCallback(() => {
+    setVideoReady(true);
+  }, []);
 
   const innerVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const setVideoRefs = React.useMemo(
@@ -151,11 +160,19 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
     });
   }, [showVideo, videoSrc, boundCleanup]);
 
+  // 检测 poster 图片加载失败
   const staticLayer = posterNode ?? (
     <>
-      {posterSrc ? (
+      {posterSrc && !posterImgError ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={posterSrc} alt={alt ?? ""} className="size-full object-cover" loading="lazy" decoding="async" />
+        <img
+          src={posterSrc}
+          alt={alt ?? ""}
+          className="size-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setPosterImgError(true)}
+        />
       ) : (
         <FallbackPoster alt={alt} />
       )}
@@ -164,8 +181,10 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
 
   const shellClass = cn("relative size-full overflow-hidden bg-muted/30", className);
 
+  const isHovering = showVideo && !loadError && !mobileStatic && !reducedMotion;
+
   const videoLayer =
-    showVideo && !loadError && !mobileStatic && !reducedMotion ? (
+    isHovering ? (
       <video
         ref={setVideoRefs}
         src={videoSrc}
@@ -178,6 +197,7 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
         aria-label={alt ?? "视频预览"}
         onTimeUpdate={onTimeUpdate}
         onError={onVideoError}
+        onCanPlay={onVideoCanPlay}
       />
     ) : null;
 
@@ -207,7 +227,15 @@ export function MediaPreviewHoverPlay(props: MediaPreviewHoverPlayProps) {
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
     >
-      <div className="relative size-full">{staticLayer}</div>
+      {/* hover 时隐藏 staticLayer（opacity: 0），视频可以播放后再完全脱离文档流 */}
+      <div
+        className={cn(
+          "relative size-full transition-opacity duration-200 ease",
+          isHovering && videoReady ? "pointer-events-none opacity-0" : "opacity-100",
+        )}
+      >
+        {staticLayer}
+      </div>
       {videoLayer}
     </div>
   );

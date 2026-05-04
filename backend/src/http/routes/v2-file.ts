@@ -279,20 +279,11 @@ export async function routeV2File(req: Request): Promise<Response> {
         ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
         : undefined;
 
-      // 全库去重：同一 contentSha256 已有启用行，不传 S3，仅建新行（owner 为当前用户）
+      // 全库去重：同一 contentSha256 已有启用行，直接返回已有记录，避免列表重复
       const dup = await findActiveFileByContentSha(contentSha256);
       if (dup) {
-        const record = await createFileRecord({
-          fileName: displayName,
-          fileUrl: dup.fileUrl,
-          fileExt: fileExt || undefined,
-          fileSize: file.size,
-          ownerUserId: actorId,
-          fileTypeId,
-          contentSha256,
-        });
         scheduleThumbnailFinalizeFromStorageIfNoLogo(dup, file.type || "");
-        return ok({ ...(await materializeRecordFileUrls(record)), contentDeduped: true, existingFileId: dup.fileId });
+        return ok({ ...(await materializeRecordFileUrls(dup)), contentDeduped: true });
       }
 
       // 全新文件：上传到 S3 并创建行

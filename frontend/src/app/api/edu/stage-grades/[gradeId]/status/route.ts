@@ -28,7 +28,14 @@ export async function PATCH(
            AND (${effectiveSchoolLevelIdSqlForAlias("g")}) = ?`,
         [gradeIdStr, levelId],
       );
-      await runExec("DELETE FROM data_school_grade_subject WHERE grade_id = ?", [gradeIdStr]);
+      // 仅删除归属于该学段的矩阵行，避免已切换学段的年级误删
+      await runExec(
+        `DELETE gs FROM data_school_grade_subject gs
+         INNER JOIN data_school_grade g ON g.grade_id = gs.grade_id
+         WHERE gs.grade_id = ?
+           AND (${effectiveSchoolLevelIdSqlForAlias("g")}) = ?`,
+        [gradeIdStr, levelId],
+      );
       return { ok: true };
     }
 

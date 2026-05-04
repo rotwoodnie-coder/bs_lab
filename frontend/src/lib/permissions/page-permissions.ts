@@ -47,6 +47,19 @@ export const PAGE_PERMISSIONS: readonly PagePermissionDefinition[] = [
   { group: "使用层", menuCode: "parent_reports", path: "/parent/reports", label: "实验报告" },
   { group: "通用", menuCode: "experiment_square", path: "/experiment-square", label: "实验广场" },
   { group: "业务层", menuCode: "my_research_groups", path: "/teacher/research-project-groups", label: "我的课题组" },
+  // 0063 补充：原有真实页面但 0062 误禁用或从未入库
+  { group: "业务层", menuCode: "experiment_catalog", path: "/console/settings/experiments", label: "实验列表" },
+  { group: "业务层", menuCode: "teaching_research_groups", path: "/researcher/teaching-research-groups", label: "教研组管理" },
+  { group: "业务层", menuCode: "experimental_materials", path: "/experimental-materials", label: "实验材料库" },
+  { group: "业务层", menuCode: "teacher_experiment_preview", path: "/teacher/experiment-preview", label: "实验预览" },
+  { group: "业务层", menuCode: "teacher_question_bank", path: "/teacher/question-bank", label: "题库管理" },
+  { group: "使用层", menuCode: "student_challenge", path: "/student/experiment-challenge", label: "实验闯关" },
+  { group: "使用层", menuCode: "parent_task_center", path: "/parent/tasks", label: "任务中心" },
+  { group: "通用", menuCode: "messages_center", path: "/messages", label: "消息中心" },
+  { group: "通用", menuCode: "user_settings", path: "/settings", label: "系统设置" },
+  // 遗留页面（旧 0052 菜单，无 0055 方案替代，页面仍在用）
+  { group: "治理层", menuCode: "console_settings_dictionaries", path: "/console/settings/dictionaries", label: "字典管理" },
+  { group: "治理层", menuCode: "console_assessment_questions", path: "/console/assessment/questions", label: "题库管理" },
 ];
 
 export function buildPagePermissionCode(menuCode: string, mode: PagePermissionMode): string {
@@ -81,11 +94,11 @@ export function getPermissionPresetByRole(role: PermissionPresetRole): Record<st
   switch (role) {
     case "Role_Sys_Admin": set(PAGE_PERMISSIONS.map((p) => p.menuCode), PAGE_PERMISSIONS.map((p) => p.menuCode)); return preset;
     case "Role_District_Admin": set(["user_management","org_management","parent_bindings","class_management","school_statistics","district_statistics"],["user_management","org_management","parent_bindings","class_management","school_statistics","district_statistics"]); return preset;
-    case "Role_School_Admin": set(["org_management","user_management","class_management","parent_bindings","school_statistics","review_student_works","teacher_classroom","teacher_tasks","teacher_experiment_manager","experiment_square","profile","dashboard"],["org_management","user_management","class_management","parent_bindings","school_statistics","review_student_works"]); return preset;
-    case "Role_Researcher": set(["teacher_experiment_manager","textbook_management","review_experiments","review_research_groups","resource_center","teacher_tasks","experiment_square","profile","dashboard"],["teacher_experiment_manager","textbook_management","review_experiments","review_research_groups"]); return preset;
-    case "Role_Teacher": set(["teacher_classroom","teacher_tasks","teacher_experiment_manager","my_research_groups","resource_center","experiment_square","student_tasks","profile","dashboard","textbook_management"],["teacher_classroom","teacher_tasks","teacher_experiment_manager","my_research_groups","student_tasks"]); return preset;
-    case "Role_Student": set(["student_tasks","student_growth","experiment_square","profile","dashboard"],["student_tasks"]); return preset;
-    case "Role_Parent": set(["family_lab","parent_reports","student_growth","experiment_square","profile","dashboard","student_tasks"],["family_lab"]); return preset;
+    case "Role_School_Admin": set(["org_management","user_management","class_management","parent_bindings","school_statistics","review_student_works","teacher_classroom","teacher_tasks","teacher_experiment_manager","experiment_catalog","experiment_square","profile","dashboard","experimental_materials"],["org_management","user_management","class_management","parent_bindings","school_statistics","review_student_works"]); return preset;
+    case "Role_Researcher": set(["teacher_experiment_manager","textbook_management","review_experiments","review_research_groups","resource_center","teacher_tasks","experiment_catalog","teaching_research_groups","experimental_materials","experiment_square","profile","dashboard"],["teacher_experiment_manager","textbook_management","review_experiments","review_research_groups","experiment_catalog","teaching_research_groups"]); return preset;
+    case "Role_Teacher": set(["teacher_classroom","teacher_tasks","teacher_experiment_manager","my_research_groups","resource_center","experiment_square","student_tasks","profile","dashboard","textbook_management","experimental_materials","teacher_experiment_preview","teacher_question_bank"],["teacher_classroom","teacher_tasks","teacher_experiment_manager","my_research_groups","student_tasks"]); return preset;
+    case "Role_Student": set(["student_tasks","student_growth","student_challenge","experiment_square","profile","dashboard","messages_center","user_settings"],["student_tasks"]); return preset;
+    case "Role_Parent": set(["family_lab","parent_reports","parent_task_center","student_growth","experiment_square","profile","dashboard","student_tasks","messages_center","user_settings"],["family_lab","parent_task_center"]); return preset;
     default: return preset;
   }
 }

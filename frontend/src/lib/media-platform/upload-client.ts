@@ -15,7 +15,7 @@ import type { MultipartProgressEvent } from "./multipart-upload";
 import { uploadFileViaMultipart } from "./multipart-upload";
 import { startMediaUploadProgressToast } from "./media-upload-toast-progress";
 import type { MediaUploadProgressEvent, MediaUploadXhrPayload } from "./upload-form-xhr";
-import { extractMediaUploadError, postMediaUploadForm } from "./upload-form-xhr";
+import { extractMediaUploadError, postMediaUploadForm, postMediaUploadFormDirect } from "./upload-form-xhr";
 import type { MediaStorageMode } from "./media-upload-destination-copy";
 
 export type UploadToMediaPlatformResult = {
@@ -44,6 +44,12 @@ export type MediaPlatformUploadOptions = {
   uploadKey?: string;
 };
 
+/** 若代理层返回 FormData 解析错误，自动降级直连后端。 */
+function isFormDataParseError(payload: MediaUploadXhrPayload): boolean {
+  const msg = typeof payload.error === "string" ? payload.error : payload.error?.message ?? "";
+  return msg.includes("Failed to parse body as FormData");
+}
+
 async function postUploadEnvelope(
   form: FormData,
   opts?: MediaPlatformUploadOptions,
@@ -58,6 +64,21 @@ async function postUploadEnvelope(
         toastCtl?.updateProgress(e.percent);
       },
     });
+    if (!payload.ok && isFormDataParseError(payload)) {
+      // 代理层 FormData 解析失败 → 降级直连后端 /v2/file/upload
+      toastCtl?.updateProgress(99);
+      const directPayload = await postMediaUploadFormDirect(form, {
+        onProgress: (e) => {
+          opts?.onProgress?.(e);
+          toastCtl?.updateProgress(e.percent);
+        },
+      });
+      if (!directPayload.ok || !directPayload.data) {
+        throw new Error(errorMessageFromPayload(directPayload));
+      }
+      toastCtl?.finishSuccess(directPayload.data.storageMode, directPayload.data.reused);
+      return directPayload;
+    }
     if (!payload.ok || !payload.data) {
       throw new Error(errorMessageFromPayload(payload));
     }

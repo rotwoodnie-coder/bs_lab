@@ -224,7 +224,8 @@ export async function getExpList(query: ExpMsgListQuery) {
             e.like_num, e.notlike_num, e.collection_num, e.evaluate_num,
             e.confirm_user_id, e.confirm_time, e.confirm_comments,
             e.update_user_id, e.update_time,
-            e.logo_url, e.cover_video_url,
+            fv.video_url AS cover_video_url,
+            fv.logo_url,
             owner.user_name AS display_owner_name,
             s.subject_name AS subject_name, g.grade_name AS grade_name,
             c.coursebook_name AS coursebook_name, ch.chapter_name AS chapter_name, u.unit_name AS unit_name
@@ -235,6 +236,14 @@ export async function getExpList(query: ExpMsgListQuery) {
      LEFT JOIN data_coursebook c ON c.coursebook_id = e.coursebook_id
      LEFT JOIN data_coursebook_unit u ON u.unit_id = e.unit_id
      LEFT JOIN data_coursebook_chapter ch ON ch.chapter_id = u.chapter_id
+     LEFT JOIN (
+       SELECT ev.exp_id,
+              ev.video_url,
+              df.logo_url,
+              ROW_NUMBER() OVER (PARTITION BY ev.exp_id ORDER BY ev.sort_order IS NULL, ev.sort_order ASC, ev.seq_id ASC) AS rn
+       FROM exp_video ev
+       LEFT JOIN data_file df ON df.file_id = ev.file_id
+     ) fv ON fv.exp_id = e.exp_id AND fv.rn = 1
      WHERE ${where.join(" AND ")}
      ORDER BY e.create_time DESC, e.exp_id DESC
      LIMIT ? OFFSET ?`,

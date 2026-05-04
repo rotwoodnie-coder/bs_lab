@@ -89,7 +89,9 @@ function ActionMenuButton({ onEdit, onDelete, onMemberManage }: { onEdit: () => 
   );
 }
 
-export default function ResearcherTeachingResearchGroupsPage() {
+import { withPermission } from "@/lib/permissions/with-permission";
+
+function ResearcherTeachingResearchGroupsPage() {
   const { actor, role, loading, refresh, rows, canCreate, createOpen, setCreateOpen, submitting, handleCreateSubmit, openEdit, openDelete, openMemberManage, selectedOrg, editOpen, deleteOpen, memberManageOpen, closeOrgDialogs, selectedMembers, membersLoading, reloadMembers } = useTeachingResearchGroupsList();
   const [viewMode, setViewMode] = React.useState<"list" | "card">("list");
   const [memberPickerOpen, setMemberPickerOpen] = React.useState(false);
@@ -493,3 +495,5 @@ export default function ResearcherTeachingResearchGroupsPage() {
     </div>
   );
 }
+
+export default withPermission(ResearcherTeachingResearchGroupsPage, "/researcher/teaching-research-groups");

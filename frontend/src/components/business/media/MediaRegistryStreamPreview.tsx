@@ -60,7 +60,8 @@ export function MediaRegistryStreamPreview({
   const [posterFailed, setPosterFailed] = React.useState(false);
 
   const rawLogo = logoUrl?.trim();
-  const poster = rawLogo ? materialStorageBrowserHref(rawLogo) : mediaRegistryStreamUrl(fileId, "view", actor, { variant: "thumb_sm" });
+  // 有 logo_url 时用它做封面；为空时不再尝试实时抽帧（ffmpeg 易失败），直接展示 fallback 图标
+  const poster = rawLogo ? materialStorageBrowserHref(rawLogo) : "";
   const posterIsLikelyRaster =
     poster.length > 0 &&
     !/\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(poster) &&

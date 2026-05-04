@@ -10,10 +10,16 @@ export async function PATCH(
     const { id } = await context.params;
     const prevGradeId = (id ?? "").trim();
     if (!prevGradeId) throw new Error("gradeId 非法");
-    const body = (await request.json()) as { grade_name?: string; grade_id?: string; active_status?: 0 | 1 };
+    const body = (await request.json()) as {
+      grade_name?: string;
+      grade_id?: string;
+      active_status?: 0 | 1;
+      school_level_id?: string;
+    };
     const name = (body.grade_name ?? "").trim();
     const code = (body.grade_id ?? "").trim().toUpperCase();
     const status = body.active_status === 0 ? 0 : 1;
+    const schoolLevelId = (body.school_level_id ?? "").trim();
     if (!name) throw new Error("年级名称不能为空");
     if (!code) throw new Error("年级编码不能为空");
     if (code.length > 32) throw new Error("年级编码过长");
@@ -25,15 +31,14 @@ export async function PATCH(
         [code, prevGradeId],
       );
       await runExec(
-        `UPDATE data_school_grade SET grade_id = ?, grade_name = ?, status = ? WHERE grade_id = ?`,
-        [code, name, st, prevGradeId],
+        `UPDATE data_school_grade SET grade_id = ?, grade_name = ?, status = ?, school_level_id = ? WHERE grade_id = ?`,
+        [code, name, st, schoolLevelId || null, prevGradeId],
       );
     } else {
-      await runExec(`UPDATE data_school_grade SET grade_name = ?, status = ? WHERE grade_id = ?`, [
-        name,
-        st,
-        prevGradeId,
-      ]);
+      await runExec(
+        `UPDATE data_school_grade SET grade_name = ?, status = ?, school_level_id = ? WHERE grade_id = ?`,
+        [name, st, schoolLevelId || null, prevGradeId],
+      );
     }
     return { ok: true };
   });

@@ -130,15 +130,27 @@ export default function ConsoleSubjectGradesPage() {
                       for (let r = 0; r < rows.length; r++) {
                         const row = rows[r];
                         if (!row) continue;
-                        await eduDimensionsApi.patchGrade(row.id, row);
+                        // 将 levelId 映射为 school_level_id 传给后端持久化
+                        await eduDimensionsApi.patchGrade(row.id, {
+                          grade_name: row.grade_name,
+                          grade_id: row.grade_id,
+                          active_status: row.active_status,
+                          school_level_id: row.levelId,
+                        });
+                        // 先 enable 再 disable，避免旧学段禁用时误删矩阵行后新学段 enable 失败
+                        await eduDimensionsApi.patchStageGradeStatus(
+                          row.levelId,
+                          row.id,
+                          1,
+                        );
                         const levels = [...state.snapshot.levels];
                         for (let i = 0; i < levels.length; i++) {
                           const levelId = levels[i]?.levelId;
-                          if (!levelId) continue;
+                          if (!levelId || levelId === row.levelId) continue;
                           await eduDimensionsApi.patchStageGradeStatus(
                             levelId,
                             row.id,
-                            levelId === row.levelId ? 1 : 0,
+                            0,
                           );
                         }
                       }

@@ -86,6 +86,9 @@ export const SUPER_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   { id: "console-reports-templates", label: getNavLabel("console-reports-templates", "报告模板"), href: "/console/reports/templates", Icon: ScrollText },
   { id: "console-ai-strategies", label: getNavLabel("console-ai-strategies", "AI 引导语与策略"), href: "/console/operations/ai-strategies", Icon: Layers },
 
+  // ── 教研组管理 ──
+  { id: "researcher-teaching-research-groups", label: "教研组管理", href: "/researcher/teaching-research-groups", Icon: School },
+
   // ── 社交与运营 ──
   { id: "console-social-review", label: getNavLabel("console-social-review", "评价与审核"), href: "/console/social/review", Icon: ClipboardCheck },
   { id: "console-social-court", label: getNavLabel("console-social-court", "小法庭"), href: "/console/social/court", Icon: Scale },

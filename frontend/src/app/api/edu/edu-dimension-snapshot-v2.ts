@@ -179,7 +179,7 @@ export async function fetchEduSnapshotV2(): Promise<SchoolDimensionSnapshot> {
     `SELECT g.grade_id, g.grade_name, g.school_level_id, g.comments, g.status, g.sort_order
      FROM data_school_grade g
      WHERE ${schoolDictStatusEnabledSql("g")}
-     ORDER BY g.sort_order ASC, g.grade_id ASC`,
+     ORDER BY CAST(SUBSTRING(g.grade_id, 7) AS UNSIGNED) ASC, g.sort_order ASC`,
   );
   const snapStage = snapshotStageIdSqlForGradeAlias("g");
   const matrix = await runQuery<V2MatrixRow>(
@@ -200,7 +200,7 @@ export async function fetchEduSnapshotV2(): Promise<SchoolDimensionSnapshot> {
        AND ${schoolDictStatusEnabledSql("lv")}
        AND ${schoolDictStatusEnabledSql("g")}
        AND ${schoolDictStatusEnabledSql("s")}
-     ORDER BY lv.sort_order ASC, g.sort_order ASC, s.sort_order ASC, gs.seq_id ASC`,
+     ORDER BY lv.sort_order ASC, CAST(SUBSTRING(g.grade_id, 7) AS UNSIGNED) ASC, g.sort_order ASC, s.sort_order ASC, gs.seq_id ASC`,
   );
 
   return {

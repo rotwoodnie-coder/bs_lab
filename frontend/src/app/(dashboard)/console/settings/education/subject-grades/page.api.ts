@@ -190,7 +190,7 @@ async function createGradeApi(payload: { grade_name: string; grade_id: string })
 
 async function patchGradeApi(
   gradeId: string,
-  payload: { grade_name: string; grade_id: string; active_status: 0 | 1 },
+  payload: { grade_name: string; grade_id: string; active_status: 0 | 1; school_level_id?: string },
 ): Promise<void> {
   await requestVoid(eduDimensionFetchUrl(`/grades/${encodeURIComponent(gradeId)}`), {
     method: "PATCH",
