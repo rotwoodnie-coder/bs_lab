@@ -62,6 +62,7 @@ export async function searchMediaRegistry(
   const core = toCore(actor);
   const page = await fetchV2FileListPage(core, {
     keyword: keyword.trim() || undefined,
+    status: "y",
     page: 1,
     pageSize: 100,
   });
