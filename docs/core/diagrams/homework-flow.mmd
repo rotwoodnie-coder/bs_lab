@@ -1,0 +1,8 @@
+sequenceDiagram
+  participant T as Teacher
+  participant API as /v2/exp/publish-course-task
+  participant DB as MySQL
+  T->>API: publish task
+  API->>DB: insert exp_homework
+  DB-->>API: workId
+  API-->>T: success

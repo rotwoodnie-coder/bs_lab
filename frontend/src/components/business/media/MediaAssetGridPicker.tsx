@@ -141,7 +141,17 @@ export function MediaAssetGridPicker({ kind, actor, onPick, onPicked, className 
         ...h,
         assetMediaType: h.assetMediaType ?? "UNKNOWN",
       }));
-      setItems(normalized.filter((h) => hitMatchesKind(h, kind)));
+
+      // 按 contentSha256 去重：同一内容哈希只保留第一条记录，避免列表中出现重复视频
+      const seenSha = new Set<string>();
+      const dedupedBySha = normalized.filter((h) => {
+        const sha = h.contentSha256?.trim();
+        if (!sha) return true; // 无哈希时全部展示（历史数据）
+        if (seenSha.has(sha)) return false;
+        seenSha.add(sha);
+        return true;
+      });
+      setItems(dedupedBySha.filter((h) => hitMatchesKind(h, kind)));
     } catch (e) {
       sonnerToast.error("加载失败", { description: e instanceof Error ? e.message : "未知错误" });
     } finally {

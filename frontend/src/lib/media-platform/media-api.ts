@@ -3,7 +3,6 @@
 import type { ApiActor } from "@/lib/new-core-api";
 import type { CoreApiActor } from "@/lib/core-api-shared";
 import { fetchV2FileById, fetchV2FileListPage } from "@/lib/v2/v2-file-api";
-import { mediaRegistryStreamUrl } from "./registry-ref";
 import type {
   MediaCompleteJobsResult,
   MediaCreateReferenceInput,
@@ -75,7 +74,8 @@ export async function searchMediaRegistry(
         assetId: f.fileId,
         assetMediaType: inferAssetMediaTypeFromV2File(f),
         fileExt: f.fileExt,
-        logoUrl: f.logoUrl?.trim() ? f.logoUrl : (inferAssetMediaTypeFromV2File(f) === "VIDEO" ? mediaRegistryStreamUrl(f.fileId, "view", core, { variant: "thumb_sm" }) : mediaRegistryStreamUrl(f.fileId, "view", core, { variant: "thumb_sm" })),
+        contentSha256: f.contentSha256,
+        logoUrl: f.logoUrl?.trim() ? f.logoUrl : null,
         title: f.fileName,
         ownerType: "USER",
         ownerKey: f.ownerUserId ?? "",

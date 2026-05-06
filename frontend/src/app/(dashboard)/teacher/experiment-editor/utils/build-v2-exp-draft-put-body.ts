@@ -24,6 +24,8 @@ export type BuildV2ExpDraftPutBodyArgs = {
   gradeId: string | null;
   /** 对齐 exp_msg.exp_task_type */
   expTaskType: "hw" | "tk" | "self" | null;
+  /** 对齐 exp_msg.standard_exp_id */
+  standardExpId?: string | null;
   summary: string;
   curriculum: string;
   teachingContextContent: string;
@@ -123,6 +125,7 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
     school_level_id: schoolLevelId,
     grade_id: gradeId,
     difficulty_id: difficultyId || null,
+    standard_exp_id: (a.standardExpId ?? "").trim().slice(0, 32) || null,
     coursebook_id: coursebookId || null,
     unit_id: unitId || null,
     exp_principle: composeExpPrincipleForDb({

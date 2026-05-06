@@ -11,7 +11,7 @@
  Target Server Version : 90001
  File Encoding         : 65001
 
- Date: 02/05/2026 17:03:08
+ Date: 06/05/2026 21:31:08
 */
 
 SET NAMES utf8mb4;
@@ -104,6 +104,8 @@ CREATE TABLE `data_file`  (
   `file_size` bigint NULL DEFAULT NULL COMMENT '文件大小（字节）',
   `file_ext` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '文件后缀',
   `content_sha256` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容 SHA-256(hex)',
+  `is_hidden_from_gallery` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否在媒体库列表中隐藏（1=隐藏，0=展示）',
+  `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '业务类型：avatar（头像）、media（媒体素材）、document（文档），空表示未归类',
   `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   `parent_file_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '父文件ID（自引用），表达从属关系',
@@ -114,6 +116,7 @@ CREATE TABLE `data_file`  (
   INDEX `idx_data_file_type`(`file_type_id` ASC) USING BTREE,
   INDEX `idx_data_file_owner`(`owner_user_id` ASC) USING BTREE,
   INDEX `idx_data_file_relation`(`relation_type` ASC) USING BTREE,
+  INDEX `idx_df_hidden_gallery`(`is_hidden_from_gallery` ASC) USING BTREE,
   CONSTRAINT `fk_data_file_parent` FOREIGN KEY (`parent_file_id`) REFERENCES `data_file` (`file_id`) ON DELETE SET NULL ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '文件资源主表' ROW_FORMAT = Dynamic;
 
@@ -930,7 +933,7 @@ CREATE TABLE `migration_error_log`  (
   `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for migration_id_map
@@ -1222,7 +1225,7 @@ CREATE TABLE `sys_menu`  (
   UNIQUE INDEX `uq_sys_menu_code`(`menu_code` ASC) USING BTREE,
   INDEX `idx_sys_menu_parent`(`parent_id` ASC) USING BTREE,
   INDEX `idx_sys_menu_path`(`path` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 40 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统菜单目录表' ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 49 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '系统菜单目录表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for sys_msg
@@ -1399,6 +1402,12 @@ CREATE TABLE `teacher_class`  (
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '教师授课班级关系' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
+-- View structure for v_active_parent_children
+-- ----------------------------
+DROP VIEW IF EXISTS `v_active_parent_children`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_parent_children` AS select `r`.`seq_id` AS `seq_id`,`r`.`parent_user_id` AS `parent_user_id`,`r`.`student_user_id` AS `student_user_id`,`r`.`school_org_id` AS `school_org_id`,`r`.`create_time` AS `create_time`,`r`.`audit_status` AS `audit_status`,`r`.`audit_user_id` AS `audit_user_id`,`r`.`audit_comments` AS `audit_comments`,`r`.`audit_time` AS `audit_time` from `sys_parent_student_rel` `r` where (`r`.`audit_status` = 'Y');
+
+-- ----------------------------
 -- View structure for v_active_student_enrollments
 -- ----------------------------
 DROP VIEW IF EXISTS `v_active_student_enrollments`;
@@ -1415,5 +1424,11 @@ CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_user_org_posts`
 -- ----------------------------
 DROP VIEW IF EXISTS `v_active_user_org_subject_posts`;
 CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_active_user_org_subject_posts` AS select `iam_user_org_subject_posts`.`id` AS `id`,`iam_user_org_subject_posts`.`tenant_id` AS `tenant_id`,`iam_user_org_subject_posts`.`user_id` AS `user_id`,`iam_user_org_subject_posts`.`org_id` AS `org_id`,`iam_user_org_subject_posts`.`subject_code` AS `subject_code`,`iam_user_org_subject_posts`.`role_id` AS `role_id`,`iam_user_org_subject_posts`.`is_primary` AS `is_primary`,`iam_user_org_subject_posts`.`status` AS `status`,`iam_user_org_subject_posts`.`start_at` AS `start_at`,`iam_user_org_subject_posts`.`end_at` AS `end_at`,`iam_user_org_subject_posts`.`created_at` AS `created_at`,`iam_user_org_subject_posts`.`updated_at` AS `updated_at` from `iam_user_org_subject_posts` where ((`iam_user_org_subject_posts`.`status` = 1) and ((`iam_user_org_subject_posts`.`start_at` is null) or (`iam_user_org_subject_posts`.`start_at` <= now())) and ((`iam_user_org_subject_posts`.`end_at` is null) or (`iam_user_org_subject_posts`.`end_at` >= now())));
+
+-- ----------------------------
+-- View structure for v_user_school_stage
+-- ----------------------------
+DROP VIEW IF EXISTS `v_user_school_stage`;
+CREATE ALGORITHM = UNDEFINED SQL SECURITY DEFINER VIEW `v_user_school_stage` AS select `u`.`user_id` AS `user_id`,`u`.`user_name` AS `user_name`,`u`.`login_name` AS `login_name`,`u`.`user_role_id` AS `user_role_id`,`u`.`user_org_id` AS `user_org_id`,`o`.`org_id` AS `class_org_id`,`o`.`org_name` AS `class_org_name`,`o`.`grade_id` AS `grade_id`,`g`.`grade_name` AS `grade_name`,`g`.`school_level_id` AS `school_level_id`,`l`.`level_name` AS `school_level_name` from (((`sys_user` `u` left join `sys_org` `o` on(((`o`.`org_id` = `u`.`user_org_id`) and (`o`.`is_deleted` = 0)))) left join `data_school_grade` `g` on((`g`.`grade_id` = `o`.`grade_id`))) left join `data_school_level` `l` on((`l`.`level_id` = `g`.`school_level_id`))) where (`u`.`is_deleted` = 0);
 
 SET FOREIGN_KEY_CHECKS = 1;

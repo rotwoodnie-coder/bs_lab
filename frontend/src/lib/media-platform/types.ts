@@ -18,6 +18,8 @@ export type MediaRegistryHit = {
   fileExt?: string | null;
   /** V2：`data_file.logo_url`（视频封面等），可为空 */
   logoUrl?: string | null;
+  /** V2：`data_file.content_sha256`，用于前端去重 */
+  contentSha256?: string | null;
   /** 若该登记被实验材料引用，返回对应材料名称（用于素材库展示） */
   resourceName?: string;
   title: string;

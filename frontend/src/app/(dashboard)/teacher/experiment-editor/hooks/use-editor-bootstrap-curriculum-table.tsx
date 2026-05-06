@@ -203,26 +203,5 @@ export function useEditorBootstrapCurriculumTable(p: Args) {
     initialState: { pagination: { pageSize: 8 } },
   });
 
-  const setSelectedStandardId = p.setSelectedStandardId;
-  const setCurriculum = p.setCurriculum;
-  React.useEffect(() => {
-    if (p.useCustomExperiment) return;
-    if (curriculumTableRows.length === 0) return;
-    // 关键词搜索时列表会整体变化，自动改「当前选中行」会连带触发行内带入逻辑，易覆盖用户手选的年级/学段。
-    if (hasSearchKeyword) return;
-    const nextRow =
-      curriculumTableRows.find((item) => item.id === p.selectedStandardId) ?? curriculumTableRows[0];
-    if (!nextRow) return;
-    if (p.selectedStandardId !== nextRow.id) setSelectedStandardId(nextRow.id);
-    setCurriculum(nextRow.curriculumRefText);
-  }, [
-    curriculumTableRows,
-    hasSearchKeyword,
-    p.selectedStandardId,
-    p.useCustomExperiment,
-    setCurriculum,
-    setSelectedStandardId,
-  ]);
-
   return { curriculumTableRows, curriculumTable };
 }

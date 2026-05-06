@@ -304,6 +304,7 @@ export type V2ExpDraftPutBody = {
   school_level_id: string | null;
   grade_id: string | null;
   difficulty_id: string | null;
+  standard_exp_id?: string | null;
   coursebook_id: string | null;
   unit_id: string | null;
   exp_principle: string | null;
@@ -383,8 +384,14 @@ export function fetchV2SchoolLevels(actor: CoreApiActor): Promise<V2DictItem[]> 
   return createV2ApiService(actor).get<V2DictItem[]>("/v2/dict/school-levels");
 }
 
+export type V2GradeSubjectItem = { id: string; subjectId: string; gradeId: string };
+
 export function fetchV2SchoolGrades(actor: CoreApiActor): Promise<V2DictGradeItem[]> {
   return createV2ApiService(actor).get<V2DictGradeItem[]>("/v2/dict/school-grades");
+}
+
+export function fetchV2GradeSubjects(actor: CoreApiActor): Promise<V2GradeSubjectItem[]> {
+  return createV2ApiService(actor).get<V2GradeSubjectItem[]>("/v2/dict/grade-subjects");
 }
 
 export function fetchV2DifficultyTypes(actor: CoreApiActor): Promise<V2DictItem[]> {

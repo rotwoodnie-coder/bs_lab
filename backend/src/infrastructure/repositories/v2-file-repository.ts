@@ -113,8 +113,15 @@ function rowToFile(row: RowDataPacket): DataFileRecord {
         ? String(row.cover_file_id).trim()
         : null;
 
+  // 取 resolved_logo_url：优先主行 logo_url，否则用封面子行的 file_url 兜底
+  let logoUrlVal: string | null = row.logo_url != null && String(row.logo_url).trim() !== ""
+    ? String(row.logo_url).trim()
+    : null;
+  if (!logoUrlVal && row.resolved_logo_url != null && String(row.resolved_logo_url).trim() !== "") {
+    logoUrlVal = String(row.resolved_logo_url).trim();
+  }
+
   // 异步修复 coverFileId（如果通过子查询获取到且有差异时触发）
-  // 仅当 SELECT 中包含 resolved_cover_file_id 列时执行
   if (resolvedCoverId && row.cover_file_id !== resolvedCoverId) {
     const fid = String(row.file_id);
     void (async () => {
@@ -124,6 +131,21 @@ function rowToFile(row: RowDataPacket): DataFileRecord {
         console.info("[v2-file-repo] async cover_file_id repair", { fileId: fid, resolvedCoverId, oldValue: row.cover_file_id });
       } catch (e) {
         console.error("[v2-file-repo] async cover_file_id repair failed", { fileId: fid, resolvedCoverId, error: e });
+      }
+    })();
+  }
+
+  // 异步修复 logo_url：如果从封面子行解析到了 URL 但主行 logo_url 为空，回填主行
+  if (logoUrlVal && !(row.logo_url != null && String(row.logo_url).trim() !== "")) {
+    const fid = String(row.file_id);
+    const resolvedUrl = logoUrlVal;
+    void (async () => {
+      try {
+        const pool = getMysqlPool();
+        await pool.query("UPDATE data_file SET logo_url = ? WHERE file_id = ? AND (logo_url IS NULL OR TRIM(logo_url) = '')", [resolvedUrl, fid]);
+        console.info("[v2-file-repo] async logo_url repair", { fileId: fid, resolvedUrl });
+      } catch (e) {
+        console.error("[v2-file-repo] async logo_url repair failed", { fileId: fid, resolvedUrl, error: e });
       }
     })();
   }
@@ -145,7 +167,7 @@ function rowToFile(row: RowDataPacket): DataFileRecord {
     ownerAvatarUrl: row.owner_avatar_url ? String(row.owner_avatar_url) : null,
     ownerTitleName: row.owner_title_name ? String(row.owner_title_name) : null,
     ownerOrgName: row.owner_org_name ? String(row.owner_org_name) : null,
-    logoUrl: row.logo_url ? String(row.logo_url) : null,
+    logoUrl: logoUrlVal,
     fileSize: row.file_size != null ? Number(row.file_size) : null,
     fileExt: row.file_ext ? String(row.file_ext) : null,
     contentSha256: row.content_sha256 != null && String(row.content_sha256).trim() !== ""
@@ -219,6 +241,7 @@ export async function listFiles(query: FileListQuery): Promise<FileListPage> {
             df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
+            COALESCE(df.logo_url, (SELECT child.file_url FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_logo_url,
             df.create_time, df.update_time,
             dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
             COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
@@ -252,6 +275,7 @@ export async function findActiveFileByContentSha(
             df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
+            COALESCE(df.logo_url, (SELECT child.file_url FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_logo_url,
             df.create_time, df.update_time,
             dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
             COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
@@ -295,6 +319,7 @@ export async function getFileById(fileId: string): Promise<DataFileRecord | null
             df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
+            COALESCE(df.logo_url, (SELECT child.file_url FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_logo_url,
             df.create_time, df.update_time,
             dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
             COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
@@ -321,6 +346,7 @@ export async function getFilesByIds(fileIds: string[]): Promise<DataFileRecord[]
             df.is_hidden_from_gallery, df.biz_type,
             df.parent_file_id, df.relation_type, df.cover_file_id,
             COALESCE(df.cover_file_id, (SELECT child.file_id FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_cover_file_id,
+            COALESCE(df.logo_url, (SELECT child.file_url FROM data_file child WHERE child.parent_file_id = df.file_id AND child.relation_type = 'logo' LIMIT 1)) AS resolved_logo_url,
             df.create_time, df.update_time,
             dft.type_name AS file_type_name, dft.logo_class AS file_type_logo_class,
             COALESCE(owner.user_nick_name, owner.user_name) AS owner_user_name,
@@ -511,19 +537,22 @@ export async function getChildFilesByParentId(parentFileId: string): Promise<Dat
 export async function updateMainFileCover(
   mainFileId: string,
   coverFileId: string | null,
+  coverFileUrl?: string | null,
   expectedCoverFileId?: string | null,
 ): Promise<boolean> {
   const pool = getMysqlPool();
   try {
+    // 同时更新 cover_file_id 与 logo_url，确保前端通过 logoUrl 字段读到真实封面地址
     const [result] = await pool.query<ResultSetHeader>(
-      "UPDATE data_file SET cover_file_id = ? WHERE file_id = ? AND (cover_file_id <=> ?)",
-      [coverFileId, mainFileId, expectedCoverFileId ?? null],
+      "UPDATE data_file SET cover_file_id = ?, logo_url = ? WHERE file_id = ? AND (cover_file_id <=> ?)",
+      [coverFileId, coverFileUrl ?? null, mainFileId, expectedCoverFileId ?? null],
     );
     const updated = (result as ResultSetHeader).affectedRows > 0;
     if (!updated) {
       console.warn("[v2-file-repo] updateMainFileCover optimistic lock miss", {
         mainFileId,
         coverFileId,
+        coverFileUrl,
         expectedCoverFileId: expectedCoverFileId ?? null,
       });
     }

@@ -225,7 +225,9 @@ export async function listExpLibrary(
   const params: unknown[] = [];
 
   if (query.keyword?.trim()) {
-    where.push("l.lib_exp_name LIKE ?"); params.push(`%${query.keyword.trim()}%`);
+    const kw = `%${query.keyword.trim()}%`;
+    where.push("(l.lib_exp_name LIKE ? OR l.lib_exp_id LIKE ? OR l.comments LIKE ?)");
+    params.push(kw, kw, kw);
   }
   const subjectIds = (query.subjectIds ?? []).map((x) => String(x).trim()).filter(Boolean).slice(0, 40);
   if (subjectIds.length > 0) {

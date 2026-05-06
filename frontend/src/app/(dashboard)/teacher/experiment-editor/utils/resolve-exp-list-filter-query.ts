@@ -1,18 +1,25 @@
-import { SUBJECT_CASCADE } from "@/data/subject-tree";
-import type { V2DictGradeItem, V2DictItem } from "@/lib/v2/v2-exp-api";
+import type { V2DictGradeItem, V2DictItem, V2GradeSubjectItem } from "@/lib/v2/v2-exp-api";
 import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
 
-const PHASE_LEVEL_HINT: Record<EducationPhase, string> = {
+const PHASE_LABEL: Record<EducationPhase, string> = {
   primary: "小学",
   junior: "初中",
   senior: "高中",
 };
 
-/**
- * 将「实验选择」多选学段 / 学科 / 年级（年级为 UI code）解析为 V2 列表查询用逗号 id 串
- *（`/v2/exp-library` 与 `/v2/exp` 共用 shape：`subject_ids` / `grade_ids` / `school_level_ids`）。
- * 约定：数组为空表示该维度**不限**（不传对应 IN 条件）。
- */
+const PHASE_DISCIPLINE_HINT: Record<EducationPhase, SubjectDiscipline[]> = {
+  primary: ["science"],
+  junior: ["physics", "chemistry", "biology"],
+  senior: ["physics", "chemistry", "biology"],
+};
+
+function phaseOfGradeCode(code: string): EducationPhase | null {
+  if (code.startsWith("P")) return "primary";
+  if (code.startsWith("J")) return "junior";
+  if (code.startsWith("S")) return "senior";
+  return null;
+}
+
 export function resolveExpListFilterQueryIds(input: {
   phases: EducationPhase[];
   disciplines: SubjectDiscipline[];
@@ -20,56 +27,56 @@ export function resolveExpListFilterQueryIds(input: {
   subjects: V2DictItem[];
   grades: V2DictGradeItem[];
   levels: V2DictItem[];
+  gradeSubjects: V2GradeSubjectItem[];
 }): { subject_ids?: string; grade_ids?: string; school_level_ids?: string } {
   const out: { subject_ids?: string; grade_ids?: string; school_level_ids?: string } = {};
-
-  const phases = input.phases.length ? input.phases : null;
+  const phaseSet = new Set(input.phases);
   const discSet = new Set(input.disciplines);
-  const useAllDisciplines = input.disciplines.length === 0;
   const gradeCodeSet = new Set(input.gradeCodes);
-  const useAllGrades = input.gradeCodes.length === 0;
+  const gradeByCode = new Map(input.grades.map((g) => [String(g.name ?? "").trim(), g] as const));
+  const subjectByName = new Map(input.subjects.map((s) => [String(s.name ?? "").trim(), s.id] as const));
+  const levelByName = new Map(input.levels.map((lv) => [String(lv.name ?? "").trim(), lv.id] as const));
 
-  const cascadePhases = phases ? SUBJECT_CASCADE.filter((p) => phases.includes(p.phase)) : [...SUBJECT_CASCADE];
+  const allowedGradeIds = new Set<string>();
+  const allowedSubjectIds = new Set<string>();
 
-  if (phases && phases.length > 0) {
-    const levelIds = new Set<string>();
-    for (const ph of phases) {
-      const hint = PHASE_LEVEL_HINT[ph];
-      const row = input.levels.find((l) => String(l.name ?? "").includes(hint));
-      const id = row?.id ? String(row.id).trim().slice(0, 32) : "";
-      if (id) levelIds.add(id);
-    }
-    if (levelIds.size > 0) out.school_level_ids = [...levelIds].join(",");
+  if (phaseSet.size > 0) {
+    const levelIds = [...phaseSet]
+      .map((ph) => levelByName.get(PHASE_LABEL[ph]) ?? null)
+      .filter((v): v is string => Boolean(v));
+    if (levelIds.length > 0) out.school_level_ids = [...new Set(levelIds)].join(",");
   }
 
-  if (!useAllDisciplines) {
-    const subjectIds = new Set<string>();
-    for (const ph of cascadePhases) {
-      for (const d of ph.disciplines) {
-        if (!discSet.has(d.discipline)) continue;
-        const dLabel = String(d.label ?? "").trim();
-        const sid = input.subjects.find((s) => String(s.name ?? "").trim() === dLabel)?.id?.trim().slice(0, 32);
-        if (sid) subjectIds.add(sid);
+  if (discSet.size > 0) {
+    const hints = [...phaseSet].length > 0 ? [...phaseSet].flatMap((ph) => PHASE_DISCIPLINE_HINT[ph]) : null;
+    for (const subj of input.subjects) {
+      const name = String(subj.name ?? "").trim();
+      const matchedByHint = hints ? hints.includes(name as SubjectDiscipline) : true;
+      if (!matchedByHint) continue;
+      if (discSet.has(name as SubjectDiscipline)) allowedSubjectIds.add(subj.id);
+    }
+    if (allowedSubjectIds.size > 0) out.subject_ids = [...allowedSubjectIds].join(",");
+  }
+
+  if (gradeCodeSet.size > 0) {
+    const relationPairs = new Set(input.gradeSubjects.map((gs) => `${gs.subjectId}::${gs.gradeId}`));
+    for (const gradeCode of gradeCodeSet) {
+      const grade = gradeByCode.get(gradeCode);
+      if (!grade) continue;
+      const gradePhase = phaseOfGradeCode(gradeCode);
+      if (phaseSet.size > 0 && gradePhase && !phaseSet.has(gradePhase)) continue;
+      if (allowedSubjectIds.size === 0) {
+        allowedGradeIds.add(grade.id);
+        continue;
       }
-    }
-    if (subjectIds.size > 0) out.subject_ids = [...subjectIds].join(",");
-  }
-
-  if (!useAllGrades) {
-    const gradeIds = new Set<string>();
-    for (const ph of cascadePhases) {
-      for (const d of ph.disciplines) {
-        if (!useAllDisciplines && !discSet.has(d.discipline)) continue;
-        for (const g of d.grades) {
-          if (!gradeCodeSet.has(g.code)) continue;
-          const gLabel = String(g.label ?? "").trim();
-          const gr = input.grades.find((x) => String(x.name ?? "").trim() === gLabel);
-          const gid = gr?.id ? String(gr.id).trim().slice(0, 32) : "";
-          if (gid) gradeIds.add(gid);
+      for (const subjectId of allowedSubjectIds) {
+        if (relationPairs.has(`${subjectId}::${grade.id}`)) {
+          allowedGradeIds.add(grade.id);
+          break;
         }
       }
     }
-    if (gradeIds.size > 0) out.grade_ids = [...gradeIds].join(",");
+    if (allowedGradeIds.size > 0) out.grade_ids = [...allowedGradeIds].join(",");
   }
 
   return out;

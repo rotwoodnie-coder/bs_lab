@@ -80,6 +80,21 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
       });
     }, []);
 
+    // 封面就绪轮询：最多等待 10 秒，每 2 秒检查一次
+    const waitForCoverReady = React.useCallback(
+      async (imageUrl: string, maxAttempts = 5, intervalMs = 2000): Promise<boolean> => {
+        for (let i = 0; i < maxAttempts; i++) {
+          const ready = await validateCoverImage(imageUrl);
+          if (ready) return true;
+          if (i < maxAttempts - 1) {
+            await new Promise((r) => setTimeout(r, intervalMs));
+          }
+        }
+        return false;
+      },
+      [validateCoverImage],
+    );
+
     const runOcr = React.useCallback(
       async (imageUrl: string) => {
         if (!imageUrl) return;
@@ -94,10 +109,10 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
           return;
         }
 
-        // 执行 OCR 前先检查封面图是否有效
-        const isValid = await validateCoverImage(imageUrl);
-        if (!isValid) {
-          setOcrError("无封面图，无法进行 OCR 识别");
+        // 封面就绪轮询：等待封面生成完成（克服后端异步缩略图生成竞态）
+        const coverReady = await waitForCoverReady(imageUrl);
+        if (!coverReady) {
+          setOcrError("封面图未能就绪，请稍后点击「重新识别」");
           return;
         }
 
@@ -118,7 +133,7 @@ export const EditorOcrSection = React.forwardRef<EditorOcrSectionHandle, Props>(
         }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [expId, userId, applyOcrResult, validateCoverImage],
+      [expId, userId, applyOcrResult, waitForCoverReady],
     );
 
     React.useImperativeHandle(

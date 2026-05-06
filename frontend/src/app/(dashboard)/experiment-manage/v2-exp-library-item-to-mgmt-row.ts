@@ -42,13 +42,15 @@ export function v2ExpLibraryItemToMgmtRow(
     .filter(Boolean);
   const gradeLabels = gradeNames.length > 0 ? gradeNames : ["—"];
   const commentsPlain = plainFromRich(item.comments);
+  const [phaseLabel, subjectLabel] = subjectPath.split(" · ");
   return {
     id: item.libExpId,
     title: item.libExpName,
     summary: commentsPlain ? commentsPlain.slice(0, 240) : item.libExpName,
     workflowStatus: ws,
     authorName: (item.displayOwnerName ?? item.createUserId ?? "—").trim() || "—",
-    subjectLabel: subjectPath,
+    subjectLabel: subjectLabel ?? subjectPath,
+    phaseLabel: phaseLabel ?? "—",
     gradeLabels,
     mandatory: item.chooseType === "y" ? "mandatory" : "optional",
     curriculumRefShort: `标准试验库 ${item.libExpId}`,

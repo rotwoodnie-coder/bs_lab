@@ -50,6 +50,7 @@ export type EditorPeerRow = {
   workflowStatus: EditorPeerWorkflowStatus;
   authorName: string;
   subjectLabel: string;
+  phaseLabel?: string;
   gradeLabels: string[];
   mandatory: EditorPeerMandatory;
   curriculumRefShort: string;

@@ -237,6 +237,7 @@ export type PutExpMsgDraftInput = {
   school_level_id?: string | null;
   grade_id?: string | null;
   difficulty_id?: string | null;
+  standard_exp_id?: string | null;
   exp_principle?: string | null;
   exp_caution?: string | null;
   exp_danger?: string | null;

@@ -1,6 +1,5 @@
-import type { CoreApiActor } from "@/lib/core-api-shared";
 import type { CatalogCore } from "@/lib/experiment-catalog-api";
-import { fetchV2ExpLibraryById, fetchV2ExpLibraryList, type V2ExpLibraryItem } from "@/lib/v2/v2-exp-api";
+import { fetchV2ExpLibraryList, type V2ExpLibraryItem } from "@/lib/v2/v2-exp-api";
 import { UserRole } from "@/types/auth";
 
 import type { SchoolDimensionSnapshot } from "../education/subject-grades/page.types";
@@ -11,22 +10,9 @@ const LIST_CHUNK_PAGE_SIZE = 100;
 
 const MAX_PAGES = 2000;
 
-const ENRICH_CHUNK = 12;
-
-async function enrichWithGrades(actor: CoreApiActor, items: V2ExpLibraryItem[]): Promise<V2ExpLibraryItem[]> {
-  const out: V2ExpLibraryItem[] = [];
-  for (let i = 0; i < items.length; i += ENRICH_CHUNK) {
-    const slice = items.slice(i, i + ENRICH_CHUNK);
-    const rows = await Promise.all(slice.map((it) => fetchV2ExpLibraryById(actor, it.libExpId)));
-    for (const r of rows) {
-      if (r) out.push(r);
-    }
-  }
-  return out;
-}
-
 /**
- * 从主后端 `/v2/exp-library` 拉取全量标准试验（多页 + 逐条补全年级），映射为控制台表格使用的 `CatalogCore`。
+ * 从主后端 `/v2/exp-library` 拉取全量标准试验（多页），映射为控制台表格使用的 `CatalogCore`。
+ * 注：列表接口已在后端返回 grades 字段，无需逐条补全。
  */
 export async function fetchAllCatalogExperiments(
   role: UserRole,
@@ -57,10 +43,9 @@ export async function fetchAllCatalogExperiments(
     }
   }
 
-  const enriched = await enrichWithGrades(actor, raw);
   const snap = getSnapshot();
   return {
-    items: enriched.map((row) => v2ExpLibraryItemToCatalogCore(row, snap)),
+    items: raw.map((row) => v2ExpLibraryItemToCatalogCore(row, snap)),
     total,
   };
 }

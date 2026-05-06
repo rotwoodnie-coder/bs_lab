@@ -38,6 +38,7 @@ type Props = {
   curriculumTableRowsLength: number;
   selectedStandardId: string | null;
   useCustomExperiment: boolean;
+  linkedStandardName?: string | null;
   fieldDisabled: boolean;
 
   // filters
@@ -59,7 +60,7 @@ type Props = {
   setSelectedStandardId: (v: string | null) => void;
   setUseCustomExperiment: (v: boolean) => void;
   setCurriculum: (v: string) => void;
-  attachExperimentFromList: (expId: string) => void | Promise<void>;
+  onConfirm: (meta: { expId: string; expName?: string }) => void | Promise<void>;
   setPhase: (v: EducationPhase) => void;
   setDiscipline: (v: SubjectDiscipline) => void;
   setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
@@ -84,26 +85,33 @@ export function ExperimentPickerDialog(props: Props) {
 
   const triggerSearch = React.useCallback(() => {
     props.onSearchExperiments(searchDraft);
-  }, [props, searchDraft]);
+  }, [props.onSearchExperiments, searchDraft]);
 
   const resetSearchByFilterInteraction = React.useCallback(() => {
     if (!searchDraft && !props.experimentSearchKeyword) return;
     setSearchDraft("");
     props.onSearchExperiments("");
-  }, [props, searchDraft]);
+  }, [props.experimentSearchKeyword, props.onSearchExperiments, searchDraft]);
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden rounded-[32px] p-0 sm:max-w-[min(90vw,960px)]">
-        {/* ===== 1. Header + Search ===== */}
+        {/* ===== 1. Header ===== */}
         <DialogHeader className="shrink-0 border-b border-slate-200 px-6 py-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="size-5 text-slate-500" />
+            <DialogTitle className="text-base font-semibold text-slate-800">关联实验</DialogTitle>
+          </div>
+          <DialogDescription className="sr-only">搜索并选择一个实验作为本实验的关联参考。</DialogDescription>
+        </DialogHeader>
+
+        {/* ===== 2. Scrollable body ===== */}
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          {/* 第一行：搜索框 */}
+          <div className="grid gap-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">搜索实验</Label>
             <div className="flex items-center gap-2">
-              <BookOpen className="size-5 text-slate-500" />
-              <DialogTitle className="text-base font-semibold text-slate-800">关联实验</DialogTitle>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
+              <div className="relative w-full max-w-[520px]">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   value={searchDraft}
@@ -114,29 +122,22 @@ export function ExperimentPickerDialog(props: Props) {
                     triggerSearch();
                   }}
                   placeholder="搜索实验名称"
-                  className="h-10 w-56 rounded-2xl border-slate-200 bg-slate-50 pl-9 text-sm
-                    placeholder:text-slate-400 focus:border-slate-300 focus:shadow-sm focus-visible:ring-0"
+                  className="h-10 rounded-2xl border-slate-200 bg-slate-50 pl-9 text-sm placeholder:text-slate-400 focus:border-slate-300 focus:shadow-sm focus-visible:ring-0"
                 />
               </div>
               <Button
                 type="button"
-                size="icon"
-                variant="ghost"
-                className="h-10 w-10 rounded-2xl text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                size="sm"
+                className="h-10 rounded-2xl bg-[#008080] px-4 text-white hover:bg-[#006666]"
                 onClick={triggerSearch}
-                aria-label="查询实验"
               >
-                <Search className="size-4" />
+                查询
               </Button>
             </div>
           </div>
-          <DialogDescription className="sr-only">搜索并选择一个实验作为本实验的关联参考。</DialogDescription>
-        </DialogHeader>
 
-        {/* ===== 2. Scrollable body ===== */}
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-          {/* --- 2a. Filter section --- */}
-          <div className="grid gap-6 sm:grid-cols-3">
+          {/* 第二行：学段 / 学科 */}
+          <div className="grid gap-3 md:grid-cols-2">
             <div className="grid gap-2">
               <Label className="text-xs font-semibold uppercase tracking-wider text-slate-500">学段</Label>
               <Select
@@ -149,7 +150,7 @@ export function ExperimentPickerDialog(props: Props) {
                 }}
                 disabled={props.fieldDisabled}
               >
-                <SelectTrigger className="h-9 rounded-xl border-slate-200 bg-slate-50 text-sm text-slate-700 shadow-none">
+                <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50 text-sm text-slate-700 shadow-none">
                   <SelectValue placeholder="不限学段" />
                 </SelectTrigger>
                 <SelectContent>
@@ -174,7 +175,7 @@ export function ExperimentPickerDialog(props: Props) {
                 }}
                 disabled={props.fieldDisabled}
               >
-                <SelectTrigger className="h-9 rounded-xl border-slate-200 bg-slate-50 text-sm text-slate-700 shadow-none">
+                <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-slate-50 text-sm text-slate-700 shadow-none">
                   <SelectValue placeholder="全部学科" />
                 </SelectTrigger>
                 <SelectContent>
@@ -187,73 +188,88 @@ export function ExperimentPickerDialog(props: Props) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                年级
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="h-auto px-1 py-0 text-xs font-normal normal-case tracking-normal text-slate-400 hover:text-slate-600"
-                  disabled={props.fieldDisabled || props.listFilterGradeCodes.length === 0}
-                  onClick={() => {
-                    props.setListFilterGradeCodes([]);
-                    resetSearchByFilterInteraction();
-                  }}
-                >
-                  清空
-                </Button>
-              </Label>
-              <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                {props.listGradeOptions.map((g) => {
-                  const checked = props.listFilterGradeCodes.includes(g.code);
-                  return (
-                    <label
-                      key={g.code}
-                      className={[
-                        "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm transition-colors",
-                        checked
-                          ? "bg-teal-50 text-teal-700"
-                          : "text-slate-600 hover:bg-slate-100",
-                      ].join(" ")}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        disabled={props.fieldDisabled}
-                        onCheckedChange={(next) => {
-                          if (props.fieldDisabled) return;
-                          const on = next === true;
-                          props.setListFilterGradeCodes((prev) =>
-                            on ? [...new Set([...prev, g.code])] : prev.filter((x) => x !== g.code),
-                          );
-                          resetSearchByFilterInteraction();
-                        }}
-                        className={checked ? "border-teal-400 text-teal-600" : "border-slate-300"}
-                      />
-                      {g.label}
-                    </label>
-                  );
-                })}
-              </div>
+          </div>
+
+          {/* 第三行：年级大面板 */}
+          <div className="grid gap-2">
+            <Label className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              <span>年级</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-auto px-1 py-0 text-xs font-normal normal-case tracking-normal text-slate-400 hover:text-slate-600"
+                disabled={props.fieldDisabled || props.listFilterGradeCodes.length === 0}
+                onClick={() => {
+                  props.setListFilterGradeCodes([]);
+                  resetSearchByFilterInteraction();
+                }}
+              >
+                清空
+              </Button>
+            </Label>
+            <div className="grid max-h-36 grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3 xl:grid-cols-4">
+              {props.listGradeOptions.map((g) => {
+                const checked = props.listFilterGradeCodes.includes(g.code);
+                return (
+                  <label
+                    key={g.code}
+                    className={[
+                      "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm transition-colors",
+                      checked ? "bg-teal-50 text-teal-700" : "text-slate-600 hover:bg-slate-100",
+                    ].join(" ")}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      disabled={props.fieldDisabled}
+                      onCheckedChange={(next) => {
+                        if (props.fieldDisabled) return;
+                        const on = next === true;
+                        props.setListFilterGradeCodes((prev) =>
+                          on ? [...new Set([...prev, g.code])] : prev.filter((x) => x !== g.code),
+                        );
+                        resetSearchByFilterInteraction();
+                      }}
+                      className={checked ? "border-teal-400 text-teal-600" : "border-slate-300"}
+                    />
+                    {g.label}
+                  </label>
+                );
+              })}
             </div>
           </div>
 
-          {/* --- 2b. Filter summary --- */}
-          <div className="text-xs text-slate-400">
-            当前筛选：{props.listFilterPhaseLabels} · {props.listFilterDisciplineSummary} · {props.listFilterGradeSummary}
+          {/* 第四行：当前选择结果汇总 */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-slate-700">当前选择结果</span>
+              {props.selectedStandardId ? (
+                <span>已关联：{props.linkedStandardName?.trim() || props.selectedStandardId.slice(0, 12)}</span>
+              ) : (
+                <span>未关联实验</span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span>当前筛选：{props.listFilterPhaseLabels}</span>
+              <span>·</span>
+              <span>{props.listFilterDisciplineSummary}</span>
+              <span>·</span>
+              <span>{props.listFilterGradeSummary}</span>
+            </div>
           </div>
 
-          {/* --- 2c. Experiment table --- */}
+          {/* 第五行：试验列表 */}
           <div className="flex min-h-[240px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5">
               <p className="text-sm font-bold text-slate-600">实验列表</p>
               <div className="flex items-center gap-3">
+                {props.selectedStandardId ? (
+                  <span className="rounded-full bg-white px-2 py-1 text-xs text-slate-500 shadow-sm">
+                    当前关联：{props.linkedStandardName?.trim() || props.selectedStandardId.slice(0, 12)}
+                  </span>
+                ) : null}
                 <div className="flex items-center gap-2 text-xs">
-                  <span
-                    className={
-                      !props.useCustomExperiment ? "font-semibold text-slate-700" : "text-slate-400"
-                    }
-                  >
+                  <span className={ !props.useCustomExperiment ? "font-semibold text-slate-700" : "text-slate-400" }>
                     列表
                   </span>
                   <Switch
@@ -268,11 +284,7 @@ export function ExperimentPickerDialog(props: Props) {
                     className="data-[state=checked]:bg-destructive/80"
                     aria-label="切换实验列表与拓展实验"
                   />
-                  <span
-                    className={
-                      props.useCustomExperiment ? "font-semibold text-destructive" : "text-slate-400"
-                    }
-                  >
+                  <span className={ props.useCustomExperiment ? "font-semibold text-destructive" : "text-slate-400" }>
                     拓展
                   </span>
                 </div>
@@ -280,6 +292,20 @@ export function ExperimentPickerDialog(props: Props) {
                   <Badge variant="destructive" className="h-5 rounded-full px-2 text-[10px]">
                     拓展
                   </Badge>
+                ) : null}
+                {!props.useCustomExperiment && props.selectedStandardId ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 rounded-full px-2 text-xs text-slate-500 hover:bg-slate-100"
+                    onClick={() => {
+                      props.setSelectedStandardId(null);
+                      props.setUseCustomExperiment(true);
+                    }}
+                  >
+                    解除关联
+                  </Button>
                 ) : null}
                 <Badge
                   variant="secondary"
@@ -296,15 +322,16 @@ export function ExperimentPickerDialog(props: Props) {
                 rowNumberMode="page"
                 stickyHeader
                 onRowClick={(rowItem) => {
-                  const r = rowItem as { id: string };
-                  props.setSelectedStandardId(r.id);
+                  const r = rowItem as { id: string; title?: string };
+                  props.onConfirm({ expId: r.id, expName: String(r.title ?? r.id) });
+                  props.onOpenChange(false);
                 }}
                 className="[&_thead_tr]:bg-slate-50/80 [&_th]:text-slate-600 [&_th]:font-bold [&_tbody_tr]:transition-colors [&_tbody_tr]:hover:bg-teal-50/30"
               />
             </div>
             {props.selectedStandardId ? (
               <div className="border-t border-slate-100 px-4 py-2 text-xs text-slate-400">
-                已选择：{props.selectedStandardId}
+                已选择：{props.linkedStandardName?.trim() || props.selectedStandardId}
               </div>
             ) : null}
           </div>
@@ -330,7 +357,7 @@ export function ExperimentPickerDialog(props: Props) {
               if (!props.selectedStandardId) return;
               setPicking(true);
               try {
-                await props.attachExperimentFromList(props.selectedStandardId);
+                await props.onConfirm({ expId: props.selectedStandardId, expName: props.linkedStandardName?.trim() || props.selectedStandardId });
                 props.onOpenChange(false);
               } finally {
                 setPicking(false);

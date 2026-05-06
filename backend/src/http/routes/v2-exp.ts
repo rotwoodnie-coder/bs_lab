@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PatchExpLibraryInput } from "../../domain/v2-exp/v2-exp-types.ts";
+import type { ExpLibraryListQuery, ExpLibraryStatus, PatchExpLibraryInput } from "../../domain/v2-exp/v2-exp-types.ts";
 import { listExpLibrary, getExpLibraryById, createExpLibrary, patchExpLibrary } from "../../infrastructure/repositories/v2-exp-repository.ts";
 import { putExpMsgDraft } from "../../infrastructure/repositories/v2-exp-draft-repository.ts";
 import { assertAnyPermission } from "../../lib/auth/permission-guard.ts";
@@ -116,7 +116,15 @@ export async function routeV2Exp(req: Request): Promise<Response> {
     }
 
     if (path === "/v2/exp-library") {
-      if (req.method === "GET") return ok(await listExpLibrary({} as any));
+      if (req.method === "GET") {
+        const params = Object.fromEntries(url.searchParams.entries());
+        const query: ExpLibraryListQuery = {};
+        if (params.keyword?.trim()) query.keyword = params.keyword.trim();
+        if (params.page) query.page = Math.max(1, Number(params.page));
+        if (params.pageSize) query.pageSize = Math.min(100, Math.max(1, Number(params.pageSize)));
+        if (params.status) query.status = params.status as ExpLibraryStatus;
+        return ok(await listExpLibrary(query));
+      }
       if (req.method === "POST") return ok(await createExpLibrary(createLibrarySchema.parse(await req.json()) as any, actorId));
     }
 

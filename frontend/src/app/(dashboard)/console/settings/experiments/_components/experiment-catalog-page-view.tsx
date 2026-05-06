@@ -36,7 +36,7 @@ export function ExperimentCatalogPageView(props: {
         label: "按学段（已加载）",
         value: `小 ${m.phaseStats.primary} · 初 ${m.phaseStats.junior} · 高 ${m.phaseStats.senior}${m.phaseStats.other > 0 ? ` · 其他 ${m.phaseStats.other}` : ""}`,
       },
-      { key: "total", label: "关键词范围内", value: m.total },
+      { key: "total", label: "关键词范围内（共）", value: `${m.total} 条`, tooltip: "包含所有匹配的实验" },
     ];
   }, [model]);
 

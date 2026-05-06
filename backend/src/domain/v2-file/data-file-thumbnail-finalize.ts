@@ -160,7 +160,7 @@ async function createCoverChildRecord(
       relationType: "logo",
     });
     // 更新主文件冗余列；失败仅 log。首次写入预期 null。
-    await updateMainFileCover(parentFileId, record.fileId, null);
+    await updateMainFileCover(parentFileId, record.fileId, fileUrl, null);
     return { coverFileId: record.fileId, fileUrl };
   } catch (e) {
     // 唯一约束冲突：已有封面行 → 查出已有行，用其 coverFileId 更新主文件冗余列即可
@@ -169,7 +169,7 @@ async function createCoverChildRecord(
       const existing = await findCoverChildByParentId(parentFileId);
       if (existing) {
         // 冗余更新 cover_file_id，乐观锁预期旧值为 null（首次覆盖）
-        await updateMainFileCover(parentFileId, existing.fileId, null);
+        await updateMainFileCover(parentFileId, existing.fileId, existing.fileUrl, null);
         return { coverFileId: existing.fileId, fileUrl: existing.fileUrl };
       }
     }

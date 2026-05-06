@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@bs-lab/ui";
+import { Card, CardContent } from "@bs-lab/ui";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@bs-lab/ui";
+import { Info } from "@bs-lab/ui/icons";
 import { cn } from "@/lib/utils";
 
 export type ManagementKpiTone = "default" | "success" | "warning" | "danger";
@@ -11,6 +13,8 @@ export type ManagementKpiCardItem = {
   label: string;
   value: React.ReactNode;
   tone?: ManagementKpiTone;
+  /** 可选：在标签旁显示一个 info 图标，hover 展示此提示。 */
+  tooltip?: string;
 };
 
 const TONE_CLASS: Record<ManagementKpiTone, { card: string; label: string; value: string }> = {
@@ -30,7 +34,21 @@ export function ManagementKpiCards(props: { items: ManagementKpiCardItem[]; clas
           <Card key={it.key} className={cn("border-border shadow-sm", cfg.card)}>
             <CardContent className="px-4 py-3 min-[2000px]:px-6 min-[2000px]:py-4">
               <div className="flex items-baseline justify-between gap-3">
-                <div className={cn("text-xs font-medium text-slate-500", cfg.label)}>{it.label}</div>
+                <div className={cn("flex items-center gap-1 text-xs font-medium text-slate-500", cfg.label)}>
+                  {it.label}
+                  {it.tooltip ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help text-muted-foreground/50 hover:text-muted-foreground">
+                          <Info className="size-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[14rem] text-xs">
+                        {it.tooltip}
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : null}
+                </div>
                 <div className={cn("text-2xl font-bold tracking-tight tabular-nums min-[2000px]:text-3xl", cfg.value)}>
                   {it.value}
                 </div>

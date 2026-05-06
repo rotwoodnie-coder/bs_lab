@@ -17,17 +17,21 @@ async function querySimpleDict(
   table: string,
   idCol: string,
   nameCol: string,
+  opts?: { statusValues?: string[] },
 ): Promise<DictItem[]> {
   const pool = getMysqlPool();
+  const statusValues = opts?.statusValues ?? ["y"];
+  const placeholders = statusValues.map(() => "?").join(",");
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT ${idCol} AS id, ${nameCol} AS name, comments, sort_order AS sortOrder
-     FROM ${table} WHERE COALESCE(status, 'y') = 'y' ORDER BY sort_order ASC, ${idCol} ASC`,
+     FROM ${table} WHERE UPPER(COALESCE(status, 'Y')) IN (${placeholders}) ORDER BY sort_order ASC, ${idCol} ASC`,
+    statusValues.map((v) => String(v).trim().toUpperCase()),
   );
   return rows as DictItem[];
 }
 
 export async function getSchoolLevels(): Promise<DictItem[]> {
-  return querySimpleDict("data_school_level", "level_id", "level_name");
+  return querySimpleDict("data_school_level", "level_id", "level_name", { statusValues: ["Y"] });
 }
 
 export async function getSchoolGrades(): Promise<DictItem[]> {
@@ -35,14 +39,14 @@ export async function getSchoolGrades(): Promise<DictItem[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT grade_id AS id, grade_name AS name, school_level_id AS levelId,
             comments, sort_order AS sortOrder
-     FROM data_school_grade WHERE COALESCE(status, 'y') = 'y'
+     FROM data_school_grade WHERE UPPER(COALESCE(status, 'Y')) = 'Y'
      ORDER BY sort_order ASC, grade_id ASC`,
   );
   return rows as DictItem[];
 }
 
 export async function getSchoolSubjects(): Promise<DictItem[]> {
-  return querySimpleDict("data_school_subject", "subject_id", "subject_name");
+  return querySimpleDict("data_school_subject", "subject_id", "subject_name", { statusValues: ["Y"] });
 }
 
 export async function getGradeSubjects(): Promise<DictItem[]> {

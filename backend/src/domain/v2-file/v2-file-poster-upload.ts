@@ -106,7 +106,7 @@ export async function persistClientPosterFile(
   }
 
   // 更新主文件冗余列；失败时 log 但不阻止流程。首次写入预期 null。
-  await updateMainFileCover(id, coverRecord.fileId, null);
+  await updateMainFileCover(id, coverRecord.fileId, coverFileUrl, null);
 
   return { fileId: id, coverFileId: coverRecord.fileId, coverFileUrl };
 }

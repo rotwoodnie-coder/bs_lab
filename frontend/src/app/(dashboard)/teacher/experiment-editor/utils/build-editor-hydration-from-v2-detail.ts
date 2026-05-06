@@ -184,8 +184,9 @@ export function buildEditorHydrationFromV2Detail(
         ? [{ id: "sci-legacy-1", scientistName: "", storyName: "", storyComments: legacyStory }]
         : [];
 
+  const fallbackName = (detail.expName ?? "").trim() || (detail as V2ExpMsgDetail & { title?: string }).title?.trim() || "未命名实验";
   return {
-    expName: (detail.expName ?? "").trim() || "未命名实验",
+    expName: fallbackName,
     chooseType: detail.chooseType ?? null,
     expTaskType: detail.expTaskType ?? null,
     subjectId: (detail.subjectId ?? "").trim() || null,

@@ -311,6 +311,14 @@ export async function putExpMsgDraft(
           : null,
       );
     }
+    if (input.standard_exp_id !== undefined) {
+      fragments.push("standard_exp_id = ?");
+      params.push(
+        input.standard_exp_id && String(input.standard_exp_id).trim()
+          ? String(input.standard_exp_id).trim().slice(0, 32)
+          : null,
+      );
+    }
     if (input.exp_principle !== undefined) {
       fragments.push("exp_principle = ?");
       params.push(input.exp_principle != null ? String(input.exp_principle).slice(0, 65535) : null);

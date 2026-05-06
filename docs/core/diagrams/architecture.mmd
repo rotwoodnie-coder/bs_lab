@@ -1,0 +1,9 @@
+flowchart TB
+  FE[Frontend]
+  API[HTTP Routes]
+  SV[Services]
+  REPO[Repositories]
+  DB[(MySQL)]
+  S3[(S3)]
+  FE --> API --> SV --> REPO --> DB
+  SV --> S3

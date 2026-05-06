@@ -213,6 +213,7 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               creatorName={vm.creatorName}
               expName={vm.expName}
               setExpName={vm.setExpName}
+              debugExperimentRawText={vm.debugExperimentRawText}
               principle={vm.principle}
               setPrinciple={vm.setPrinciple}
               principleImage={vm.principleImage}
@@ -239,6 +240,8 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               setChooseType={vm.setChooseType}
               subjectOptions={vm.v2Subjects}
               gradeDictOptions={vm.v2Grades}
+              schoolLevelOptions={vm.v2Levels}
+              gradeSubjectMap={vm.v2GradeSubjects}
               selectedGradeCodes={vm.selectedGradeCodes}
               setSelectedGradeCodes={vm.setSelectedGradeCodes}
               gradeOptions={vm.gradeOptions}
@@ -257,6 +260,7 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               pickerTable={vm.curriculumTable}
               pickerRowsLength={vm.curriculumTableRows.length}
               pickerSelectedStandardId={vm.selectedStandardId}
+              pickerSelectedStandardRow={vm.selectedStandardRow}
               pickerUseCustomExp={vm.useCustomExperiment}
               pickerListFilterPhases={vm.listFilterPhases}
               onPickerSetListFilterPhases={vm.setListFilterPhases}
@@ -274,10 +278,12 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               onPickerSetSelectedStandardId={vm.setSelectedStandardId}
               onPickerSetUseCustomExp={vm.setUseCustomExperiment}
               onPickerSetCurriculum={vm.setCurriculum}
-              onPickerAttach={vm.attachExperimentFromList}
+              onPickerConfirm={vm.confirmLinkedExperiment}
               onPickerSetPhase={vm.setPhase}
               onPickerSetDiscipline={vm.setDiscipline}
               onPickerSetSelectedGradeCodes={vm.setSelectedGradeCodes}
+              onAutoFillBasic={() => vm.autoFillFromLinkedExperiment("mergeIfEmpty")}
+              onAutoFillAll={() => vm.autoFillFromLinkedExperiment("replace")}
             />,
           )}
         </TabsContent>

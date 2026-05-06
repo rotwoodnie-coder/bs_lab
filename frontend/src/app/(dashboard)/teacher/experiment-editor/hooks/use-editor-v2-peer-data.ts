@@ -7,6 +7,7 @@ import type { CoreApiActor } from "@/lib/core-api-shared";
 import {
   fetchV2Difficulties,
   fetchV2ExpLibraryList,
+  fetchV2GradeSubjects,
   fetchV2MaterialSecurities,
   fetchV2SchoolGrades,
   fetchV2SchoolLevels,
@@ -26,6 +27,8 @@ export type UseEditorV2PeerDataResult = {
   actor: CoreApiActor;
   subjects: V2DictItem[];
   grades: V2DictGradeItem[];
+  levels: V2DictItem[];
+  gradeSubjects: { id: string; subjectId: string; gradeId: string }[];
   difficulties: V2DictItem[];
   securities: V2DictItem[];
   peerRows: EditorPeerRow[];
@@ -72,6 +75,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
   const [subjects, setSubjects] = React.useState<V2DictItem[]>([]);
   const [grades, setGrades] = React.useState<V2DictGradeItem[]>([]);
   const [schoolLevels, setSchoolLevels] = React.useState<V2DictItem[]>([]);
+  const [gradeSubjects, setGradeSubjects] = React.useState<{ id: string; subjectId: string; gradeId: string }[]>([]);
   const [difficulties, setDifficulties] = React.useState<V2DictItem[]>([]);
   const [securities, setSecurities] = React.useState<V2DictItem[]>([]);
   const [v2LibraryItems, setV2LibraryItems] = React.useState<V2ExpLibraryItem[]>([]);
@@ -96,10 +100,11 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
     setDictLoading(true);
     void (async () => {
       try {
-        const [subj, gr, lv, diff, sec] = await Promise.all([
+        const [subj, gr, lv, gs, diff, sec] = await Promise.all([
           fetchV2SchoolSubjects(actor),
           fetchV2SchoolGrades(actor),
           fetchV2SchoolLevels(actor),
+          fetchV2GradeSubjects(actor),
           fetchV2Difficulties(actor),
           fetchV2MaterialSecurities(actor),
         ]);
@@ -107,6 +112,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
         setSubjects(subj);
         setGrades(gr);
         setSchoolLevels(lv);
+        setGradeSubjects(gs);
         setDifficulties(diff);
         setSecurities(sec);
       } catch {
@@ -114,6 +120,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
           setSubjects([]);
           setGrades([]);
           setSchoolLevels([]);
+          setGradeSubjects([]);
           setDifficulties([]);
           setSecurities([]);
         }
@@ -144,6 +151,7 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
           subjects,
           grades,
           levels: schoolLevels,
+          gradeSubjects,
         });
         const query: V2ExpLibraryListQuery = {
           keyword: norm(args.keyword) || undefined,
@@ -152,6 +160,8 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
           subjectIds: ids.subject_ids ? [ids.subject_ids] : undefined,
           gradeIds: ids.grade_ids ? [ids.grade_ids] : undefined,
           schoolLevelIds: ids.school_level_ids ? [ids.school_level_ids] : undefined,
+          // 关联实验列表只显示已发布（审核通过）的实验
+          status: "y",
         };
         const list = await fetchV2ExpLibraryList(actor, query);
         if (cancelled) return;
@@ -194,5 +204,5 @@ export function useEditorV2PeerData(args: UseEditorV2PeerDataArgs = {}): UseEdit
 
   const loading = dictLoading || listLoading;
 
-  return { actor, subjects, grades, difficulties, securities, peerRows, v2LibraryItems, loading, total, refresh };
+  return { actor, subjects, grades, levels: schoolLevels, gradeSubjects, difficulties, securities, peerRows, v2LibraryItems, loading, total, refresh };
 }
