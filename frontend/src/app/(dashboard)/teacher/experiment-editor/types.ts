@@ -99,5 +99,11 @@ export type CurriculumEditorTableRow = {
   recommendedGrades: string;
   mandatory: "mandatory" | "optional";
   curriculumRefText: string;
+  /** 来源类型：'msg' 来自教师实验(exp_msg)，'library' 来自标准试验库(exp_library) */
+  sourceType: 'library' | 'msg';
+  /** exp_library 主键（当 sourceType='library' 时有值） */
+  libraryId?: string;
+  /** 发布状态（DB 原始状态码） */
+  publishStatus?: string | null;
 };
 

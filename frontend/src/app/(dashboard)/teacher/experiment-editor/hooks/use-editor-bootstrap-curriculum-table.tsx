@@ -134,6 +134,9 @@ export function useEditorBootstrapCurriculumTable(p: Args) {
           recommendedGrades: Array.isArray(row.gradeLabels) ? row.gradeLabels.join("、") : "",
           mandatory: row.mandatory,
           curriculumRefText: `${rowPhase} / ${rowDiscipline}`,
+          sourceType: row.sourceType ?? 'library',
+          libraryId: row.libraryId,
+          publishStatus: row.publishStatus,
         };
       })
       .sort((a, b) => a.title.localeCompare(b.title, "zh-CN"));

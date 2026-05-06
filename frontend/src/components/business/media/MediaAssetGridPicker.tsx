@@ -47,6 +47,11 @@ function getAssetDisplayName(item: PickerItem): string {
   );
 }
 
+/** 从 item 中解析封面 URL：优先 dataFile.logoUrl，兼容旧 flat logoUrl */
+function resolveCoverUrl(item: PickerItem): string | null {
+  return item.dataFile?.logoUrl?.trim() ?? item.logoUrl?.trim() ?? null;
+}
+
 function AssetCard({
   kind,
   item,
@@ -62,6 +67,8 @@ function AssetCard({
 }) {
   const displayName = getAssetDisplayName(item);
   const previewClassName = kind === "image" ? "mx-auto my-2 h-[100px] w-[200px] min-h-0 rounded-sm" : "size-full min-h-0";
+  const coverLogoUrl = resolveCoverUrl(item);
+  const coverFileId = item.dataFile?.coverFileId?.trim() || null;
 
   return (
     <button
@@ -77,7 +84,8 @@ function AssetCard({
           title={displayName || item.title || "预览"}
           fileExt={item.fileExt}
           assetMediaType={item.assetMediaType}
-          logoUrl={item.logoUrl}
+          logoUrl={coverLogoUrl}
+          coverFileId={coverFileId}
           className={previewClassName}
         />
       </div>

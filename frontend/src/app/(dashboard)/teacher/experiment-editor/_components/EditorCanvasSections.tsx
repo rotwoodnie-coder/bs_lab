@@ -241,7 +241,6 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               subjectOptions={vm.v2Subjects}
               gradeDictOptions={vm.v2Grades}
               schoolLevelOptions={vm.v2Levels}
-              gradeSubjectMap={vm.v2GradeSubjects}
               selectedGradeCodes={vm.selectedGradeCodes}
               setSelectedGradeCodes={vm.setSelectedGradeCodes}
               gradeOptions={vm.gradeOptions}

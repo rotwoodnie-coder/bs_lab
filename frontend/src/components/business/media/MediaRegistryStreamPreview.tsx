@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { MediaPreview } from "@bs-lab/ui";
-import { Film } from "@bs-lab/ui/icons";
 
 import type { ApiActor } from "@/lib/new-core-api";
 import { cn } from "@/lib/utils";
@@ -40,11 +39,14 @@ export type MediaRegistryStreamPreviewProps = {
   fileExt?: string | null;
   assetMediaType?: string | null;
   logoUrl?: string | null;
+  /** 封面图片流式加载：传入 coverFileId 时将图片走同源代理（/api/media/registry-stream），避免内网 MinIO URL 浏览器不可达 */
+  coverFileId?: string | null;
   className?: string;
 };
 
 /**
- * 媒体库统一预览：同源 `registry-stream` 换预签名；视频用 `hover-play` 避免 `<img>` 拉 MP4 裂图；可选 `logo_url` 作封面。
+ * 媒体库统一预览：同源 `registry-stream` 换预签名；视频用 `hover-play` 避免 `<img>` 拉 MP4 裂图。
+ * 封面图片优先走同源代理（通过 `coverFileId` 指向封面子行），确保浏览器可加载。
  */
 export function MediaRegistryStreamPreview({
   fileId,
@@ -53,49 +55,29 @@ export function MediaRegistryStreamPreview({
   fileExt,
   assetMediaType,
   logoUrl,
+  coverFileId,
   className,
 }: MediaRegistryStreamPreviewProps) {
   const streamUrl = React.useMemo(() => mediaRegistryStreamUrl(fileId, "view", actor), [fileId, actor]);
   const previewKind = resolveRegistryStreamPreviewKind({ assetMediaType, fileExt, title });
-  const [posterFailed, setPosterFailed] = React.useState(false);
 
-  const rawLogo = logoUrl?.trim();
-  // 有 logo_url 时用它做封面；为空时不再尝试实时抽帧（ffmpeg 易失败），直接展示 fallback 图标
-  const poster = rawLogo ? materialStorageBrowserHref(rawLogo) : "";
-  const posterIsLikelyRaster =
-    poster.length > 0 &&
-    !/\.(mp4|webm|mov|m4v|avi)(\?|#|$)/i.test(poster) &&
-    (/\.(png|jpe?g|gif|webp|bmp)(\?|#|$)/i.test(poster) || poster.startsWith("data:image") || poster.includes("variant=thumb_sm"));
-
-  // 预检查缩略图是否能正常加载为图片
-  React.useEffect(() => {
-    if (previewKind !== "video" || !posterIsLikelyRaster) return;
-    setPosterFailed(false);
-    const img = new Image();
-    img.onload = () => setPosterFailed(false);
-    img.onerror = () => setPosterFailed(true);
-    img.src = poster;
-  }, [previewKind, posterIsLikelyRaster, poster]);
+  // 封面图片地址：优先 coverFileId 走同源代理，兜底 logoUrl
+  const posterUrl = React.useMemo(() => {
+    if (coverFileId?.trim()) {
+      return mediaRegistryStreamUrl(coverFileId.trim(), "view", actor);
+    }
+    const rawLogo = logoUrl?.trim();
+    if (rawLogo) return materialStorageBrowserHref(rawLogo);
+    return "";
+  }, [coverFileId, actor, logoUrl]);
 
   if (previewKind === "video") {
-    // 缩略图加载失败时展示默认视频占位图标
-    if (posterFailed) {
-      return (
-        <div
-          className={cn("flex size-full items-center justify-center bg-muted/30 text-muted-foreground/60", className)}
-          title={title}
-        >
-          <Film className="size-10" />
-        </div>
-      );
-    }
-
     return (
       <MediaPreview
         kind="video"
         src={streamUrl}
         variant="hover-play"
-        posterSrc={posterIsLikelyRaster && !posterFailed ? poster : undefined}
+        posterSrc={posterUrl || undefined}
         alt={title}
         className={cn("size-full min-h-0", className)}
         previewMaxSeconds={5}
@@ -106,8 +88,8 @@ export function MediaRegistryStreamPreview({
   }
 
   if (previewKind === "image") {
-    // 有 logoUrl 时用 materialStorageBrowserHref 转为 Nginx 直连路径（绕过 /api/media/registry-stream）
-    const imageSrc = rawLogo ? materialStorageBrowserHref(rawLogo) : streamUrl;
+    // 图片走同源代理流式直出；有 coverFileId 时也走代理
+    const imageSrc = posterUrl || streamUrl;
     return (
       <MediaPreview
         kind="image"

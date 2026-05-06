@@ -4,6 +4,10 @@
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail, V2ExpMsgItem } from "@/lib/v2/v2-exp-api";
 import type { SubjectDiscipline } from "@/types/subject";
+import {
+  EXP_MSG_STATUS_LABEL,
+  EXP_CHOOSE_TYPE_LABEL,
+} from "@/lib/v2/exp-display-mapping";
 
 import { phaseLabelOf } from "../hooks/editor-bootstrap-utils";
 import type { PhaseKey } from "../types";
@@ -24,23 +28,23 @@ export type EditorPeerMandatory = "mandatory" | "optional";
 export const EDITOR_PEER_LIFECYCLE_LABEL: Record<EditorPeerLifecycleStatus, string> = {
   DRAFT: "草稿中",
   PENDING: "待评审",
-  PUBLISHED: "已发布",
+  PUBLISHED: EXP_MSG_STATUS_LABEL.y,
   STANDARD: "标杆",
 };
 
 export const EDITOR_PEER_WORKFLOW_LABEL: Record<EditorPeerWorkflowStatus, string> = {
-  draft: "草稿",
+  draft: EXP_MSG_STATUS_LABEL.t,
   submitted: "已提交",
   in_review: "评审中",
-  changes_requested: "需修改",
-  approved: "已通过",
+  changes_requested: EXP_MSG_STATUS_LABEL.n,
+  approved: EXP_MSG_STATUS_LABEL.y,
   published: "已上架",
   archived: "已归档",
 };
 
 export const EDITOR_PEER_MANDATORY_LABEL: Record<EditorPeerMandatory, string> = {
-  mandatory: "必做",
-  optional: "选做",
+  mandatory: EXP_CHOOSE_TYPE_LABEL.y,
+  optional: EXP_CHOOSE_TYPE_LABEL.n,
 };
 
 export type EditorPeerRow = {
@@ -69,6 +73,12 @@ export type EditorPeerRow = {
   coverVideoUrl?: string | null;
   authorRoleLabel?: string;
   durationHint?: string;
+  /** 来源类型：'msg' 来自教师实验(exp_msg)，'library' 来自标准试验库(exp_library) */
+  sourceType: 'library' | 'msg';
+  /** exp_library 主键（当 sourceType='library' 时有值） */
+  libraryId?: string;
+  /** 发布状态（DB 原始状态码） */
+  publishStatus?: string | null;
 };
 
 export function deriveEditorPeerLifecycleFromWorkflow(
@@ -114,12 +124,10 @@ export function editorPeerRowFromV2ExpMsgItem(
   const phaseLabel = phaseLabelOf(tax.phase as PhaseKey);
   const discLabel = disciplineLabelFor(tax.discipline);
   const subjectLabel = `${phaseLabel} · ${discLabel}`;
-  const ph = SUBJECT_CASCADE.find((p) => p.phase === tax.phase);
-  const di = ph?.disciplines.find((x) => x.discipline === tax.discipline);
   const gradeLabels =
     tax.selectedGradeCodes.length > 0
       ? tax.selectedGradeCodes
-          .map((code) => di?.grades.find((g) => g.code === code)?.label ?? code)
+          .map((id) => ctx.grades.find((g) => g.id === id)?.name ?? id)
           .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
       : [];
 
@@ -147,5 +155,7 @@ export function editorPeerRowFromV2ExpMsgItem(
     taskCount: 0,
     sourceExperimentId: d.linkExpId ?? null,
     contentVersion: 1,
+    sourceType: 'msg',
+    publishStatus: d.status,
   };
 }

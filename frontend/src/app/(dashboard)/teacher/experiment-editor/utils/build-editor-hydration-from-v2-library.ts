@@ -26,17 +26,13 @@ export function resolvePhaseDisciplineGradesFromV2Library(
       }
     }
   }
-  const discNode = SUBJECT_CASCADE.find((p) => p.phase === phase)?.disciplines.find((d) => d.discipline === discipline);
   const codes: string[] = [];
   for (const gr of item.grades ?? []) {
-    const gn = gr.gradeId ? (grades.find((g) => g.id === gr.gradeId)?.name ?? "").trim() : "";
-    if (!gn || !discNode) continue;
-    const hit = discNode.grades.find((g) => g.label === gn);
-    if (hit) codes.push(hit.code);
+    const gid = gr.gradeId?.trim();
+    if (gid) codes.push(gid);
   }
   const unique = [...new Set(codes)];
-  const fallbackCode = discNode?.grades[0]?.code ?? "S10";
-  return { phase, discipline, selectedGradeCodes: unique.length > 0 ? unique : [fallbackCode] };
+  return { phase, discipline, selectedGradeCodes: unique };
 }
 
 function plainOneLine(text: string | null | undefined): string {

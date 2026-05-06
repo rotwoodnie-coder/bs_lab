@@ -233,7 +233,7 @@ const initialState: EditorStoreState = {
 
   phase: "senior",
   discipline: "physics",
-  selectedGradeCodes: ["S10"],
+  selectedGradeCodes: [],
   selectedStandardId: null,
   linkedStandardName: null,
   useCustomExperiment: false,
@@ -428,7 +428,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       gradeId: p.gradeId,
       phase: p.phase,
       discipline: p.discipline,
-      selectedGradeCodes: p.selectedGradeCodes.length ? p.selectedGradeCodes : ["S10"],
+      selectedGradeCodes: p.selectedGradeCodes.length ? p.selectedGradeCodes : [],
       summary: p.summary,
       durationMin: p.durationMin,
       simulatorUrl: p.simulatorUrl,

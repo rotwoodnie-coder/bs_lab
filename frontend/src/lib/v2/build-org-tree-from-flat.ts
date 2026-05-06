@@ -2,6 +2,7 @@ import type { V2SysOrgItem } from "@/lib/v2/v2-sys-api";
 
 function levelSortRank(org: V2SysOrgItem): number {
   const name = org.orgName.trim();
+  // TODO: 学段名应从字典 API (fetchV2SchoolLevels) 获取，当前使用名称正则匹配做临时排序
   if (/小学/.test(name)) return 1;
   if (/初中/.test(name)) return 2;
   if (/高中/.test(name)) return 3;
@@ -57,6 +58,7 @@ export function buildOrgTreeFromFlat(flat: V2SysOrgItem[]): V2SysOrgItem[] {
       }
       if (
         parent &&
+        // TODO: 学段名应从字典 API 获取，当前用名称匹配作为临时方案
         (parent.orgName.trim() === "小学" ||
           parent.orgName.trim() === "初中" ||
           parent.orgName.trim() === "高中" ||

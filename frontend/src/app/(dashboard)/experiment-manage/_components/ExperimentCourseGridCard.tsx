@@ -8,11 +8,12 @@ import { Eye, ThumbsUp } from "@bs-lab/ui/icons";
 import { ExpMsgCoverPreview } from "@/components/business/experiment-manage/ExpMsgCoverPreview";
 import { cn } from "@/lib/utils";
 import type { EditorPeerRow } from "@/app/(dashboard)/teacher/experiment-editor/utils/editor-peer-row-types";
+import { EXP_MSG_STATUS_LABEL } from "@/lib/v2/exp-display-mapping";
 
 function statusTagText(row: EditorPeerRow): string {
-  if (row.lifecycleStatus === "PUBLISHED" || row.workflowStatus === "published") return "已通过";
-  if (row.workflowStatus === "changes_requested") return "未通过";
-  return "草稿";
+  if (row.lifecycleStatus === "PUBLISHED" || row.workflowStatus === "published") return EXP_MSG_STATUS_LABEL.y;
+  if (row.workflowStatus === "changes_requested") return EXP_MSG_STATUS_LABEL.n;
+  return EXP_MSG_STATUS_LABEL.t;
 }
 
 function metricText(n: number | null | undefined): string {

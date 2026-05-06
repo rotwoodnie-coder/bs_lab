@@ -8,14 +8,10 @@ import {
 } from "@bs-lab/ui";
 import { cn } from "@/lib/utils";
 import type { ExpStatusFilter } from "../page.hooks";
+import { EXP_MSG_STATUS_OPTIONS } from "@/lib/v2/exp-display-mapping";
 
-const STATUS_OPTIONS: { value: ExpStatusFilter; label: string }[] = [
-  { value: "all", label: "全部" },
-  /** 与 `exp_msg.status` 注释一致：y 通过，t 草稿，n 不通过 */
-  { value: "y", label: "已通过" },
-  { value: "t", label: "草稿" },
-  { value: "n", label: "未通过" },
-];
+const STATUS_OPTIONS: { value: ExpStatusFilter; label: string }[] =
+  EXP_MSG_STATUS_OPTIONS as { value: ExpStatusFilter; label: string }[];
 
 export type ExperimentManageFiltersProps = {
   q: string;

@@ -1,12 +1,13 @@
 "use client";
 
 import { Badge } from "@bs-lab/ui";
+import { EXP_LIBRARY_STATUS_LABEL } from "@/lib/v2/exp-display-mapping";
 
 // ─── 实验状态 ──────────────────────────────────────────────
 const EXP_STATUS_MAP: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  y: { label: "已上架", variant: "default" },
-  n: { label: "已下架", variant: "secondary" },
-  t: { label: "待审核", variant: "outline" },
+  y: { label: EXP_LIBRARY_STATUS_LABEL.y, variant: "default" },
+  n: { label: EXP_LIBRARY_STATUS_LABEL.n, variant: "secondary" },
+  t: { label: EXP_LIBRARY_STATUS_LABEL.t, variant: "outline" },
 };
 
 // ─── 题库状态 ──────────────────────────────────────────────

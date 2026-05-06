@@ -144,22 +144,22 @@ export function useEditorBootstrap() {
     [phaseDisciplines],
   );
   const gradeOptions = React.useMemo(() => {
-    if (!store.discipline) return [];
-    const seen = new Set<string>();
-    const result: Array<{ id: string; code: string; label: string; levelId?: string; discipline: string }> = [];
-    for (const phase of SUBJECT_CASCADE) {
-      const disc = phase.disciplines.find((d) => d.discipline === store.discipline);
-      if (disc?.grades) {
-        for (const g of disc.grades) {
-          if (!seen.has(g.code)) {
-            seen.add(g.code);
-            result.push({ id: g.code, code: g.code, label: g.label, discipline: store.discipline });
-          }
-        }
-      }
-    }
-    return result;
-  }, [store.discipline]);
+    const subjectId = store.subjectId?.trim();
+    const levelId = store.schoolLevelId?.trim();
+    if (!subjectId || !levelId) return [];
+
+    // 从 gradeSubjects 中找到该学科允许的年级 ID 集合
+    const gradeIds = new Set(
+      v2Peer.gradeSubjects
+        .filter((gs) => gs.subjectId === subjectId)
+        .map((gs) => gs.gradeId),
+    );
+
+    // 过滤：年级必须属于该学段，且在该学科的允许列表中
+    return v2Peer.grades.filter(
+      (g) => gradeIds.has(g.id) && String(g.levelId ?? "").trim() === levelId,
+    );
+  }, [store.subjectId, store.schoolLevelId, v2Peer.gradeSubjects, v2Peer.grades]);
 
   // 为 phase sync 提供兼容的 setter 包装（Zustand setField 不支持 updater 函数）
   const setDisciplineForSync = React.useCallback(
@@ -194,8 +194,8 @@ export function useEditorBootstrap() {
     [store.discipline, disciplineOptions],
   );
   const selectedGradeLabels = React.useMemo(() => {
-    const map = new Map(gradeOptions.map((g) => [g.code, g.label] as const));
-    return store.selectedGradeCodes.map((code) => map.get(code) ?? code);
+    const map = new Map(gradeOptions.map((g) => [g.id, g.name] as const));
+    return store.selectedGradeCodes.map((id) => map.get(id) ?? id);
   }, [gradeOptions, store.selectedGradeCodes]);
 
   const listDisciplineOptions = React.useMemo(() => {
@@ -404,7 +404,7 @@ export function useEditorBootstrap() {
   );
 
   const confirmLinkedExperiment = React.useCallback(
-    (meta: { expId: string; expName?: string }) => {
+    (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => {
       const id = meta.expId?.trim();
       if (!id) return;
       const rowName = meta.expName?.trim() || v2Peer.peerRows.find((r) => r.id === id)?.title?.trim();

@@ -91,6 +91,7 @@ export function ExperimentManageTableView<Row extends { id: string }>(props: Exp
               {(() => {
                 const raw = String((row.original as any).subjectLabel || "").trim();
                 const parts = raw.split("·").map((s) => s.trim()).filter(Boolean);
+                // TODO: 学段名应从字典 API (fetchV2SchoolLevels) 获取，当前使用静态集合做临时判断
                 const phaseSet = new Set(["小学", "初中", "高中"]);
                 const subject = parts.length >= 2 && phaseSet.has(parts[0]!) ? parts[1]! : parts[0];
                 return subject || "—";

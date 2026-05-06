@@ -5,7 +5,7 @@ import * as React from "react";
 import type { SubjectDiscipline } from "@/types/subject";
 
 type Disc = { discipline: SubjectDiscipline };
-type Grade = { code: string };
+type Grade = { id: string };
 
 export function useEditorBootstrapPhaseSync(
   phaseDisciplines: Disc[],
@@ -19,7 +19,7 @@ export function useEditorBootstrapPhaseSync(
     if (phaseDisciplines.length === 0) return;
 
     // 防御：若上游每次 render 都生成新数组引用，先用内容签名去重，避免 effect 反复触发导致循环更新。
-    const nextSig = `${phaseDisciplines.map((d) => d.discipline).join("|")}__${gradeOptions.map((g) => g.code).join("|")}`;
+    const nextSig = `${phaseDisciplines.map((d) => d.discipline).join("|")}__${gradeOptions.map((g) => g.id).join("|")}`;
     if (sigRef.current === nextSig) return;
     sigRef.current = nextSig;
 
@@ -29,9 +29,9 @@ export function useEditorBootstrapPhaseSync(
     });
     setSelectedGradeCodes((prev) => {
       if (gradeOptions.length === 0) return prev;
-      const allowed = new Set(gradeOptions.map((g) => g.code));
+      const allowed = new Set(gradeOptions.map((g) => g.id));
       const kept = prev.filter((x) => allowed.has(x));
-      if (kept.length === 0) return [gradeOptions[0]!.code];
+      if (kept.length === 0) return [];
 
       // 若过滤后内容未变化，必须返回 prev 以避免循环更新
       if (kept.length === prev.length && kept.every((v, i) => v === prev[i])) return prev;

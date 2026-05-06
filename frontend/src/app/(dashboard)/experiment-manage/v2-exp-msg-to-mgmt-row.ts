@@ -1,5 +1,6 @@
 import type { EditorPeerRow, EditorPeerWorkflowStatus } from "@/app/(dashboard)/teacher/experiment-editor/utils/editor-peer-row-types";
 import type { V2ExpMsgItem } from "@/lib/v2/v2-exp-api";
+import { dbStatusToWorkflow, dbStatusToLifecycle, userTypeLabel as userTypeLabelShared } from "@/lib/v2/exp-display-mapping";
 
 function plainFromRich(text: string | null): string {
   if (!text) return "";
@@ -7,18 +8,14 @@ function plainFromRich(text: string | null): string {
 }
 
 function statusToWorkflow(status: string | null): EditorPeerWorkflowStatus {
-  if (status === "y") return "published";
-  if (status === "n") return "changes_requested";
-  return "draft";
+  return dbStatusToWorkflow(status);
 }
 
 /**
  * 将 `/v2/exp` 列表项映射为编辑器/卡片共用的 `EditorPeerRow`（展示字段以库为准）。
  */
 function createUserTypeLabel(t: V2ExpMsgItem["createUserType"]): string {
-  if (t === "Student") return "学生";
-  if (t === "Teacher") return "教师";
-  return "";
+  return userTypeLabelShared(t);
 }
 
 function durationHintFromClassHour(classHour: number | null | undefined): string {
@@ -54,10 +51,12 @@ export function v2ExpMsgItemToMgmtRow(
     sourceExperimentId: item.linkExpId ?? null,
     contentVersion: 1,
     isStandard: Boolean(item.standardExpId),
-    lifecycleStatus: item.status === "y" ? "PUBLISHED" : item.status === "t" ? "DRAFT" : "PENDING",
+    lifecycleStatus: dbStatusToLifecycle(item.status),
     rejectReason:
       item.status === "n" ? (item.rejectReason?.trim() || item.confirmComments?.trim() || undefined) : undefined,
     coverVideoUrl: item.coverVideoUrl?.trim() || null,
     durationHint: durationHintFromClassHour(item.classHour),
+    sourceType: 'msg',
+    publishStatus: item.status,
   };
 }

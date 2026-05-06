@@ -1,6 +1,7 @@
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import type { V2DictGradeItem, V2DictItem, V2ExpLibraryItem } from "@/lib/v2/v2-exp-api";
 import type { EditorPeerRow, EditorPeerWorkflowStatus } from "@/app/(dashboard)/teacher/experiment-editor/utils/editor-peer-row-types";
+import { dbStatusToWorkflow, dbStatusToLifecycle } from "@/lib/v2/exp-display-mapping";
 
 function plainFromRich(text: string | null): string {
   if (!text) return "";
@@ -8,9 +9,7 @@ function plainFromRich(text: string | null): string {
 }
 
 function statusToWorkflow(status: string | null): EditorPeerWorkflowStatus {
-  if (status === "y") return "published";
-  if (status === "n") return "changes_requested";
-  return "draft";
+  return dbStatusToWorkflow(status);
 }
 
 /**
@@ -62,9 +61,12 @@ export function v2ExpLibraryItemToMgmtRow(
     sourceExperimentId: null,
     contentVersion: 1,
     isStandard: true,
-    lifecycleStatus: item.status === "y" ? "PUBLISHED" : item.status === "t" ? "DRAFT" : "PENDING",
+    lifecycleStatus: dbStatusToLifecycle(item.status),
     rejectReason: undefined,
     coverVideoUrl: null,
     durationHint: "—",
+    sourceType: 'library' as const,
+    libraryId: item.libExpId,
+    publishStatus: item.status,
   };
 }

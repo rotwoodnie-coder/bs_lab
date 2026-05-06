@@ -77,9 +77,9 @@ export function resolvePhaseDisciplineGradesFromV2Detail(
     for (const ph of SUBJECT_CASCADE) {
       for (const disc of ph.disciplines) {
         if (disc.label !== sn) continue;
-        if (gn) {
-          const gr = disc.grades.find((g) => g.label === gn);
-          if (gr) return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: [gr.code] };
+        if (detail.gradeId) {
+          // 返回 DB grade ID 而非静态 code
+          return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: [detail.gradeId] };
         }
         return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: [] };
       }
@@ -89,11 +89,11 @@ export function resolvePhaseDisciplineGradesFromV2Detail(
     for (const ph of SUBJECT_CASCADE) {
       for (const disc of ph.disciplines) {
         const gr = disc.grades.find((g) => g.label === gn);
-        if (gr) return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: [gr.code] };
+        if (gr) return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: detail.gradeId ? [detail.gradeId] : [] };
       }
     }
   }
-  return { phase: "senior", discipline: "physics", selectedGradeCodes: ["S10"] };
+  return { phase: "senior", discipline: "physics", selectedGradeCodes: [] };
 }
 
 export function buildEditorHydrationFromV2Detail(

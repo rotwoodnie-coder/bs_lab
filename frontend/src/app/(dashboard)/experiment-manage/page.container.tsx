@@ -27,6 +27,7 @@ import { LeftTreeRightTableLayout } from "@/components/layout/left-tree-right-ta
 import { ManagementKpiCards } from "@/components/business/common/ManagementKpiCards";
 import { ManagementListToolbar } from "@/components/business/common/ManagementListToolbar";
 import { ManagementPageFrame } from "@/components/business/common/ManagementPageFrame";
+import { expStatusLabel } from "@/lib/v2/exp-display-mapping";
 import type { ApiActor } from "@/lib/new-core-api";
 import { GRADE_FIRST_SUBJECT_TREE_INITIAL } from "@/lib/tree/subject-tree-grade-first-state";
 import { lucideIconForSubjectLabel } from "@/lib/tree/discipline-tree-icons";
@@ -157,9 +158,9 @@ export default function ExperimentManagePageContainer() {
     );
     return [
       { key: "total", label: "实验总数", value: total },
-      { key: "approved", label: "已通过", value: counts.approved, tone: "success" as const },
-      { key: "drafts", label: "草稿", value: counts.drafts, tone: "warning" as const },
-      { key: "rejected", label: "未通过", value: counts.rejected, tone: "danger" as const },
+      { key: "approved", label: expStatusLabel("y"), value: counts.approved, tone: "success" as const },
+      { key: "drafts", label: expStatusLabel("t"), value: counts.drafts, tone: "warning" as const },
+      { key: "rejected", label: expStatusLabel("n"), value: counts.rejected, tone: "danger" as const },
     ];
   }, [items, total]);
 
@@ -387,19 +388,19 @@ export default function ExperimentManagePageContainer() {
                             <SelectItem value="y">
                               <span className="inline-flex items-center gap-2">
                                 <CheckCircle2 className="size-4 text-muted-foreground/60" aria-hidden />
-                                已通过
+                                {expStatusLabel("y")}
                               </span>
                             </SelectItem>
                             <SelectItem value="t">
                               <span className="inline-flex items-center gap-2">
                                 <FileEdit className="size-4 text-muted-foreground/60" aria-hidden />
-                                草稿
+                                {expStatusLabel("t")}
                               </span>
                             </SelectItem>
                             <SelectItem value="n">
                               <span className="inline-flex items-center gap-2">
                                 <XCircle className="size-4 text-muted-foreground/60" aria-hidden />
-                                未通过
+                                {expStatusLabel("n")}
                               </span>
                             </SelectItem>
                           </SelectContent>

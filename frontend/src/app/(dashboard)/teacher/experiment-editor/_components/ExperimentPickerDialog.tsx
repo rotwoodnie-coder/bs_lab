@@ -25,6 +25,7 @@ import { Search, BookOpen } from "@bs-lab/ui/icons";
 
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
+import type { CurriculumEditorTableRow } from "../types";
 
 type GradeOpt = { code: string; label: string };
 type DisciplineOpt = { id: SubjectDiscipline; label: string };
@@ -60,7 +61,7 @@ type Props = {
   setSelectedStandardId: (v: string | null) => void;
   setUseCustomExperiment: (v: boolean) => void;
   setCurriculum: (v: string) => void;
-  onConfirm: (meta: { expId: string; expName?: string }) => void | Promise<void>;
+  onConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => void | Promise<void>;
   setPhase: (v: EducationPhase) => void;
   setDiscipline: (v: SubjectDiscipline) => void;
   setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
@@ -322,8 +323,12 @@ export function ExperimentPickerDialog(props: Props) {
                 rowNumberMode="page"
                 stickyHeader
                 onRowClick={(rowItem) => {
-                  const r = rowItem as { id: string; title?: string };
-                  props.onConfirm({ expId: r.id, expName: String(r.title ?? r.id) });
+                  const r = rowItem as CurriculumEditorTableRow;
+                  // 根据 sourceType 和 publishStatus 决定传递的参数：
+                  // - 如果 sourceType === 'library'，说明来自标准实验库，按标准库逻辑处理
+                  // - 如果 sourceType === 'msg' 且 publishStatus === 'y' (published)，按已发布教师实验处理
+                  const baseMeta = { expId: r.id, expName: r.title, sourceType: r.sourceType, publishStatus: r.publishStatus, libraryId: r.libraryId } as const;
+                  props.onConfirm(baseMeta);
                   props.onOpenChange(false);
                 }}
                 className="[&_thead_tr]:bg-slate-50/80 [&_th]:text-slate-600 [&_th]:font-bold [&_tbody_tr]:transition-colors [&_tbody_tr]:hover:bg-teal-50/30"

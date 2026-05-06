@@ -8,14 +8,19 @@ import { cn } from "@/lib/utils";
 import { formatZhDateTime } from "@/lib/datetime/format-zh";
 import type { ExperimentManageRow } from "../page.hooks";
 import { RowActionsMenu } from "@/components/business/common/RowActionsMenu";
+import {
+  expStatusLabel,
+  chooseTypeLabel,
+  taskTypeLabel as taskTypeLabelShared,
+} from "@/lib/v2/exp-display-mapping";
 
 // ─── 工具 ─────────────────────────────────────────────────
-/** 与 `exp_msg.status`：`t` 草稿，`y` 通过，`n` 不通过 */
+/** 与 `exp_msg.status`：`t` 草稿，`y` 通过，`n` 不通过。文本来自 exp-display-mapping */
 function statusLabel(status: string | null): { text: string; variant: "default" | "secondary" | "outline" | "destructive" } {
   switch (status) {
-    case "y": return { text: "已通过", variant: "default" };
-    case "t": return { text: "草稿", variant: "secondary" };
-    case "n": return { text: "未通过", variant: "destructive" };
+    case "y": return { text: expStatusLabel(status), variant: "default" };
+    case "t": return { text: expStatusLabel(status), variant: "secondary" };
+    case "n": return { text: expStatusLabel(status), variant: "destructive" };
     default:  return { text: "—", variant: "outline" };
   }
 }
@@ -26,7 +31,7 @@ function statusBadge(status: string | null) {
     return (
       <Badge variant="default" className="px-2.5 font-medium bg-green-500 hover:bg-green-600">
         <CheckCircle2 className="h-3 w-3 mr-1" />
-        已通过
+        {expStatusLabel(status)}
       </Badge>
     );
   }
@@ -34,7 +39,7 @@ function statusBadge(status: string | null) {
     return (
       <Badge variant="outline" className="px-2.5 font-medium bg-white border-slate-200 text-slate-700">
         <FileEdit className="h-3 w-3 mr-1" />
-        草稿
+        {expStatusLabel(status)}
       </Badge>
     );
   }
@@ -42,7 +47,7 @@ function statusBadge(status: string | null) {
     return (
       <Badge variant="destructive" className="px-2.5 font-medium">
         <XCircle className="h-3 w-3 mr-1" />
-        未通过
+        {expStatusLabel(status)}
       </Badge>
     );
   }
@@ -50,16 +55,11 @@ function statusBadge(status: string | null) {
 }
 
 function chooseLabel(v: string | null) {
-  return v === "y" ? "必做" : v === "n" ? "选做" : "—";
+  return chooseTypeLabel(v);
 }
 
 function taskTypeLabel(v: string | null) {
-  switch (v) {
-    case "hw":   return "作业";
-    case "tk":   return "拍同款";
-    case "self": return "自主";
-    default:     return "—";
-  }
+  return taskTypeLabelShared(v);
 }
 
 // ─── Props ────────────────────────────────────────────────

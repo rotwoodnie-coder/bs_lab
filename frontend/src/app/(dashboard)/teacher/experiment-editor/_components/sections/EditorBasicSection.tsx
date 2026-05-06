@@ -77,7 +77,6 @@ export function EditorBasicSection(props: {
   pickerListDisciplineOptions: { id: SubjectDiscipline; label: string }[];
   pickerListGradeOptions: { code: string; label: string }[];
   schoolLevelOptions?: V2DictItem[];
-  gradeSubjectMap?: { id: string; subjectId: string; gradeId: string }[];
   pickerListFilterPhaseLabels: string;
   pickerListFilterDisciplineSummary: string;
   pickerListFilterGradeSummary: string;
@@ -86,7 +85,7 @@ export function EditorBasicSection(props: {
   onPickerSetSelectedStandardId: (v: string | null) => void;
   onPickerSetUseCustomExp: (v: boolean) => void;
   onPickerSetCurriculum: (v: string) => void;
-  onPickerConfirm: (meta: { expId: string; expName: string }) => void | Promise<void>;
+  onPickerConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => void | Promise<void>;
   onAutoFillBasic?: () => void | Promise<void>;
   onAutoFillAll?: () => void | Promise<void>;
   onPickerSetPhase: (v: EducationPhase) => void;
@@ -97,7 +96,7 @@ export function EditorBasicSection(props: {
   gradeDictOptions?: V2DictGradeItem[];
   selectedGradeCodes: string[];
   setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;
-  gradeOptions: Array<{ id: string; code: string; label: string; levelId?: string }>;
+  gradeOptions: Array<{ id: string; name: string; levelId?: string | null }>;
   disciplineLabel: string;
   difficultyId: string;
   onDifficultyIdChange: (v: string) => void;
@@ -122,51 +121,29 @@ export function EditorBasicSection(props: {
     () => props.schoolLevelOptions ?? [],
     [props.schoolLevelOptions],
   );
-  const subjectOptions = React.useMemo(
-    () => props.subjectOptions ?? [],
-    [props.subjectOptions],
-  );
   const gradeOptions = React.useMemo(
-    () => props.gradeOptions ?? [],
+    () => (props.gradeOptions ?? []) as Array<{ id: string; name: string; levelId?: string | null }>,
     [props.gradeOptions],
   );
-  const gradeSubjectMap = React.useMemo(() => props.gradeSubjectMap ?? [], [props.gradeSubjectMap]);
-
-  const allowedGradeIds = React.useMemo(() => {
-    const subjectId = subjectOptionValue === "__none__" ? null : subjectOptionValue;
-    const levelId = phaseOptionValue === "__none__" ? null : phaseOptionValue;
-    if (!subjectId || !levelId) return new Set<string>();
-
-    const matched = new Set<string>();
-    for (const rel of gradeSubjectMap) {
-      if (rel.subjectId !== subjectId) continue;
-      const grade = gradeOptions.find((g) => g.id === rel.gradeId);
-      if (!grade) continue;
-      if (grade.levelId && String(grade.levelId).trim() !== levelId) continue;
-      matched.add(rel.gradeId);
-    }
-    return matched;
-  }, [gradeOptions, gradeSubjectMap, phaseOptionValue, subjectOptionValue]);
-  const visibleGradeOptions = React.useMemo(() => gradeOptions.filter((g) => allowedGradeIds.has(g.id)), [allowedGradeIds, gradeOptions]);
 
   const onPickSubjectId = React.useCallback(
     (next: string) => {
       const subjectId = next === "__none__" ? null : next;
       props.setSubjectId(subjectId);
-      props.setSelectedGradeCodes((prev) => prev.filter((code) => visibleGradeOptions.some((g) => g.code === code)));
+      props.setSelectedGradeCodes((prev) => prev.filter((code) => gradeOptions.some((g) => g.id === code)));
       if (!subjectId) props.setGradeId(null);
     },
-    [props, visibleGradeOptions],
+    [props, gradeOptions],
   );
 
   const onPickPhase = React.useCallback(
     (next: string) => {
       const phase = next === "__none__" ? null : next;
       props.setSchoolLevelId(phase);
-      props.setSelectedGradeCodes((prev) => prev.filter((code) => visibleGradeOptions.some((g) => g.code === code)));
+      props.setSelectedGradeCodes((prev) => prev.filter((code) => gradeOptions.some((g) => g.id === code)));
       if (!phase) props.setGradeId(null);
     },
-    [props, visibleGradeOptions],
+    [props, gradeOptions],
   );
 
   const onPrincipleHtmlChange = React.useCallback(
@@ -293,11 +270,11 @@ export function EditorBasicSection(props: {
           <Label>年级（可多选）</Label>
           <p className="text-xs text-slate-500">会根据当前学段和学科过滤可选年级</p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {(visibleGradeOptions ?? []).map((g) => {
-              const active = props.selectedGradeCodes.includes(g.code);
+            {(gradeOptions ?? []).map((g) => {
+              const active = props.selectedGradeCodes.includes(g.id);
               return (
                 <label
-                  key={g.code}
+                  key={g.id}
                   className={
                     active
                       ? "flex cursor-pointer items-center gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm"
@@ -309,11 +286,11 @@ export function EditorBasicSection(props: {
                     disabled={props.fieldDisabled || phaseOptionValue === "__none__"}
                     onCheckedChange={() => {
                       props.setSelectedGradeCodes((prev) =>
-                        active ? prev.filter((c) => c !== g.code) : [...prev, g.code],
+                        active ? prev.filter((c) => c !== g.id) : [...prev, g.id],
                       );
                     }}
                   />
-                  <span>{g.label}</span>
+                  <span>{g.name}</span>
                 </label>
               );
             })}

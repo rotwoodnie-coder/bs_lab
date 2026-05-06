@@ -1,6 +1,7 @@
 import { can, PERMISSIONS } from "@/lib/auth/role-permissions";
 import type { AuthUser } from "@/hooks/use-auth";
 import type { EducationPhase } from "@/types/subject";
+import { phaseLabel as phaseLabelShared } from "@/lib/v2/exp-display-mapping";
 export const EDITOR_ANCHORS = [
   { id: "basic", label: "1. 基础信息" },
   { id: "materials", label: "2. 实验材料" },
@@ -18,9 +19,7 @@ export function getRolePermissions(user: AuthUser) {
 }
 
 export function phaseLabelOf(phase: EducationPhase): string {
-  if (phase === "primary") return "小学";
-  if (phase === "junior") return "初中";
-  return "高中";
+  return phaseLabelShared(phase);
 }
 
 function chineseNumeralToNumber(v: string): number | null {
