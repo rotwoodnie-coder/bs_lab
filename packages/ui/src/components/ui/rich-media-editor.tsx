@@ -88,9 +88,12 @@ export function RichMediaEditor({
 
   const updateEmbeds = React.useCallback(
     (updater: (prev: RichMediaEmbed[]) => RichMediaEmbed[]) => {
-      onChange({ ...value, embeds: updater(value.embeds) })
+      const base = valueRef.current
+      const nextEmbeds = updater(base.embeds)
+      if (nextEmbeds === base.embeds) return
+      onChange({ ...base, embeds: nextEmbeds })
     },
-    [onChange, value],
+    [onChange],
   )
 
   const handleUpload = React.useCallback(

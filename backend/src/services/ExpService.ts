@@ -240,9 +240,9 @@ async function presignExpDetail(detail: ExpMsgDetail): Promise<ExpMsgDetail> {
       })),
     ),
     Promise.all(
-      presigned.referenceVideos.map(async (rv) => ({
+      (presigned.referenceVideos ?? []).map(async (rv) => ({
         ...rv,
-        videoUrl: await presignPublicUrl(rv.videoUrl, 3600),
+        videoUrl: (await presignPublicUrl(rv.videoUrl, 3600)) ?? "",
       })),
     ),
   ]);
@@ -287,9 +287,9 @@ export async function getExpDetail(
      WHERE em.exp_id = ? ORDER BY ems.security_id`, [expId],
   );
 
-  // 查询材料级安全标签（含 exp_material_id 和 security_level）
+  // 查询材料级安全标签（数据库当前仅存储 exp_material_id + security_id）
   const [matSecDetailRows] = await runner.query<RowDataPacket[]>(
-    `SELECT ems.exp_material_id, ems.security_id, ems.security_level
+    `SELECT ems.exp_material_id, ems.security_id
      FROM exp_material_security ems
      JOIN exp_material em ON em.exp_material_id = ems.exp_material_id
      WHERE em.exp_id = ? ORDER BY ems.exp_material_id`, [expId],
@@ -315,7 +315,7 @@ export async function getExpDetail(
   for (const r of matSecDetailRows) {
     const key = String(r.exp_material_id);
     if (!materialSecurityMap.has(key)) materialSecurityMap.set(key, []);
-    materialSecurityMap.get(key)!.push({ securityId: String(r.security_id), securityLevel: r.security_level != null ? Number(r.security_level) : null });
+    materialSecurityMap.get(key)!.push({ securityId: String(r.security_id), securityLevel: null });
   }
 
   // 将 matPicRows 按 exp_material_id 分组
@@ -346,7 +346,7 @@ export async function getExpDetail(
     materialSecurityIds: (materialSecRows as RowDataPacket[]).map((r) => String(r.security_id)).filter(Boolean),
     gradeIds: (gradeRows as RowDataPacket[]).map((r) => String(r.grade_id)).filter(Boolean),
     materialPics: (matPicRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null })),
-    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null })),
+    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : "", expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : 0, fileId: r.file_id ? String(r.file_id) : undefined })),
   };
 
   if (options?.presign !== false) {

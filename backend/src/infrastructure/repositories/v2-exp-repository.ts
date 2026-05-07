@@ -641,7 +641,7 @@ export async function getExpMsgDetail(expId: string): Promise<ExpMsgDetail | nul
     materialSecurityIds: (materialSecRows as RowDataPacket[]).map((r) => String(r.security_id)).filter(Boolean),
     gradeIds: (gradeRows as RowDataPacket[]).map((r) => String(r.grade_id)).filter(Boolean),
     materialPics: (matPicRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null })),
-    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null })),
+    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : "", expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : 0, fileId: r.file_id ? String(r.file_id) : undefined })),
   };
 }
 

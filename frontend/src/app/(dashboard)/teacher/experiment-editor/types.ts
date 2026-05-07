@@ -78,6 +78,13 @@ export type ExperimentScientistStoryDraft = {
   storyComments: string;
 };
 
+export type ExperimentReferenceVideoDraft = {
+  id: string;
+  videoUrl: string;
+  fileId: string | null;
+  sortOrder: number;
+};
+
 /**
  * 实验安全标识草稿。
  * 从材料的安全标签（exp_material_security → data_material_security）选择后，

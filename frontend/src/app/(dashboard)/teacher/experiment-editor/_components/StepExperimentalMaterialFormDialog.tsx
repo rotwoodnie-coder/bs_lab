@@ -182,7 +182,7 @@ export function StepExperimentalMaterialFormDialog(props: {
   const handleSubmit = React.useCallback(async () => {
     const nextDraft = mapFormToDraft(form);
 
-    // 将 materialPicUrls 转为 materialPics 格式
+    // 将 materialPicUrls 转为 materialPics 格式，并保留空数组以支持删除回写
     const materialPics: ExperimentMaterialDraft["materialPics"] = materialPicUrls.map((url, idx) => ({
       seqId: `pic-${Date.now()}-${idx}`,
       materialUrl: url,

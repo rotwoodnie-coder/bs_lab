@@ -117,8 +117,6 @@ export function EditorBasicSection(props: {
   userId: string;
   expId: string | null;
 }) {
-  const subjectOptionValue = React.useMemo(() => (props.subjectId?.trim() ? props.subjectId.trim() : "__none__"), [props.subjectId]);
-  const phaseOptionValue = React.useMemo(() => (props.schoolLevelId?.trim() ? props.schoolLevelId.trim() : "__none__"), [props.schoolLevelId]);
   const phaseOptions = React.useMemo(
     () => props.schoolLevelOptions ?? [],
     [props.schoolLevelOptions],
@@ -127,25 +125,46 @@ export function EditorBasicSection(props: {
     () => (props.gradeOptions ?? []) as Array<{ id: string; name: string; levelId?: string | null }>,
     [props.gradeOptions],
   );
+  const [localSubjectId, setLocalSubjectId] = React.useState<string | null>(props.subjectId);
+  const [localSchoolLevelId, setLocalSchoolLevelId] = React.useState<string | null>(props.schoolLevelId);
+  const initExpIdRef = React.useRef<string | null>(props.expId);
+  React.useEffect(() => {
+    if (initExpIdRef.current === props.expId) return;
+    initExpIdRef.current = props.expId;
+    setLocalSubjectId(props.subjectId);
+    setLocalSchoolLevelId(props.schoolLevelId);
+  }, [props.expId, props.schoolLevelId, props.subjectId]);
+  const subjectOptionValue = React.useMemo(() => (localSubjectId?.trim() ? localSubjectId.trim() : "__none__"), [localSubjectId]);
+  const phaseOptionValue = React.useMemo(() => (localSchoolLevelId?.trim() ? localSchoolLevelId.trim() : "__none__"), [localSchoolLevelId]);
 
   const onPickSubjectId = React.useCallback(
     (next: string) => {
       const subjectId = next === "__none__" ? null : next;
-      props.setSubjectId(subjectId);
-      props.setSelectedGradeCodes((prev) => prev.filter((code) => gradeOptions.some((g) => g.id === code)));
-      if (!subjectId) props.setGradeId(null);
+      setLocalSubjectId(subjectId);
+      if (subjectId !== props.subjectId) props.setSubjectId(subjectId);
+      props.setSelectedGradeCodes((prev) => {
+        const allowed = new Set(gradeOptions.map((g) => g.id));
+        const nextCodes = prev.filter((code) => allowed.has(code));
+        return nextCodes.length === prev.length && nextCodes.every((v, i) => v === prev[i]) ? prev : nextCodes;
+      });
+      if (!subjectId && props.gradeId !== null) props.setGradeId(null);
     },
-    [props, gradeOptions],
+    [props.gradeId, props.subjectId, props.setGradeId, props.setSelectedGradeCodes, gradeOptions],
   );
 
   const onPickPhase = React.useCallback(
     (next: string) => {
       const phase = next === "__none__" ? null : next;
-      props.setSchoolLevelId(phase);
-      props.setSelectedGradeCodes((prev) => prev.filter((code) => gradeOptions.some((g) => g.id === code)));
-      if (!phase) props.setGradeId(null);
+      setLocalSchoolLevelId(phase);
+      if (phase !== props.schoolLevelId) props.setSchoolLevelId(phase);
+      props.setSelectedGradeCodes((prev) => {
+        const allowed = new Set(gradeOptions.map((g) => g.id));
+        const nextCodes = prev.filter((code) => allowed.has(code));
+        return nextCodes.length === prev.length && nextCodes.every((v, i) => v === prev[i]) ? prev : nextCodes;
+      });
+      if (!phase && props.gradeId !== null) props.setGradeId(null);
     },
-    [props, gradeOptions],
+    [props.gradeId, props.schoolLevelId, props.setGradeId, props.setSchoolLevelId, props.setSelectedGradeCodes, gradeOptions],
   );
 
   const onPrincipleHtmlChange = React.useCallback(
@@ -242,7 +261,7 @@ export function EditorBasicSection(props: {
         <div className="grid gap-4 lg:col-span-12 lg:grid-cols-2">
           <div className="grid gap-2">
             <Label>学段</Label>
-            <Select value={phaseOptionValue} onValueChange={onPickPhase} disabled={props.fieldDisabled}>
+            <Select key={`phase-${props.expId ?? "new"}`} defaultValue={phaseOptionValue} onValueChange={onPickPhase} disabled={props.fieldDisabled}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="学段" />
               </SelectTrigger>
@@ -256,7 +275,7 @@ export function EditorBasicSection(props: {
           </div>
           <div className="grid gap-2">
             <Label>学科</Label>
-            <Select value={subjectOptionValue} onValueChange={onPickSubjectId} disabled={props.fieldDisabled}>
+            <Select key={`subject-${props.expId ?? "new"}`} defaultValue={subjectOptionValue} onValueChange={onPickSubjectId} disabled={props.fieldDisabled}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="学科" />
               </SelectTrigger>

@@ -37,10 +37,10 @@ export function EditorExperimentReferencePanel(props: {
   ) => void;
   referenceVideo: string;
   setReferenceVideo: (v: string) => void;
-  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  referenceVideos: Array<{ id: string; videoUrl: string; fileId: string | null; sortOrder: number }>;
   addReferenceVideo: () => void;
-  removeReferenceVideo: (id: number) => void;
-  setReferenceVideos: (v: Array<{ videoUrl: string; sortOrder?: number }>) => void;
+  removeReferenceVideo: (id: string) => void;
+  setReferenceVideos: (v: Array<{ id: string; videoUrl: string; fileId: string | null; sortOrder: number }>) => void;
   referenceRichText: string;
   referenceRichEmbeds: RichMediaEmbed[];
   onReferenceRichChange: (next: RichMediaValue) => void;
@@ -58,7 +58,12 @@ export function EditorExperimentReferencePanel(props: {
       const url = mediaRegistryStreamUrl(registryId, "view", props.mediaActor);
       if (pickingIndex != null && pickingIndex < props.referenceVideos.length) {
         const next = [...props.referenceVideos];
-        next[pickingIndex] = { ...next[pickingIndex], videoUrl: url };
+        next[pickingIndex] = {
+          ...next[pickingIndex],
+          videoUrl: url,
+          fileId: registryId,
+          sortOrder: pickingIndex,
+        };
         props.setReferenceVideos(next);
       }
       setPickerOpen(false);

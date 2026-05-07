@@ -106,6 +106,7 @@ export function useEditorAutosave(opts: {
   const savingRef = React.useRef(false);
   const autosaveHintShownRef = React.useRef(false);
   const baselineRef = React.useRef<string>("");
+  const lastQueuedSnapshotRef = React.useRef<string>("");
   const lastSavedAtRef = React.useRef<number | null>(null);
 
   const [status, setStatus] = React.useState<SaveStatus>("idle");
@@ -141,7 +142,9 @@ export function useEditorAutosave(opts: {
 
     const serialized = serializeSnapshot(snapshot);
     if (baselineRef.current === "" || serialized === baselineRef.current) return;
+    if (lastQueuedSnapshotRef.current === serialized) return;
 
+    lastQueuedSnapshotRef.current = serialized;
     setStatus("saving");
     setHasPendingChanges(true);
     setErrorMessage(null);
@@ -155,15 +158,19 @@ export function useEditorAutosave(opts: {
         const saved = await saveDraft({ silent: true });
         if (saved) {
           baselineRef.current = serialized;
-          lastSavedAtRef.current = Date.now();
-          setLastSavedAt(Date.now());
+          lastQueuedSnapshotRef.current = serialized;
+          const now = Date.now();
+          lastSavedAtRef.current = now;
+          setLastSavedAt(now);
           setHasPendingChanges(false);
           setStatus("saved");
         } else {
+          lastQueuedSnapshotRef.current = "";
           setStatus("error");
           setErrorMessage("草稿保存未完成");
         }
       } catch (err) {
+        lastQueuedSnapshotRef.current = "";
         setStatus("error");
         setErrorMessage(err instanceof Error ? err.message : "自动保存失败");
       } finally {

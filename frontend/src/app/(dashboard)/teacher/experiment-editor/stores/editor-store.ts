@@ -14,6 +14,7 @@ import { sonnerToast } from "@bs-lab/ui";
 import type {
   ExperimentMaterialDraft,
   ExperimentReferenceCitationDraft,
+  ExperimentReferenceVideoDraft,
   ExperimentResultEntryDraft,
   ExperimentScientistStoryDraft,
   ExperimentSecurityDraft,
@@ -107,7 +108,7 @@ export interface EditorStoreState {
   mainVideoId: string | null;
   mainVideoEmbeds: RichMediaEmbed[];
   gradeIds: string[];
-  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  referenceVideos: ExperimentReferenceVideoDraft[];
 
   // 子表数组
   materials: ExperimentMaterialDraft[];
@@ -161,8 +162,9 @@ export interface EditorStoreActions {
   addReferenceCitation: () => void;
   removeReferenceCitation: (id: string) => void;
   updateReferenceCitation: (id: string, field: "citedExperimentTitle" | "sourceOrLink" | "note", value: string) => void;
+  setReferenceVideos: (videos: ExperimentReferenceVideoDraft[]) => void;
   addReferenceVideo: () => void;
-  removeReferenceVideo: (id: number) => void;
+  removeReferenceVideo: (id: string) => void;
   addScientistStory: () => void;
   removeScientistStory: (id: string) => void;
   updateScientistStory: (id: string, field: "scientistName" | "storyName" | "storyComments", value: string) => void;
@@ -289,7 +291,14 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
   ...initialState,
 
   // ── 通用 setter ──
-  setField: (key, value) => set({ [key]: value }),
+  setField: (key, value) => {
+    const current = get()[key];
+    if (Object.is(current, value)) return;
+    if (Array.isArray(current) && Array.isArray(value)) {
+      if (current.length === value.length && current.every((item, idx) => Object.is(item, value[idx]))) return;
+    }
+    set({ [key]: value } as Partial<EditorStoreState>);
+  },
 
   // ── 材料子表 ──
   addMaterial: () =>
@@ -401,13 +410,18 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     set((s) => ({
       referenceCitations: s.referenceCitations.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
     })),
+  setReferenceVideos: (videos: ExperimentReferenceVideoDraft[]) =>
+    set({ referenceVideos: [...videos] }),
   addReferenceVideo: () =>
     set((s) => ({
-      referenceVideos: [...s.referenceVideos, { videoUrl: "", sortOrder: s.referenceVideos.length }],
+      referenceVideos: [
+        ...s.referenceVideos,
+        { id: newId("refvid"), videoUrl: "", fileId: null, sortOrder: s.referenceVideos.length },
+      ],
     })),
   removeReferenceVideo: (id) =>
     set((s) => ({
-      referenceVideos: s.referenceVideos.filter((_, i) => i !== id),
+      referenceVideos: s.referenceVideos.filter((v) => v.id !== String(id)),
     })),
 
   // ── 科学家故事子表 ──
@@ -508,7 +522,12 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       unitId: p.unitId,
       // 确保 gradeIds 与 selectedGradeCodes 同步
       gradeIds: p.gradeIds?.length ? p.gradeIds : (p.selectedGradeCodes ?? []),
-      referenceVideos: p.referenceVideos,
+      referenceVideos: p.referenceVideos.map((v, idx) => ({
+        id: v.seqId || `refvid-${idx + 1}`,
+        videoUrl: v.videoUrl ?? "",
+        fileId: v.fileId ?? null,
+        sortOrder: v.sortOrder ?? idx,
+      })),
       saveStatus: "idle",
       errorMessage: null,
     });

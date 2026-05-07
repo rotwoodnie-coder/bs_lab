@@ -210,7 +210,7 @@ export type V2ExpMsgDetail = V2ExpMsgItem & {
   materialSecurityIds: string[];
   gradeIds: string[];
   materialPics: Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>;
-  referenceVideos: Array<{ seqId: string; videoUrl: string | null; expId: string; sortOrder: number | null; fileId: string | null }>;
+  referenceVideos?: Array<{ seqId: string; videoUrl: string; fileId?: string; sortOrder: number }>;
 };
 
 export type V2ExpMsgSecurityRow = {
@@ -284,9 +284,10 @@ export type V2ExpDraftMaterialSecurityRowPut = {
 };
 
 export type V2ExpDraftReferenceVideoRowPut = {
-  video_url: string | null;
-  sort_order?: number | null;
-  file_id?: string | null;
+  seq_id?: string;
+  video_url: string;
+  file_id?: string;
+  sort_order: number;
 };
 
 export type V2ExpDraftMaterialRowPut = {

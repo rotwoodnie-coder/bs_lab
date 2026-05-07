@@ -38,7 +38,8 @@ export function EditorBasicSettingsRow(props: Props) {
       <div className="grid gap-2">
         <Label>实验类型</Label>
         <RadioGroup
-          value={chooseType === "y" ? "required" : "optional"}
+          key={`choose-${chooseType ?? "none"}`}
+          defaultValue={chooseType === "y" ? "required" : "optional"}
           onValueChange={(v) => onChooseTypeChange(v === "required" ? "y" : "n")}
           className="flex flex-wrap gap-4"
         >
@@ -62,7 +63,8 @@ export function EditorBasicSettingsRow(props: Props) {
           <p className="text-xs text-muted-foreground">暂无可选难度</p>
         ) : (
           <RadioGroup
-            value={difficultyId}
+            key={`difficulty-${difficultyId || "none"}`}
+            defaultValue={difficultyId}
             onValueChange={(v) => onDifficultyIdChange(v)}
             className="flex flex-wrap gap-4"
           >
@@ -78,7 +80,8 @@ export function EditorBasicSettingsRow(props: Props) {
       <div className="grid gap-2">
         <Label>任务类型</Label>
         <RadioGroup
-          value={expTaskType ?? "self"}
+          key={`task-${expTaskType ?? "self"}`}
+          defaultValue={expTaskType ?? "self"}
           onValueChange={(v) => onExpTaskTypeChange(v as "hw" | "tk" | "self")}
           className="flex flex-wrap gap-4"
         >

@@ -391,9 +391,10 @@ export type PutExpMsgDraftMaterialPicInput = {
 };
 
 export type PutExpMsgDraftReferenceVideoInput = {
-  video_url: string | null;
-  sort_order?: number | null;
-  file_id?: string | null;
+  seq_id?: string;
+  video_url: string;
+  sort_order: number;
+  file_id?: string;
 };
 
 // ─── 模拟试验记录 ────────────────────────────────────────
@@ -424,5 +425,5 @@ export interface ExpMsgDetail extends ExpMsgRecord {
   /** 材料图片关联 */
   materialPics: Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>;
   /** 参考引用视频 */
-  referenceVideos: Array<{ seqId: string; videoUrl: string | null; expId: string; sortOrder: number | null; fileId: string | null }>;
+  referenceVideos?: Array<{ seqId: string; videoUrl: string; fileId?: string; sortOrder: number }>;
 }

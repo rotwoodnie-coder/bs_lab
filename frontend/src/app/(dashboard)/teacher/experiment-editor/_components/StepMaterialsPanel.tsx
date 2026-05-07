@@ -80,12 +80,8 @@ export function StepMaterialsPanel(props: Props) {
       if (draft.libraryMaterialId) {
         props.onUpdateMaterial(editingMaterialId, "libraryMaterialId", draft.libraryMaterialId);
       }
-      if (draft.materialSecurityList && draft.materialSecurityList.length > 0) {
-        props.onUpdateMaterial(editingMaterialId, "materialSecurityList", draft.materialSecurityList);
-      }
-      if (draft.materialPics && draft.materialPics.length > 0) {
-        props.onUpdateMaterial(editingMaterialId, "materialPics", draft.materialPics);
-      }
+      props.onUpdateMaterial(editingMaterialId, "materialSecurityList", draft.materialSecurityList ?? []);
+      props.onUpdateMaterial(editingMaterialId, "materialPics", draft.materialPics ?? []);
     },
     [editingMaterialId, materialDialogMode, props],
   );

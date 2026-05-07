@@ -5,6 +5,7 @@ import type { V2ExpDraftPutBody } from "@/lib/v2/v2-exp-api";
 import type {
   ExperimentMaterialDraft,
   ExperimentReferenceCitationDraft,
+  ExperimentReferenceVideoDraft,
   ExperimentResultEntryDraft,
   ExperimentScientistStoryDraft,
   ExperimentSecurityDraft,
@@ -55,7 +56,7 @@ export type BuildV2ExpDraftPutBodyArgs = {
   mainVideoUrl: string;
   mainVideoEmbeds: RichMediaEmbed[];
   gradeIds: string[];
-  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  referenceVideos: ExperimentReferenceVideoDraft[];
   /** 材料图片列表 */
   materialPics?: Array<{ materialUrl: string; sortOrder?: number }>;
 };
@@ -145,7 +146,12 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
     .map((gid, idx) => ({ grade_id: gid.trim().slice(0, 32), sort_order: idx }))
     .filter((g) => g.grade_id.length > 0);
   const referenceVideos = (a.referenceVideos ?? [])
-    .map((rv, idx) => ({ video_url: rv.videoUrl.trim().slice(0, 200) || null, sort_order: rv.sortOrder ?? idx }))
+    .map((rv, idx) => ({
+      seq_id: rv.id?.trim() ? rv.id.trim().slice(0, 32) : undefined,
+      video_url: rv.videoUrl.trim().slice(0, 200) || null,
+      file_id: rv.fileId?.trim().slice(0, 32) || null,
+      sort_order: rv.sortOrder ?? idx,
+    }))
     .filter((rv) => rv.video_url != null);
   // 从每个材料中提取图片列表，扁平化为 material_pics
   const materialPics = (a.materialPics ?? [])

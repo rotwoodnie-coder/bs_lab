@@ -28,6 +28,7 @@ import { useEditorBootstrapStandardPrefill } from "./use-editor-bootstrap-standa
 import { useEditorV2PeerData } from "./use-editor-v2-peer-data";
 import type { PhaseKey } from "../types";
 import { buildEditorHydrationFromV2Library } from "../utils/build-editor-hydration-from-v2-library";
+import { buildEditorHydrationFromV2Detail } from "../utils/build-editor-hydration-from-v2-detail";
 import { editorPeerRowFromV2ExpMsgItem } from "../utils/editor-peer-row-types";
 
 export function useEditorBootstrap() {
@@ -162,6 +163,14 @@ export function useEditorBootstrap() {
         store.setField("resultEntries", p.resultEntries);
         store.setField("referenceCitations", p.referenceCitations);
         store.setField("scientistStories", p.scientistStories);
+        store.setReferenceVideos(
+          p.referenceVideos.map((v, idx) => ({
+            id: `refvid-${idx + 1}`,
+            videoUrl: v.videoUrl,
+            fileId: null,
+            sortOrder: v.sortOrder ?? idx,
+          })),
+        );
       } catch {
         // 静默
       }
@@ -256,6 +265,9 @@ export function useEditorBootstrap() {
     return [...map.entries()].map(([code, label]) => ({ code, label }));
   }, [listFilterDisciplines, listFilterPhases]);
 
+  const listDisciplineSig = React.useMemo(() => listDisciplineOptions.map((o) => o.id).join("|"), [listDisciplineOptions]);
+  const listGradeSig = React.useMemo(() => listGradeOptions.map((g) => g.code).join("|"), [listGradeOptions]);
+
   React.useEffect(() => {
     const allowed = new Set(listDisciplineOptions.map((o) => o.id));
     setListFilterDisciplines((prev) => {
@@ -263,7 +275,7 @@ export function useEditorBootstrap() {
       if (next.length === prev.length && next.every((d, i) => d === prev[i])) return prev;
       return next;
     });
-  }, [listDisciplineOptions]);
+  }, [listDisciplineSig]);
 
   React.useEffect(() => {
     const allowed = new Set(listGradeOptions.map((g) => g.code));
@@ -272,7 +284,7 @@ export function useEditorBootstrap() {
       if (next.length === prev.length && next.every((c, i) => c === prev[i])) return prev;
       return next;
     });
-  }, [listGradeOptions]);
+  }, [listGradeSig]);
 
   const listFilterPhaseLabels = React.useMemo(
     () =>
@@ -326,50 +338,84 @@ export function useEditorBootstrap() {
         return;
       }
       try {
-        // 关联实验来自 exp_library（标准实验库），使用图书馆详情接口获取
-        const libItem = await fetchV2ExpLibraryById(v2Peer.actor, linkedId);
         const fallback = v2Peer.peerRows.find((r) => r.id === linkedId) ?? undefined;
+        let payload: import("@/types/experiment-link").ExperimentFillPayload | null = null;
 
-        // 使用标准库转换为编辑器初始状态的逻辑
-        const p = buildEditorHydrationFromV2Library(libItem, {
-          subjects: v2Peer.subjects,
-          grades: v2Peer.grades,
-          userName: user.userName,
-        });
-
-        // 构建 payload（与 ExperienceFillPayload 形状对齐）
-        const payload: import("@/types/experiment-link").ExperimentFillPayload = {
-          expName: p.expName || undefined,
-          subjectId: p.subjectId || undefined,
-          schoolLevelId: p.schoolLevelId || undefined,
-          gradeId: p.gradeId || undefined,
-          selectedGradeCodes: p.selectedGradeCodes?.length ? p.selectedGradeCodes : undefined,
-          gradeIds: p.gradeIds?.length ? p.gradeIds : undefined,
-          chooseType: p.chooseType,
-          expTaskType: p.expTaskType,
-          difficultyId: p.difficultyId || undefined,
-          summary: p.summary || undefined,
-          curriculum: p.curriculum || undefined,
-          teachingContextContent: p.teachingContextContent || undefined,
-          principle: p.principle || undefined,
-          safetyNotes: p.safetyNotes || undefined,
-          dangerNotes: p.dangerNotes || undefined,
-          durationMin: p.durationMin || undefined,
-          simulatorUrl: p.simulatorUrl || undefined,
-          coursebookId: p.coursebookId || undefined,
-          unitId: p.unitId || undefined,
-          // 主视频：标准库中通常无视频，但从 fallback 尝试
-          mainVideoUrl: fallback?.coverVideoUrl ?? undefined,
-          mainVideoEmbeds: fallback?.coverVideoUrl
-            ? [{ id: `autofill-video-${linkedId}`, kind: "video" as const, src: fallback.coverVideoUrl }]
-            : undefined,
-          // 标准库无子表数据，保留用户现有编辑
-          materials: p.materials,
-          steps: p.steps,
-          resultEntries: p.resultEntries,
-          referenceCitations: p.referenceCitations,
-          scientistStories: p.scientistStories,
-        };
+        if (fallback?.sourceType === "msg" && fallback.publishStatus === "y") {
+          const detail = await fetchV2ExpDetail(v2Peer.actor, linkedId);
+          const hyd = buildEditorHydrationFromV2Detail(detail, {
+            subjects: v2Peer.subjects,
+            grades: v2Peer.grades,
+            userName: user.userName,
+          });
+          payload = {
+            expName: hyd.expName || undefined,
+            subjectId: hyd.subjectId || undefined,
+            schoolLevelId: hyd.schoolLevelId || undefined,
+            gradeId: hyd.gradeId || undefined,
+            selectedGradeCodes: hyd.selectedGradeCodes?.length ? hyd.selectedGradeCodes : undefined,
+            gradeIds: hyd.gradeIds?.length ? hyd.gradeIds : undefined,
+            chooseType: hyd.chooseType,
+            expTaskType: hyd.expTaskType,
+            difficultyId: hyd.difficultyId || undefined,
+            summary: hyd.summary || undefined,
+            curriculum: hyd.curriculum || undefined,
+            teachingContextContent: hyd.teachingContextContent || undefined,
+            principle: hyd.principle || undefined,
+            safetyNotes: hyd.safetyNotes || undefined,
+            dangerNotes: hyd.dangerNotes || undefined,
+            durationMin: hyd.durationMin || undefined,
+            simulatorUrl: hyd.simulatorUrl || undefined,
+            coursebookId: hyd.coursebookId || undefined,
+            unitId: hyd.unitId || undefined,
+            mainVideoUrl: hyd.mainVideoUrl || undefined,
+            mainVideoEmbeds: hyd.mainVideoUrl
+              ? [{ id: `autofill-video-${linkedId}`, kind: "video" as const, src: hyd.mainVideoUrl }]
+              : undefined,
+            materials: hyd.materials,
+            steps: hyd.steps,
+            resultEntries: hyd.resultEntries,
+            referenceCitations: hyd.referenceCitations,
+            scientistStories: hyd.scientistStories,
+          };
+        } else {
+          const libItem = await fetchV2ExpLibraryById(v2Peer.actor, linkedId);
+          const p = buildEditorHydrationFromV2Library(libItem, {
+            subjects: v2Peer.subjects,
+            grades: v2Peer.grades,
+            userName: user.userName,
+          });
+          payload = {
+            expName: p.expName || undefined,
+            subjectId: p.subjectId || undefined,
+            schoolLevelId: p.schoolLevelId || undefined,
+            gradeId: p.gradeId || undefined,
+            selectedGradeCodes: p.selectedGradeCodes?.length ? p.selectedGradeCodes : undefined,
+            gradeIds: p.gradeIds?.length ? p.gradeIds : undefined,
+            chooseType: p.chooseType,
+            expTaskType: p.expTaskType,
+            difficultyId: p.difficultyId || undefined,
+            summary: p.summary || undefined,
+            curriculum: p.curriculum || undefined,
+            teachingContextContent: p.teachingContextContent || undefined,
+            principle: p.principle || undefined,
+            safetyNotes: p.safetyNotes || undefined,
+            dangerNotes: p.dangerNotes || undefined,
+            durationMin: p.durationMin || undefined,
+            simulatorUrl: p.simulatorUrl || undefined,
+            coursebookId: p.coursebookId || undefined,
+            unitId: p.unitId || undefined,
+            mainVideoUrl: fallback?.coverVideoUrl ?? undefined,
+            mainVideoEmbeds: fallback?.coverVideoUrl
+              ? [{ id: `autofill-video-${linkedId}`, kind: "video" as const, src: fallback.coverVideoUrl }]
+              : undefined,
+            materials: p.materials,
+            steps: p.steps,
+            resultEntries: p.resultEntries,
+            referenceCitations: p.referenceCitations,
+            scientistStories: p.scientistStories,
+          };
+        }
         const current = {
           expName: store.expName,
           subjectId: store.subjectId,

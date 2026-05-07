@@ -68,30 +68,43 @@ type Props = {
 };
 
 export function ExperimentPickerDialog(props: Props) {
-  const [searchDraft, setSearchDraft] = React.useState(props.experimentSearchKeyword);
+  const [searchDraft, setSearchDraft] = React.useState("");
   const [picking, setPicking] = React.useState(false);
-
-  React.useEffect(() => {
-    setSearchDraft(props.experimentSearchKeyword);
-  }, [props.experimentSearchKeyword]);
+  const [localSelectedStandardId, setLocalSelectedStandardId] = React.useState<string | null>(null);
+  const [localUseCustomExperiment, setLocalUseCustomExperiment] = React.useState<boolean>(false);
+  const [localFilterPhases, setLocalFilterPhases] = React.useState<EducationPhase[]>([]);
+  const [localFilterDisciplines, setLocalFilterDisciplines] = React.useState<SubjectDiscipline[]>([]);
+  const [localFilterGradeCodes, setLocalFilterGradeCodes] = React.useState<string[]>([]);
 
   const phaseValue = React.useMemo(
-    () => (props.listFilterPhases[0]?.trim() ? props.listFilterPhases[0] : "__all__"),
-    [props.listFilterPhases],
+    () => (localFilterPhases[0]?.trim() ? localFilterPhases[0] : "__all__"),
+    [localFilterPhases],
   );
   const disciplineValue = React.useMemo(
-    () => (props.listFilterDisciplines[0]?.trim() ? props.listFilterDisciplines[0] : "__all__"),
-    [props.listFilterDisciplines],
+    () => (localFilterDisciplines[0]?.trim() ? localFilterDisciplines[0] : "__all__"),
+    [localFilterDisciplines],
   );
+
+  const prevOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!props.open) {
+      prevOpenRef.current = false;
+      return;
+    }
+    if (prevOpenRef.current) return;
+    prevOpenRef.current = true;
+    setSearchDraft(props.experimentSearchKeyword);
+    setLocalSelectedStandardId(props.selectedStandardId);
+    setLocalUseCustomExperiment(props.useCustomExperiment);
+  }, [props.experimentSearchKeyword, props.open, props.selectedStandardId, props.useCustomExperiment]);
 
   const triggerSearch = React.useCallback(() => {
     props.onSearchExperiments(searchDraft);
   }, [props.onSearchExperiments, searchDraft]);
 
   const resetSearchByFilterInteraction = React.useCallback(() => {
-    if (!searchDraft && !props.experimentSearchKeyword) return;
-    setSearchDraft("");
-    props.onSearchExperiments("");
+    if (searchDraft) setSearchDraft("");
+    if (props.experimentSearchKeyword) props.onSearchExperiments("");
   }, [props.experimentSearchKeyword, props.onSearchExperiments, searchDraft]);
 
   return (
@@ -146,7 +159,8 @@ export function ExperimentPickerDialog(props: Props) {
                 onValueChange={(v) => {
                   if (props.fieldDisabled) return;
                   const next = String(v ?? "").trim();
-                  props.setListFilterPhases(next && next !== "__all__" ? [next as EducationPhase] : []);
+                  const nextValue = next && next !== "__all__" ? [next as EducationPhase] : [];
+                  setLocalFilterPhases((prev) => (prev.length === nextValue.length && prev.every((x, i) => x === nextValue[i]) ? prev : nextValue));
                   resetSearchByFilterInteraction();
                 }}
                 disabled={props.fieldDisabled}
@@ -171,7 +185,8 @@ export function ExperimentPickerDialog(props: Props) {
                 onValueChange={(v) => {
                   if (props.fieldDisabled) return;
                   const next = String(v ?? "").trim();
-                  props.setListFilterDisciplines(next && next !== "__all__" ? [next as SubjectDiscipline] : []);
+                  const nextValue = next && next !== "__all__" ? [next as SubjectDiscipline] : [];
+                  setLocalFilterDisciplines((prev) => (prev.length === nextValue.length && prev.every((x, i) => x === nextValue[i]) ? prev : nextValue));
                   resetSearchByFilterInteraction();
                 }}
                 disabled={props.fieldDisabled}
@@ -200,9 +215,9 @@ export function ExperimentPickerDialog(props: Props) {
                 size="sm"
                 variant="ghost"
                 className="h-auto px-1 py-0 text-xs font-normal normal-case tracking-normal text-slate-400 hover:text-slate-600"
-                disabled={props.fieldDisabled || props.listFilterGradeCodes.length === 0}
+                disabled={props.fieldDisabled || localFilterGradeCodes.length === 0}
                 onClick={() => {
-                  props.setListFilterGradeCodes([]);
+                  setLocalFilterGradeCodes([]);
                   resetSearchByFilterInteraction();
                 }}
               >
@@ -211,7 +226,7 @@ export function ExperimentPickerDialog(props: Props) {
             </Label>
             <div className="grid max-h-36 grid-cols-2 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-3 xl:grid-cols-4">
               {props.listGradeOptions.map((g) => {
-                const checked = props.listFilterGradeCodes.includes(g.code);
+                const checked = localFilterGradeCodes.includes(g.code);
                 return (
                   <label
                     key={g.code}
@@ -226,9 +241,10 @@ export function ExperimentPickerDialog(props: Props) {
                       onCheckedChange={(next) => {
                         if (props.fieldDisabled) return;
                         const on = next === true;
-                        props.setListFilterGradeCodes((prev) =>
-                          on ? [...new Set([...prev, g.code])] : prev.filter((x) => x !== g.code),
-                        );
+                        setLocalFilterGradeCodes((prev) => {
+                          const nextValue = on ? [...new Set([...prev, g.code])] : prev.filter((x) => x !== g.code);
+                          return nextValue.length === prev.length && nextValue.every((x, i) => x === prev[i]) ? prev : nextValue;
+                        });
                         resetSearchByFilterInteraction();
                       }}
                       className={checked ? "border-teal-400 text-teal-600" : "border-slate-300"}
@@ -244,8 +260,8 @@ export function ExperimentPickerDialog(props: Props) {
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-slate-700">当前选择结果</span>
-              {props.selectedStandardId ? (
-                <span>已关联：{props.linkedStandardName?.trim() || props.selectedStandardId.slice(0, 12)}</span>
+              {localSelectedStandardId ? (
+                <span>已关联：{props.linkedStandardName?.trim() || localSelectedStandardId.slice(0, 12)}</span>
               ) : (
                 <span>未关联实验</span>
               )}
@@ -264,45 +280,42 @@ export function ExperimentPickerDialog(props: Props) {
             <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-4 py-2.5">
               <p className="text-sm font-bold text-slate-600">实验列表</p>
               <div className="flex items-center gap-3">
-                {props.selectedStandardId ? (
+                {localSelectedStandardId ? (
                   <span className="rounded-full bg-white px-2 py-1 text-xs text-slate-500 shadow-sm">
-                    当前关联：{props.linkedStandardName?.trim() || props.selectedStandardId.slice(0, 12)}
+                    当前关联：{props.linkedStandardName?.trim() || localSelectedStandardId.slice(0, 12)}
                   </span>
                 ) : null}
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={ !props.useCustomExperiment ? "font-semibold text-slate-700" : "text-slate-400" }>
+                  <span className={ !localUseCustomExperiment ? "font-semibold text-slate-700" : "text-slate-400" }>
                     列表
                   </span>
                   <Switch
-                    checked={props.useCustomExperiment}
+                    checked={localUseCustomExperiment}
                     onCheckedChange={(next) => {
-                      props.setUseCustomExperiment(next);
-                      if (next) {
-                        props.setSelectedStandardId(null);
-                        props.setCurriculum("老师拓展实验（未关联实验列表）");
-                      }
+                      setLocalUseCustomExperiment(next);
+                      if (next) setLocalSelectedStandardId(null);
                     }}
                     className="data-[state=checked]:bg-destructive/80"
                     aria-label="切换实验列表与拓展实验"
                   />
-                  <span className={ props.useCustomExperiment ? "font-semibold text-destructive" : "text-slate-400" }>
+                  <span className={ localUseCustomExperiment ? "font-semibold text-destructive" : "text-slate-400" }>
                     拓展
                   </span>
                 </div>
-                {props.useCustomExperiment ? (
+                {localUseCustomExperiment ? (
                   <Badge variant="destructive" className="h-5 rounded-full px-2 text-[10px]">
                     拓展
                   </Badge>
                 ) : null}
-                {!props.useCustomExperiment && props.selectedStandardId ? (
+                {!localUseCustomExperiment && localSelectedStandardId ? (
                   <Button
                     type="button"
                     size="sm"
                     variant="ghost"
                     className="h-6 rounded-full px-2 text-xs text-slate-500 hover:bg-slate-100"
                     onClick={() => {
-                      props.setSelectedStandardId(null);
-                      props.setUseCustomExperiment(true);
+                      setLocalSelectedStandardId(null);
+                      setLocalUseCustomExperiment(true);
                     }}
                   >
                     解除关联
@@ -328,6 +341,8 @@ export function ExperimentPickerDialog(props: Props) {
                   // - 如果 sourceType === 'library'，说明来自标准实验库，按标准库逻辑处理
                   // - 如果 sourceType === 'msg' 且 publishStatus === 'y' (published)，按已发布教师实验处理
                   const baseMeta = { expId: r.id, expName: r.title, sourceType: r.sourceType, publishStatus: r.publishStatus, libraryId: r.libraryId } as const;
+                  setLocalSelectedStandardId(r.id);
+                  setLocalUseCustomExperiment(false);
                   props.onConfirm(baseMeta);
                   props.onOpenChange(false);
                 }}
@@ -356,13 +371,13 @@ export function ExperimentPickerDialog(props: Props) {
           <Button
             type="button"
             size="sm"
-            disabled={!props.selectedStandardId || picking || props.useCustomExperiment}
+            disabled={!localSelectedStandardId || picking || localUseCustomExperiment}
             className="gap-1.5 rounded-full bg-[#008080] px-6 text-white shadow-sm hover:bg-[#006666] disabled:opacity-50"
             onClick={async () => {
-              if (!props.selectedStandardId) return;
+              if (!localSelectedStandardId) return;
               setPicking(true);
               try {
-                await props.onConfirm({ expId: props.selectedStandardId, expName: props.linkedStandardName?.trim() || props.selectedStandardId });
+                await props.onConfirm({ expId: localSelectedStandardId, expName: props.linkedStandardName?.trim() || localSelectedStandardId });
                 props.onOpenChange(false);
               } finally {
                 setPicking(false);

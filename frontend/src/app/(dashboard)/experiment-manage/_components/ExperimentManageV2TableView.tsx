@@ -161,19 +161,7 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
         ) : null}
         <div className="min-w-[1060px]">
         <table className={cn("w-full min-w-0 table-fixed text-[13px] leading-6 min-[2000px]:text-sm min-[2000px]:leading-7", showLoadingOverlay && "pointer-events-none opacity-50")}>
-          <colgroup>
-            <col style={{ width: 48 }} /> {/* 序号 */}
-            <col style={{ width: 80 }} /> {/* 实验图片 */}
-            <col style={{ width: 200 }} /> {/* 实验名称 */}
-            <col style={{ width: 80 }} /> {/* 学科 */}
-            <col style={{ width: 80 }} /> {/* 年级 */}
-            <col style={{ width: 80 }} /> {/* 难度 */}
-            <col style={{ width: 80 }} /> {/* 状态 */}
-            <col style={{ width: 120 }} /> {/* 发布教师 */}
-            <col style={{ width: 80 }} /> {/* 热度 */}
-            <col style={{ width: 160 }} /> {/* 修改时间 */}
-            <col style={{ width: 100 }} /> {/* 操作 */}
-          </colgroup>
+          <colgroup><col style={{ width: 48 }} /><col style={{ width: 80 }} /><col style={{ width: 200 }} /><col style={{ width: 80 }} /><col style={{ width: 80 }} /><col style={{ width: 80 }} /><col style={{ width: 80 }} /><col style={{ width: 120 }} /><col style={{ width: 80 }} /><col style={{ width: 160 }} /><col style={{ width: 100 }} /></colgroup>
           <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
             <tr className="border-b border-border text-left">
               <th className="whitespace-nowrap px-2 py-4 text-center text-sm font-semibold text-black min-[2000px]:px-3">序号</th>
