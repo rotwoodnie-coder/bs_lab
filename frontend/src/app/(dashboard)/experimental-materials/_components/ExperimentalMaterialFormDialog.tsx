@@ -52,6 +52,8 @@ export function ExperimentalMaterialFormDialog(props: {
   onSubmit: () => void;
   onRequestEditFromView: () => void;
   onRequestCloneFromTemplate: () => void;
+  /** 在表单体下方插入的扩展内容（例如材料多图、附加字段） */
+  children?: React.ReactNode;
 }) {
   const [relatedOpen, setRelatedOpen] = React.useState(false);
   const [versionOpen, setVersionOpen] = React.useState(false);
@@ -222,6 +224,7 @@ export function ExperimentalMaterialFormDialog(props: {
                 }
               />
             </div>
+            {props.children ? <div className="px-4 sm:px-6 xl:px-8 pb-5">{props.children}</div> : null}
           </div>
           <DialogFooter className="border-t border-border bg-background px-4 py-3 sm:px-6 sm:py-4 xl:px-8">
             {isView ? (

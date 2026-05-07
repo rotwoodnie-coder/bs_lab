@@ -92,12 +92,18 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
         vm.setDangerNotes(next.text);
         vm.setDangerEmbeds(next.embeds);
       },
+      safetyDrafts: vm.securityDrafts,
+      onToggleSafetyTag: vm.toggleSecurity,
       referenceCitations: vm.referenceCitations,
       addReferenceCitation: vm.addReferenceCitation,
       removeReferenceCitation: vm.removeReferenceCitation,
       updateReferenceCitation: vm.updateReferenceCitation,
       referenceVideo: vm.referenceVideo,
       setReferenceVideo: vm.setReferenceVideo,
+      referenceVideos: vm.referenceVideos,
+      addReferenceVideo: vm.addReferenceVideo,
+      removeReferenceVideo: vm.removeReferenceVideo,
+      setReferenceVideos: vm.setReferenceVideos,
       referenceRichText: vm.referenceRichText,
       referenceRichEmbeds: vm.referenceRichEmbeds,
       onReferenceRichChange: (next: import("@bs-lab/ui").RichMediaValue) => {
@@ -156,6 +162,10 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
       updateReferenceCitation: vm.updateReferenceCitation,
       referenceVideo: vm.referenceVideo,
       setReferenceVideo: vm.setReferenceVideo,
+      referenceVideos: vm.referenceVideos,
+      addReferenceVideo: vm.addReferenceVideo,
+      removeReferenceVideo: vm.removeReferenceVideo,
+      setReferenceVideos: vm.setReferenceVideos,
       referenceRichText: vm.referenceRichText,
       referenceRichEmbeds: vm.referenceRichEmbeds,
       onReferenceRichChange: (next: import("@bs-lab/ui").RichMediaValue) => {
@@ -260,6 +270,7 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
               pickerRowsLength={vm.curriculumTableRows.length}
               pickerSelectedStandardId={vm.selectedStandardId}
               pickerSelectedStandardRow={vm.selectedStandardRow}
+              pickerLinkedName={vm.linkedStandardName}
               pickerUseCustomExp={vm.useCustomExperiment}
               pickerListFilterPhases={vm.listFilterPhases}
               onPickerSetListFilterPhases={vm.setListFilterPhases}

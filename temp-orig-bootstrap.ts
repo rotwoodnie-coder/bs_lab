@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import { readCurriculumStandardsStoreCatalogSeedOnly } from "@/lib/curriculum-standards-storage";
 import { canEditMaterialsAndStepContent, isSuperUserRole } from "@/lib/rbac/management-access";
-import { fetchV2ExpDetail, fetchV2ExpLibraryById, type V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
+import { fetchV2ExpDetail, fetchV2ExpLibraryById } from "@/lib/v2/v2-exp-api";
 import { V2ApiServiceError } from "@/lib/v2/apiService";
 import type { CurriculumStandardsStore } from "@/types/curriculum-standard";
 import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
@@ -67,14 +67,8 @@ export function useEditorBootstrap() {
 
   const [linkedStandardName, setLinkedStandardName] = React.useState<string | null>(null);
   const [curriculumStore, setCurriculumStore] = React.useState<CurriculumStandardsStore | null>(null);
-  const setMainVideoId = React.useCallback(
-    (v: string | null) => store.setField("mainVideoId", v),
-    [store],
-  );
-  const setMainVideoUrl = React.useCallback(
-    (v: string) => store.setField("mainVideoUrl", v),
-    [store],
-  );
+  const [mainVideoId, setMainVideoId] = React.useState<string | null>(null);
+  const [mainVideoUrl, setMainVideoUrl] = React.useState("");
   const [mainVideoPoster, setMainVideoPoster] = React.useState("");
 
   React.useEffect(() => setCurriculumStore(readCurriculumStandardsStoreCatalogSeedOnly()), []);
@@ -83,26 +77,6 @@ export function useEditorBootstrap() {
       setLinkedStandardName(null);
     }
   }, [store.selectedStandardId]);
-
-  // ── Store 初始化（actor、权限、分发上下文） ──
-  const initRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!v2Peer.actor.userId) return;
-    if (initRef.current) return;
-    initRef.current = true;
-    store.initialize({
-      expId: expId ?? null,
-      forkFrom: forkFrom ?? null,
-      actor: v2Peer.actor,
-      isOwner: !expId,
-      fieldDisabled: !contentEditable || (!superUser && isResearcher),
-      materialsStepsDisabled: !materialsStepsEditable,
-      expTaskTypeDisabled: false,
-      targetClassId: targetClassId ?? null,
-      deadline: deadline ?? null,
-      requirement,
-    });
-  }, [v2Peer.actor.userId]);
 
   // ── 初始 hydration ──
   React.useEffect(() => {
@@ -118,12 +92,6 @@ export function useEditorBootstrap() {
           subjects: v2Peer.subjects,
           userName: user.userName,
         });
-        // 根据材料安全标签重建安全标识勾选状态
-        store.reconcileSecurityDrafts(
-          (detail as V2ExpMsgDetail & { materialSecurityIds?: string[] }).materialSecurityIds ?? [],
-          v2Peer.securities,
-          detail.security ?? [],
-        );
       } catch {
         // 静默处理
       }
@@ -176,22 +144,22 @@ export function useEditorBootstrap() {
     [phaseDisciplines],
   );
   const gradeOptions = React.useMemo(() => {
-    const subjectId = store.subjectId?.trim();
-    const levelId = store.schoolLevelId?.trim();
-    if (!subjectId || !levelId) return [];
-
-    // 从 gradeSubjects 中找到该学科允许的年级 ID 集合
-    const gradeIds = new Set(
-      v2Peer.gradeSubjects
-        .filter((gs) => gs.subjectId === subjectId)
-        .map((gs) => gs.gradeId),
-    );
-
-    // 过滤：年级必须属于该学段，且在该学科的允许列表中
-    return v2Peer.grades.filter(
-      (g) => gradeIds.has(g.id) && String(g.levelId ?? "").trim() === levelId,
-    );
-  }, [store.subjectId, store.schoolLevelId, v2Peer.gradeSubjects, v2Peer.grades]);
+    if (!store.discipline) return [];
+    const seen = new Set<string>();
+    const result: Array<{ id: string; code: string; label: string; levelId?: string; discipline: string }> = [];
+    for (const phase of SUBJECT_CASCADE) {
+      const disc = phase.disciplines.find((d) => d.discipline === store.discipline);
+      if (disc?.grades) {
+        for (const g of disc.grades) {
+          if (!seen.has(g.code)) {
+            seen.add(g.code);
+            result.push({ id: g.code, code: g.code, label: g.label, discipline: store.discipline });
+          }
+        }
+      }
+    }
+    return result;
+  }, [store.discipline]);
 
   // 为 phase sync 提供兼容的 setter 包装（Zustand setField 不支持 updater 函数）
   const setDisciplineForSync = React.useCallback(
@@ -226,8 +194,8 @@ export function useEditorBootstrap() {
     [store.discipline, disciplineOptions],
   );
   const selectedGradeLabels = React.useMemo(() => {
-    const map = new Map(gradeOptions.map((g) => [g.id, g.name] as const));
-    return store.selectedGradeCodes.map((id) => map.get(id) ?? id);
+    const map = new Map(gradeOptions.map((g) => [g.code, g.label] as const));
+    return store.selectedGradeCodes.map((code) => map.get(code) ?? code);
   }, [gradeOptions, store.selectedGradeCodes]);
 
   const listDisciplineOptions = React.useMemo(() => {
@@ -330,21 +298,19 @@ export function useEditorBootstrap() {
         const libItem = await fetchV2ExpLibraryById(v2Peer.actor, linkedId);
         const fallback = v2Peer.peerRows.find((r) => r.id === linkedId) ?? undefined;
 
-        // 使用标准库转换为编辑器初始状态的逻辑
+        // 使用标准库转换为编辑器初始状态的逻辑，但仅用在自动填写而非全量 hydration
         const p = buildEditorHydrationFromV2Library(libItem, {
           subjects: v2Peer.subjects,
           grades: v2Peer.grades,
           userName: user.userName,
         });
 
-        // 构建 payload（与 ExperienceFillPayload 形状对齐）
+        // 构建 payload（与 ExperienceFillPayload 形状对齐，统一交给 applyAutofillToForm 处理）
         const payload: import("@/types/experiment-link").ExperimentFillPayload = {
           expName: p.expName || undefined,
           subjectId: p.subjectId || undefined,
           schoolLevelId: p.schoolLevelId || undefined,
           gradeId: p.gradeId || undefined,
-          selectedGradeCodes: p.selectedGradeCodes?.length ? p.selectedGradeCodes : undefined,
-          gradeIds: p.gradeIds?.length ? p.gradeIds : undefined,
           chooseType: p.chooseType,
           expTaskType: p.expTaskType,
           difficultyId: p.difficultyId || undefined,
@@ -375,8 +341,6 @@ export function useEditorBootstrap() {
           subjectId: store.subjectId,
           schoolLevelId: store.schoolLevelId,
           gradeId: store.gradeId,
-          selectedGradeCodes: store.selectedGradeCodes,
-          gradeIds: store.gradeIds,
           chooseType: store.chooseType,
           expTaskType: store.expTaskType,
           difficultyId: store.difficultyId,
@@ -403,8 +367,6 @@ export function useEditorBootstrap() {
         if (next.subjectId !== undefined) store.setField("subjectId", next.subjectId);
         if (next.schoolLevelId !== undefined) store.setField("schoolLevelId", next.schoolLevelId);
         if (next.gradeId !== undefined) store.setField("gradeId", next.gradeId);
-        if (next.selectedGradeCodes !== undefined) store.setField("selectedGradeCodes", next.selectedGradeCodes);
-        if (next.gradeIds !== undefined) store.setField("gradeIds", next.gradeIds);
         if (next.chooseType !== undefined) store.setField("chooseType", next.chooseType);
         if (next.expTaskType !== undefined) store.setField("expTaskType", next.expTaskType);
         if (next.difficultyId !== undefined) store.setField("difficultyId", String(next.difficultyId ?? ""));
@@ -418,7 +380,7 @@ export function useEditorBootstrap() {
         if (next.simulatorUrl !== undefined) store.setField("simulatorUrl", next.simulatorUrl ?? "");
         if (next.coursebookId !== undefined) store.setField("coursebookId", next.coursebookId ?? "");
         if (next.unitId !== undefined) store.setField("unitId", next.unitId ?? "");
-        if (next.mainVideoUrl !== undefined) store.setField("mainVideoUrl", next.mainVideoUrl ?? "");
+        if (next.mainVideoUrl !== undefined) setMainVideoUrl(next.mainVideoUrl ?? "");
         if (next.mainVideoEmbeds !== undefined) store.setField("mainVideoEmbeds", next.mainVideoEmbeds as RichMediaEmbed[]);
         if (next.materials !== undefined) store.setField("materials", next.materials as typeof store.materials);
         if (next.steps !== undefined) store.setField("steps", next.steps as typeof store.steps);
@@ -442,7 +404,7 @@ export function useEditorBootstrap() {
   );
 
   const confirmLinkedExperiment = React.useCallback(
-    (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => {
+    (meta: { expId: string; expName?: string }) => {
       const id = meta.expId?.trim();
       if (!id) return;
       const rowName = meta.expName?.trim() || v2Peer.peerRows.find((r) => r.id === id)?.title?.trim();
@@ -650,9 +612,9 @@ export function useEditorBootstrap() {
     durationMin: store.durationMin,
     simulatorUrl: store.simulatorUrl,
     difficultyId: store.difficultyId,
-    mainVideoId: store.mainVideoId,
+    mainVideoId,
     mainVideoPoster,
-    mainVideoUrl: store.mainVideoUrl,
+    mainVideoUrl,
     mainVideoEmbeds: store.mainVideoEmbeds,
     curriculum: store.curriculum,
     creatorName: store.creatorName,
@@ -671,7 +633,6 @@ export function useEditorBootstrap() {
     dangerEmbeds: store.dangerEmbeds,
     referenceCitations: store.referenceCitations,
     referenceVideo: "",
-    referenceVideos: store.referenceVideos,
     referenceRichText: store.referenceRichText,
     referenceRichEmbeds: store.referenceRichEmbeds,
     scientistStories: store.scientistStories,
@@ -795,21 +756,15 @@ export function useEditorBootstrap() {
     setDangerEmbeds: (v: RichMediaEmbed[]) => store.setField("dangerEmbeds", v),
     setReferenceCitations: (v: typeof store.referenceCitations) => store.setField("referenceCitations", v),
     setReferenceVideo: () => {},
-    setReferenceVideos: (v: typeof store.referenceVideos) => store.setField("referenceVideos", v),
     setReferenceRichText: (v: string) => store.setField("referenceRichText", v),
     setReferenceRichEmbeds: (v: RichMediaEmbed[]) => store.setField("referenceRichEmbeds", v),
     addReferenceCitation: store.addReferenceCitation,
     removeReferenceCitation: store.removeReferenceCitation,
     updateReferenceCitation: store.updateReferenceCitation,
-    addReferenceVideo: store.addReferenceVideo,
-    removeReferenceVideo: store.removeReferenceVideo,
     setScientistStories: (v: typeof store.scientistStories) => store.setField("scientistStories", v),
     addScientistStory: store.addScientistStory,
     removeScientistStory: store.removeScientistStory,
     updateScientistStory: store.updateScientistStory,
-    securityDrafts: store.securityDrafts,
-    setSecurityDrafts: store.setSecurityDrafts,
-    toggleSecurity: store.toggleSecurity,
     confirmLinkedExperiment,
     autoFillFromLinkedExperiment,
     targetClassId,

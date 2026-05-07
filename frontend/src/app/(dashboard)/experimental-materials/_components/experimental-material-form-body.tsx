@@ -3,6 +3,7 @@
 import * as React from "react";
 import {
   Button,
+  Combobox,
   Input,
   Label,
   Select,
@@ -19,6 +20,7 @@ import {
   MATERIAL_CATEGORY_OPTIONS,
   MATERIAL_SAFETY_TAG_OPTIONS,
   MATERIAL_TYPE_OPTIONS,
+  MATERIAL_UNIT_OPTIONS,
 } from "../page.constants";
 import type { ExperimentalMaterialFormDimensionsLists, ExperimentalMaterialFormState } from "../page.types";
 import { ExperimentalMaterialFormSafetySection } from "./experimental-material-form-safety-section";
@@ -45,8 +47,33 @@ export function ExperimentalMaterialFormBody(props: {
 }) {
   const typeOpts = props.materialDimensions?.typeSelect?.length ? props.materialDimensions.typeSelect : MATERIAL_TYPE_OPTIONS;
   const catOpts = props.materialDimensions?.categoryChecks?.length ? props.materialDimensions.categoryChecks : MATERIAL_CATEGORY_OPTIONS;
-  const unitOpts = props.materialDimensions?.unitOptions?.length ? props.materialDimensions.unitOptions : [];
+  const unitOpts = props.materialDimensions?.unitOptions?.length ? props.materialDimensions.unitOptions : MATERIAL_UNIT_OPTIONS;
   const safetyOpts = props.materialDimensions?.safetyChecks?.length ? props.materialDimensions.safetyChecks : MATERIAL_SAFETY_TAG_OPTIONS;
+
+  // 开发环境：维表数据缺位时发出警告
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const missing: string[] = [];
+    if (!props.materialDimensions?.typeSelect?.length) missing.push("材料类型");
+    if (!props.materialDimensions?.categoryChecks?.length) missing.push("材料分类");
+    if (!props.materialDimensions?.unitOptions?.length) missing.push("计量单位");
+    if (!props.materialDimensions?.safetyChecks?.length) missing.push("安全标签");
+    if (missing.length > 0) {
+      console.warn(
+        `[ExperimentalMaterialForm] 维表数据为空，${missing.join("、")}已使用本地兜底。请检查后端维表 API 路径及字典表数据。`,
+      );
+    }
+  }, [props.materialDimensions]);
+
+  // 单位选项（含自定义单位）：维表选项 + 当前表单中已有的自定义值
+  const unitOptions = React.useMemo(() => {
+    const opts = unitOpts.map((u: { id: string; label: string }) => ({ value: u.id, label: u.label }));
+    const cur = props.form.unitId.trim();
+    if (cur && !opts.some((o) => o.value === cur)) {
+      opts.push({ value: cur, label: cur });
+    }
+    return opts;
+  }, [unitOpts, props.form.unitId]);
 
   return (
     <div className="w-full max-w-[920px] space-y-0 2xl:max-w-[980px]">
@@ -84,6 +111,31 @@ export function ExperimentalMaterialFormBody(props: {
                 aria-invalid={props.fieldErrors.name || undefined}
               />
               {props.fieldErrors.name ? <p className="text-xs text-destructive">材料名称为必填项</p> : null}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="material-type-select">
+                材料类型<span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={props.form.materialType || undefined}
+                onValueChange={(value) =>
+                  props.updateField("materialType", value ?? "")
+                }
+                disabled={!props.canWrite}
+              >
+                <SelectTrigger id="material-type-select" aria-invalid={props.fieldErrors.materialType || undefined}>
+                  <SelectValue placeholder="选择材料类型" />
+                </SelectTrigger>
+                <SelectContent>
+                  {typeOpts.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {props.fieldErrors.materialType ? <p className="text-xs text-destructive">请选择材料类型</p> : null}
             </div>
 
             <div className="grid gap-2">
@@ -127,26 +179,22 @@ export function ExperimentalMaterialFormBody(props: {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="material-unit-select">
+              <Label>
                 单位<span className="text-destructive">*</span>
               </Label>
-              <Select
+              <Combobox
+                options={unitOptions}
                 value={props.form.unitId || undefined}
                 onValueChange={(value) => props.updateField("unitId", value)}
+                placeholder="选择或输入单位"
+                searchPlaceholder="搜索或输入单位…"
+                emptyText="无匹配"
+                allowCustomValue
+                customValuePrefix="自定义："
                 disabled={!props.canWrite}
-              >
-                <SelectTrigger id="material-unit-select" aria-invalid={props.fieldErrors.unitId || undefined}>
-                  <SelectValue placeholder="选择单位" />
-                </SelectTrigger>
-                <SelectContent>
-                  {unitOpts.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {props.fieldErrors.unitId ? <p className="text-xs text-destructive">请选择单位</p> : null}
+                triggerClassName={props.fieldErrors.unitId ? "border-destructive" : undefined}
+              />
+              {props.fieldErrors.unitId ? <p className="text-xs text-destructive">请输入或选择单位</p> : null}
             </div>
 
             <div className="grid gap-2 md:col-span-2">

@@ -36,7 +36,7 @@ export type PublishCourseTaskInput = {
   requirement?: string | null;
 };
 
-export type V2DictItem = { id: string; name: string; sortOrder?: number | null; comments?: string | null; status?: string | null };
+export type V2DictItem = { id: string; name: string; sortOrder?: number | null; comments?: string | null; status?: string | null; securityLevel?: number | null };
 export type V2DictGradeItem = { id: string; name: string; levelId?: string | null; sortOrder?: number | null; comments?: string | null };
 
 export interface V2ExpLibraryGradeRow {
@@ -100,9 +100,18 @@ export type V2ExpMsgMaterialRow = {
   materialId?: string | null;
   materialName: string | null;
   isSelf?: "y" | "n";
+  materialNum: number | null;
+  materialUnit: string | null;
+  materialPropId: string | null;
+  materialTypeId: string | null;
   mainPicUrl: string | null;
+  expPurpose: string | null;
+  additionalComments: string | null;
   comments: string | null;
   sortOrder: number | null;
+  createTime: string | null;
+  materialSecurityList?: Array<{ securityId: string; securityLevel: number | null }>;
+  pics?: Array<{ seqId: string; materialUrl: string | null; sortOrder: number | null }>;
 };
 
 export type V2ExpMsgStepRow = {
@@ -180,6 +189,7 @@ export interface V2ExpMsgItem {
   unitId: string | null;
   simulatorUrl: string | null;
   coverVideoUrl: string | null;
+  coverPicUrl: string | null;
   updateUserId: string | null;
   updateTime: string | null;
   isDeleted?: 0 | 1;
@@ -195,6 +205,20 @@ export type V2ExpMsgDetail = V2ExpMsgItem & {
   results: V2ExpMsgResultRow[];
   references: V2ExpMsgReferenceRow[];
   scientists: V2ExpMsgScientistRow[];
+  security: V2ExpMsgSecurityRow[];
+  /** 从 exp_material_security 聚合的唯一 security_id 列表（供前端勾选候选） */
+  materialSecurityIds: string[];
+  gradeIds: string[];
+  materialPics: Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>;
+  referenceVideos: Array<{ seqId: string; videoUrl: string | null; expId: string; sortOrder: number | null; fileId: string | null }>;
+};
+
+export type V2ExpMsgSecurityRow = {
+  seqId: string;
+  expId: string;
+  securityId: string;
+  sortOrder: number | null;
+  securityLevel: number | null;
 };
 
 export type V2ExpMsgListPage = V2ApiListPage<V2ExpMsgItem>;
@@ -249,6 +273,22 @@ export type PatchV2ExpMsgReviewBody = {
   confirm_comments?: string | null;
 };
 
+export type V2ExpDraftGradeRowPut = {
+  grade_id: string;
+  sort_order?: number | null;
+};
+
+export type V2ExpDraftMaterialSecurityRowPut = {
+  security_id: string;
+  security_level?: number | null;
+};
+
+export type V2ExpDraftReferenceVideoRowPut = {
+  video_url: string | null;
+  sort_order?: number | null;
+  file_id?: string | null;
+};
+
 export type V2ExpDraftMaterialRowPut = {
   material_id: string | null;
   material_name: string | null;
@@ -262,6 +302,7 @@ export type V2ExpDraftMaterialRowPut = {
   additional_comments: string | null;
   comments: string | null;
   sort_order: number | null;
+  security_list?: V2ExpDraftMaterialSecurityRowPut[];
 };
 
 export type V2ExpDraftStepRowPut = {
@@ -296,6 +337,12 @@ export type V2ExpDraftVideoRowPut = {
   file_id: string | null;
 };
 
+export type V2ExpDraftSecurityRowPut = {
+  security_id: string;
+  security_level: number | null;
+  sort_order: number | null;
+};
+
 /** 对齐 exp_msg + 子表（snake_case），用于 /v2/exp/:id/draft PUT body */
 export type V2ExpDraftPutBody = {
   exp_name: string;
@@ -319,6 +366,11 @@ export type V2ExpDraftPutBody = {
   references: V2ExpDraftReferenceRowPut[];
   scientists: V2ExpDraftScientistRowPut[];
   videos: V2ExpDraftVideoRowPut[];
+  security: V2ExpDraftSecurityRowPut[];
+  grades?: V2ExpDraftGradeRowPut[];
+  /** 扁平的材料图片列表（前端提取自 materials 的 materialPics） */
+  material_pics?: Array<{ material_url: string | null; sort_order?: number | null }>;
+  reference_videos?: V2ExpDraftReferenceVideoRowPut[];
 };
 
 export type PutV2ExpDraftBody = V2ExpDraftPutBody;

@@ -43,6 +43,7 @@ export function useMaterialDimensionsRules() {
       const data = await fetchExperimentalMaterialDimensions(actor);
       setDimensions(data);
     } catch (error) {
+      console.warn("[MaterialDimensionsRules] 维表 API 请求失败，错误：", error);
       sonnerToast.error(error instanceof Error ? error.message : "加载规则维表失败");
     } finally {
       setLoading(false);

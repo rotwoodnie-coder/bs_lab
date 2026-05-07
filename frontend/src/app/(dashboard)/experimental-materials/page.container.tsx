@@ -89,6 +89,7 @@ export default function ExperimentalMaterialsPageContainer() {
           materialTypeItems={page.toolbarTypeOptions}
           materialCategoryItems={page.toolbarCategoryOptions}
           materialUnitItems={page.formDimensionLists?.unitOptions ?? null}
+          materialSafetyTagItems={page.formDimensionLists?.safetyChecks ?? null}
           serverPagination={{
             total: page.total,
             pageIndex: page.pageIndex,

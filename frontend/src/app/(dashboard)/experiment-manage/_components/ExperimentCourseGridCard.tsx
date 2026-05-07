@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Badge, Card } from "@bs-lab/ui";
-import { Eye, ThumbsUp } from "@bs-lab/ui/icons";
+import { ThumbsUp } from "@bs-lab/ui/icons";
 
 import { ExpMsgCoverPreview } from "@/components/business/experiment-manage/ExpMsgCoverPreview";
 import { cn } from "@/lib/utils";
@@ -65,10 +65,6 @@ export function ExperimentCourseGridCard(props: { row: EditorPeerRow; href: stri
           <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
             <span className="truncate">{subject} · {grade}</span>
             <span className="inline-flex shrink-0 items-center gap-3">
-              <span className="inline-flex items-center gap-1 text-xs text-slate-500 tabular-nums">
-                <Eye className={cn("size-4 text-slate-400", !metricActive(null) && "opacity-40")} aria-hidden />
-                {metricText(null)}
-              </span>
               <span className="inline-flex items-center gap-1 text-xs text-slate-500 tabular-nums">
                 <ThumbsUp className={cn("size-4 text-slate-400", !metricActive(likes) && "opacity-40")} aria-hidden />
                 {metricText(likes)}

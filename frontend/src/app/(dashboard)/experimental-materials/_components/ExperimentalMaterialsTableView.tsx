@@ -56,6 +56,7 @@ export function ExperimentalMaterialsTableView(props: {
   materialTypeItems?: readonly { id: string; label: string }[] | null;
   materialCategoryItems?: readonly { id: string; label: string }[] | null;
   materialUnitItems?: readonly { id: string; label: string }[] | null;
+  materialSafetyTagItems?: readonly { id: string; label: string }[] | null;
   /** 传入时由服务端分页；选择器等场景不传则使用客户端分页 */
   serverPagination?: ExperimentalMaterialsServerPagination | null;
 }) {
@@ -152,6 +153,9 @@ export function ExperimentalMaterialsTableView(props: {
         meta: { label: "安全性" },
         header: ({ column }) => <DataTableColumnHeader column={column} title="安全性" />,
         cell: ({ row }) => {
+          const dimSafetyTags = props.materialSafetyTagItems
+            ? props.materialSafetyTagItems.map((item) => ({ code: item.id, name: item.label }))
+            : undefined;
           const riskLevel = getExperimentalMaterialRiskLevel(row.original);
           const riskLabel = getExperimentalMaterialRiskLabel(riskLevel);
           const riskClassName =
@@ -168,7 +172,7 @@ export function ExperimentalMaterialsTableView(props: {
               {row.original.safetyTags.length === 0 ? (
                 <span className="text-sm text-muted-foreground">—</span>
               ) : (
-                getExperimentalMaterialSafetyLabels(row.original.safetyTags).map((label) => (
+                getExperimentalMaterialSafetyLabels(row.original.safetyTags, dimSafetyTags).map((label) => (
                   <Badge key={label} variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-medium text-slate-600">
                     {label}
                   </Badge>

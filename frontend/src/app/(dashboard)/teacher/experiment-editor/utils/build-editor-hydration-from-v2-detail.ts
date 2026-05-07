@@ -1,7 +1,7 @@
 import type { RichMediaEmbed } from "@bs-lab/ui";
 
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
-import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
+import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail, V2ExpMsgMaterialRow } from "@/lib/v2/v2-exp-api";
 import type { SubjectDiscipline } from "@/types/subject";
 
 import type {
@@ -55,6 +55,10 @@ export type EditorHydrationFromV2Payload = {
   materials: ExperimentMaterialDraft[];
   steps: ExperimentStepDraft[];
   resultEntries: ExperimentResultEntryDraft[];
+  /** 从 exp_material_security 聚合的唯一 security_id 列表（供前端勾选候选） */
+  materialSecurityIds: string[];
+  gradeIds: string[];
+  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
   creatorName: string;
   coursebookId: string;
   unitId: string;
@@ -72,6 +76,18 @@ export function resolvePhaseDisciplineGradesFromV2Detail(
 ): { phase: PhaseKey; discipline: SubjectDiscipline; selectedGradeCodes: string[] } {
   const sn = detail.subjectId ? (subjects.find((s) => s.id === detail.subjectId)?.name ?? "").trim() : "";
   const gn = detail.gradeId ? (grades.find((g) => g.id === detail.gradeId)?.name ?? "").trim() : "";
+
+  // 如果 detail.gradeIds 存在且有值，优先使用多值
+  if (detail.gradeIds && detail.gradeIds.length > 0) {
+    if (sn) {
+      for (const ph of SUBJECT_CASCADE) {
+        for (const disc of ph.disciplines) {
+          if (disc.label !== sn) continue;
+          return { phase: ph.phase as PhaseKey, discipline: disc.discipline, selectedGradeCodes: [...detail.gradeIds] };
+        }
+      }
+    }
+  }
 
   if (sn) {
     for (const ph of SUBJECT_CASCADE) {
@@ -107,27 +123,31 @@ export function buildEditorHydrationFromV2Detail(
   const mainVideoId = firstVideo?.fileId?.trim() ?? null;
 
   const materials: ExperimentMaterialDraft[] = (detail.materials ?? []).map((m, idx) => {
-    const row = m as {
-      expMaterialId?: string;
-      materialId?: string | null;
-      materialName?: string | null;
-      isSelf?: "y" | "n";
-      mainPicUrl?: string | null;
-      comments?: string | null;
-    };
+    const row = m as V2ExpMsgMaterialRow;
     const pic = (row.mainPicUrl ?? "").trim();
+    // 拆分 materialNum（如 "500 mL"）为数值和单位
+    const numStr = row.materialNum != null ? String(row.materialNum).trim() : "";
+    const numMatch = numStr.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+    const numValue = numMatch?.[1] ?? (numStr || "");
+    const unitId = numMatch?.[2]?.trim() ?? "";
     return {
       id: row.expMaterialId ?? `m-${idx + 1}`,
       libraryMaterialId: row.materialId?.trim() || undefined,
       nameLab: (row.materialName ?? "").trim() || `材料${idx + 1}`,
-      quantity: "1",
-      materialType: "实验材料",
-      nameHomeSubstitute: "",
+      quantity: numValue || "1",
+      materialType: unitId || "实验材料",
+      nameHomeSubstitute: (row.additionalComments ?? "").trim(),
       hazardFlags: [] as string[],
       safetyReminder: "",
       notes: (row.comments ?? "").trim(),
       imageUrl: pic,
       thumbnailUrl: pic,
+      numValue,
+      unitId,
+      expPurpose: (row.expPurpose ?? "").trim(),
+      materialPropId: row.materialPropId?.trim() || undefined,
+      materialSecurityList: (row as any).materialSecurityList ?? [],
+      materialPics: (row as any).pics ?? [],
     };
   });
 
@@ -217,6 +237,12 @@ export function buildEditorHydrationFromV2Detail(
     materials,
     steps,
     resultEntries,
+    materialSecurityIds: (detail as V2ExpMsgDetail & { materialSecurityIds?: string[] }).materialSecurityIds ?? [],
+    gradeIds: detail.gradeIds ?? [],
+    referenceVideos: (detail.referenceVideos ?? []).map((rv) => ({
+      videoUrl: (rv.videoUrl ?? "").trim(),
+      sortOrder: rv.sortOrder ?? undefined,
+    })),
     creatorName: (detail.displayOwnerName ?? ctx.userName).trim() || ctx.userName,
     coursebookId: (detail.coursebookId ?? "").trim(),
     unitId: (detail.unitId ?? "").trim(),

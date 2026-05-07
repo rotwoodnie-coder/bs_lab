@@ -150,7 +150,8 @@ export function editorPeerRowFromV2ExpMsgItem(
     rejectReason: d.rejectReason ?? undefined,
     isStandard,
     lifecycleStatus,
-    coverVideoUrl: d.coverVideoUrl ?? null,
+    // 封面优先级：exp_pic.pic_url（实验图片）> exp_video.video_url（实验视频）
+    coverVideoUrl: d.coverPicUrl?.trim() || d.coverVideoUrl?.trim() || null,
     copyCount: 0,
     taskCount: 0,
     sourceExperimentId: d.linkExpId ?? null,

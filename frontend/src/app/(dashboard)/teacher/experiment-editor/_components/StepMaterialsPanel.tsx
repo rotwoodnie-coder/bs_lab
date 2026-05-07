@@ -26,8 +26,18 @@ type Props = {
       | "materialType"
       | "safetyReminder"
       | "thumbnailUrl"
-      | "libraryMaterialId",
-    value: string | string[],
+      | "libraryMaterialId"
+      | "numValue"
+      | "unitId"
+      | "expPurpose"
+      | "materialPropId"
+      | "materialSecurityList"
+      | "materialPics",
+    value:
+      | string
+      | string[]
+      | Array<{ securityId: string; securityLevel: number | null }>
+      | Array<{ seqId: string; materialUrl: string | null; sortOrder: number | null }>,
   ) => void;
 };
 
@@ -61,8 +71,20 @@ export function StepMaterialsPanel(props: Props) {
       props.onUpdateMaterial(editingMaterialId, "hazardFlags", draft.hazardFlags);
       props.onUpdateMaterial(editingMaterialId, "safetyReminder", draft.safetyReminder ?? "");
       props.onUpdateMaterial(editingMaterialId, "notes", draft.notes);
+      props.onUpdateMaterial(editingMaterialId, "numValue", draft.numValue ?? "");
+      props.onUpdateMaterial(editingMaterialId, "unitId", draft.unitId ?? "");
+      props.onUpdateMaterial(editingMaterialId, "expPurpose", draft.expPurpose ?? "");
+      if (draft.materialPropId) {
+        props.onUpdateMaterial(editingMaterialId, "materialPropId", draft.materialPropId);
+      }
       if (draft.libraryMaterialId) {
         props.onUpdateMaterial(editingMaterialId, "libraryMaterialId", draft.libraryMaterialId);
+      }
+      if (draft.materialSecurityList && draft.materialSecurityList.length > 0) {
+        props.onUpdateMaterial(editingMaterialId, "materialSecurityList", draft.materialSecurityList);
+      }
+      if (draft.materialPics && draft.materialPics.length > 0) {
+        props.onUpdateMaterial(editingMaterialId, "materialPics", draft.materialPics);
       }
     },
     [editingMaterialId, materialDialogMode, props],

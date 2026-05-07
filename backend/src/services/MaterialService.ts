@@ -43,6 +43,17 @@ async function materializeMaterialUrl(rawUrl: string | null): Promise<string | n
 }
 
 function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
+  const mp = row.main_pic_url != null && String(row.main_pic_url).trim() !== ""
+    ? String(row.main_pic_url).trim()
+    : null;
+  const lg = mp ? null : (row.logo_url != null && String(row.logo_url).trim() !== ""
+    ? String(row.logo_url).trim()
+    : null);
+  const mainExplicit = mp ?? lg;
+  const mainFallback =
+    row.fallback_main_pic != null && String(row.fallback_main_pic).trim() !== ""
+      ? String(row.fallback_main_pic).trim()
+      : null;
   return {
     materialId: String(row.material_id),
     materialName: String(row.material_name ?? ""),
@@ -52,7 +63,7 @@ function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
     materialUnitId: null,
     materialUnitName: null,
     materialNum: row.material_num ?? null,
-    mainPicUrl: row.main_pic_url ? String(row.main_pic_url) : null,
+    mainPicUrl: mainExplicit ?? mainFallback,
     expPurpose: row.exp_purpose ? String(row.exp_purpose) : null,
     additionalComments: row.additional_comments ? String(row.additional_comments) : null,
     comments: row.comments ? String(row.comments) : null,
@@ -99,30 +110,32 @@ async function getMaterialDetail(connOrPool: ReturnType<typeof getMysqlPool> | P
   );
   if (rows.length === 0) return null;
   const base = rowToMaterial(rows[0]!);
-  const [pics] = await runner.query<RowDataPacket[]>(
+  const [picRows] = await runner.query<RowDataPacket[]>(
     `SELECT * FROM material_pic WHERE material_id = ? ORDER BY sort_order ASC, seq_id ASC`,
     [materialId],
   );
-  const [secs] = await runner.query<RowDataPacket[]>(
+  const [secRows] = await runner.query<RowDataPacket[]>(
     `SELECT * FROM material_security WHERE material_id = ? ORDER BY sort_order ASC, seq_id ASC`,
     [materialId],
   );
+  const mappedPics = (picRows as RowDataPacket[]).map((r) => ({
+    seqId: String(r.seq_id),
+    materialId: String(r.material_id),
+    materialUrl: r.material_url ? String(r.material_url) : null,
+    sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
+    createTime: r.create_time ? String(r.create_time) : null,
+  } as MaterialPicRecord));
+  const firstPicUrl = mappedPics[0]?.materialUrl?.trim() || null;
   // 对主记录和 pics 预签名
   const [signedBase, signedPics] = await Promise.all([
-    presignMaterialRecord(base),
-    Promise.all((pics as RowDataPacket[]).map(async (r) => presignMaterialPic({
-      seqId: String(r.seq_id),
-      materialId: String(r.material_id),
-      materialUrl: r.material_url ? String(r.material_url) : null,
-      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
-      createTime: r.create_time ? String(r.create_time) : null,
-    } as MaterialPicRecord))),
+    presignMaterialRecord({ ...base, mainPicUrl: base.mainPicUrl ?? firstPicUrl }),
+    Promise.all(mappedPics.map((pic) => presignMaterialPic(pic))),
   ]);
 
   return {
     ...signedBase,
     pics: signedPics,
-    securities: (secs as RowDataPacket[]).map((r) => ({
+    securities: (secRows as RowDataPacket[]).map((r) => ({
       seqId: String(r.seq_id),
       materialId: String(r.material_id),
       securityId: String(r.security_id),
@@ -167,6 +180,10 @@ export async function getMaterialList(query: MaterialListQuery): Promise<Materia
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT
        m.*,
+       (SELECT p.material_url FROM material_pic p
+        WHERE p.material_id = m.material_id
+        ORDER BY COALESCE(p.sort_order, 0) ASC, p.seq_id ASC
+        LIMIT 1) AS fallback_main_pic,
        t.type_name AS material_type_name,
        su.user_name AS owner_user_name
      FROM material_msg m

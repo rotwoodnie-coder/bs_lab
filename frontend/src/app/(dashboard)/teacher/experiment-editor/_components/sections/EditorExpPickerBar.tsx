@@ -21,6 +21,7 @@ type Props = {
     subjectLabel?: string;
     phaseLabel?: string;
     gradeLabels?: string[];
+    mandatory?: "mandatory" | "optional";
   } | null;
   pickerListFilterPhases: EducationPhase[];
   onPickerSetListFilterPhases: React.Dispatch<React.SetStateAction<EducationPhase[]>>;
@@ -97,6 +98,7 @@ export function EditorExpPickerBar(props: Props) {
                 <TableHead className="h-10 px-4 text-xs font-medium text-slate-500">学科</TableHead>
                 <TableHead className="h-10 px-4 text-xs font-medium text-slate-500">学段</TableHead>
                 <TableHead className="h-10 px-4 text-xs font-medium text-slate-500">适用年级</TableHead>
+                <TableHead className="h-10 px-4 text-xs font-medium text-slate-500">必做/选做</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -112,6 +114,9 @@ export function EditorExpPickerBar(props: Props) {
                 </TableCell>
                 <TableCell className="px-4 py-3 text-slate-700">
                   {props.pickerSelectedStandardRow?.gradeLabels?.length ? props.pickerSelectedStandardRow.gradeLabels.join("、") : "-"}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-slate-700">
+                  {props.pickerSelectedStandardRow?.mandatory === "mandatory" ? "必做" : props.pickerSelectedStandardRow?.mandatory === "optional" ? "选做" : "-"}
                 </TableCell>
               </TableRow>
             </TableBody>

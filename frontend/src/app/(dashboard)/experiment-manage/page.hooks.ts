@@ -12,7 +12,7 @@ import {
   fetchV2SchoolSubjects,
   fetchV2SchoolLevels,
   fetchV2SchoolGrades,
-  fetchV2DifficultyTypes,
+  fetchV2Difficulties,
   deleteV2Exp,
   publishCourseTask,
   type V2ExpMsgItem,
@@ -173,7 +173,7 @@ export function useExperimentManage(): UseExperimentManageReturn {
     void fetchV2SchoolSubjects(actor).then((rows) => setSubjects(toDictOptions(rows))).catch(() => {});
     void fetchV2SchoolLevels(actor).then((rows) => setSchoolLevels(toDictOptions(rows))).catch(() => {});
     void fetchV2SchoolGrades(actor).then((rows) => setGrades(rows)).catch(() => {});
-    void fetchV2DifficultyTypes(actor).then((rows) => setDifficulties(toDictOptions(rows))).catch(() => {});
+    void fetchV2Difficulties(actor).then((rows) => setDifficulties(toDictOptions(rows))).catch(() => {});
   }, [actor]);
 
   const [items, setItems] = React.useState<ExperimentManageRow[]>([]);

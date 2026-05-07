@@ -129,6 +129,8 @@ export interface ExpMsgRecord {
   logoUrl: string | null;
   /** 列表聚合：首条 `exp_video.video_url`，便于卡片封面 */
   coverVideoUrl: string | null;
+  /** 列表聚合：首条 `exp_pic.pic_url`，实验图片封面（优先于 coverVideoUrl） */
+  coverPicUrl: string | null;
   updateUserId: string | null;
   updateTime: string | null;
   isDeleted: 0 | 1;
@@ -192,6 +194,7 @@ export type PutExpMsgDraftMaterialInput = {
   additional_comments?: string | null;
   comments?: string | null;
   sort_order?: number | null;
+  security_list?: Array<{ security_id: string; security_level?: number | null }>;
 };
 
 export type PutExpMsgDraftStepInput = {
@@ -252,6 +255,10 @@ export type PutExpMsgDraftInput = {
   references?: PutExpMsgDraftReferenceInput[];
   scientists?: PutExpMsgDraftScientistInput[];
   videos?: PutExpMsgDraftVideoInput[];
+  security?: PutExpMsgDraftSecurityInput[];
+  grades?: PutExpMsgDraftGradeInput[];
+  material_pics?: PutExpMsgDraftMaterialPicInput[];
+  reference_videos?: PutExpMsgDraftReferenceVideoInput[];
 };
 
 export type ExpMsgListQuery = {
@@ -315,6 +322,10 @@ export interface ExpMaterialRecord {
   comments: string | null;
   sortOrder: number | null;
   createTime: string | null;
+  /** 材料级安全标签（来自 exp_material_security） */
+  materialSecurityList?: Array<{ securityId: string; securityLevel: number | null }>;
+  /** 材料图片（来自 exp_material_pic） */
+  pics?: Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>;
 }
 
 // ─── 试验步骤 / 结果 ──────────────────────────────────────
@@ -354,6 +365,37 @@ export interface ExpScientistRecord {
   sortOrder: number | null;
 }
 
+// ─── 实验安全性 ──────────────────────────────────────────
+export interface ExpSecurityRecord {
+  seqId: string;
+  expId: string;
+  securityId: string;
+  sortOrder: number | null;
+  securityLevel: number | null;
+}
+
+export type PutExpMsgDraftSecurityInput = {
+  security_id: string;
+  security_level?: number | null;
+  sort_order?: number | null;
+};
+
+export type PutExpMsgDraftGradeInput = {
+  grade_id: string;
+  sort_order?: number | null;
+};
+
+export type PutExpMsgDraftMaterialPicInput = {
+  material_url: string | null;
+  sort_order?: number | null;
+};
+
+export type PutExpMsgDraftReferenceVideoInput = {
+  video_url: string | null;
+  sort_order?: number | null;
+  file_id?: string | null;
+};
+
 // ─── 模拟试验记录 ────────────────────────────────────────
 export interface ExpSimulationRecord {
   seqId: string;
@@ -373,4 +415,14 @@ export interface ExpMsgDetail extends ExpMsgRecord {
   results: ExpResultRecord[];
   references: ExpReferenceRecord[];
   scientists: ExpScientistRecord[];
+  /** 实验整体已选安全标签 */
+  security: ExpSecurityRecord[];
+  /** 从 exp_material_security 聚合的唯一 security_id 列表（供前端勾选候选） */
+  materialSecurityIds: string[];
+  /** 适用年级（多选）来自 exp_grade 表 */
+  gradeIds: string[];
+  /** 材料图片关联 */
+  materialPics: Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>;
+  /** 参考引用视频 */
+  referenceVideos: Array<{ seqId: string; videoUrl: string | null; expId: string; sortOrder: number | null; fileId: string | null }>;
 }

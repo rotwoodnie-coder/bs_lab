@@ -232,7 +232,7 @@ function splitMaterialNum(raw: string | null | undefined): { numValue: string; u
 
 function v2RowToApiRow(m: V2MaterialMsgRow): MaterialApiRow {
   const coverUrl = m.mainPicUrl?.trim() || null;
-  const isHttp = coverUrl ? /^https?:\/\//i.test(coverUrl) : false;
+  const isHttpOrProxy = coverUrl ? /^(https?:\/\/|\/api\/media\/registry-stream)/i.test(coverUrl) : false;
   const { numValue, unitId } = splitMaterialNum(m.materialNum != null ? String(m.materialNum) : null);
   return {
     id: m.materialId,
@@ -248,8 +248,8 @@ function v2RowToApiRow(m: V2MaterialMsgRow): MaterialApiRow {
     displayOwnerName: m.displayOwnerName ?? null,
     categoryNameProxy: m.materialPropId ?? "",
     safetyTagsProxy: "",
-    coverRegistryId: coverUrl && !isHttp ? coverUrl : null,
-    coverSnapshotUrl: isHttp ? coverUrl : null,
+    coverRegistryId: coverUrl && !isHttpOrProxy ? coverUrl : null,
+    coverSnapshotUrl: isHttpOrProxy ? coverUrl : null,
     status: materialStatusDbToUi(m.status),
     createdByActorId: m.createUserId ?? "system",
     createdAt: m.createTime ?? "",

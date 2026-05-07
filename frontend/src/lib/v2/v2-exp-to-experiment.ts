@@ -20,8 +20,9 @@ export function v2ExpMsgItemToExperimentCard(
     summary,
     gradeLabel,
     categoryLabel,
-    coverVideoUrl: item.coverVideoUrl ?? undefined,
-    coverImageUrl: undefined,
+// 封面优先级：exp_pic.pic_url（实验图片）> exp_video.video_url（实验视频）
+    coverImageUrl: item.coverPicUrl?.trim() || undefined,
+    coverVideoUrl: item.coverPicUrl?.trim() ? undefined : (item.coverVideoUrl ?? undefined),
     authorDisplayName: item.displayOwnerName ?? item.createUserId ?? undefined,
   };
 }

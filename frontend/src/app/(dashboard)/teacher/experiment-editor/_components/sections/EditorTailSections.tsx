@@ -7,11 +7,12 @@ import type { V2DictItem } from "@/lib/v2/v2-exp-api";
 import { plainTextFromHtml } from "@/components/business/rich-html-editor/word-html-sanitize";
 
 import { EXPERIMENT_EDITOR_MULTILINE_ROWS } from "../../page.constants";
-import type { ExperimentReferenceCitationDraft, ExperimentResultEntryDraft, ExperimentScientistStoryDraft } from "../../types";
+import type { ExperimentReferenceCitationDraft, ExperimentResultEntryDraft, ExperimentScientistStoryDraft, ExperimentSecurityDraft } from "../../types";
 import { EditorExperimentReferencePanel } from "./EditorExperimentReferencePanel";
 import { EditorScientistStoryPanel } from "./EditorScientistStoryPanel";
 import { ResultEntryList } from "../ResultEntryList";
 import { SafetyPresetChips } from "../SafetyPresetChips";
+import { SafetyTagSelector } from "../SafetyTagSelector";
 import { StepContentRichEditor } from "../StepContentRichEditor";
 
 export function EditorTailSections(props: {
@@ -31,6 +32,8 @@ export function EditorTailSections(props: {
   dangerNotes: string;
   dangerEmbeds: import("@bs-lab/ui").RichMediaEmbed[];
   onDangerRichChange: (next: RichMediaValue) => void;
+  safetyDrafts: ExperimentSecurityDraft[];
+  onToggleSafetyTag: (securityId: string) => void;
   referenceCitations: ExperimentReferenceCitationDraft[];
   addReferenceCitation: () => void;
   removeReferenceCitation: (id: string) => void;
@@ -41,6 +44,10 @@ export function EditorTailSections(props: {
   ) => void;
   referenceVideo: string;
   setReferenceVideo: (v: string) => void;
+  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  addReferenceVideo: () => void;
+  removeReferenceVideo: (id: number) => void;
+  setReferenceVideos: (v: Array<{ videoUrl: string; sortOrder?: number }>) => void;
   referenceRichText: string;
   referenceRichEmbeds: import("@bs-lab/ui").RichMediaEmbed[];
   onReferenceRichChange: (next: RichMediaValue) => void;
@@ -82,7 +89,15 @@ export function EditorTailSections(props: {
           <CardHeader>
             <CardTitle className="text-base">安全提示</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4">
+            {props.safetyDrafts.length > 0 ? (
+              <SafetyTagSelector
+                drafts={props.safetyDrafts}
+                onToggle={props.onToggleSafetyTag}
+                disabled={props.fieldDisabled}
+              />
+            ) : null}
+            <div className="grid gap-4 md:grid-cols-2">
             <div>
               <StepContentRichEditor
                 mediaActor={props.mediaActor}
@@ -157,7 +172,8 @@ export function EditorTailSections(props: {
                 </div>
               ) : null}
             </div>
-          </CardContent>
+          </div>
+        </CardContent>
         </Card>
       ) : null}
 
@@ -171,6 +187,10 @@ export function EditorTailSections(props: {
           updateReferenceCitation={props.updateReferenceCitation}
           referenceVideo={props.referenceVideo}
           setReferenceVideo={props.setReferenceVideo}
+          referenceVideos={props.referenceVideos}
+          addReferenceVideo={props.addReferenceVideo}
+          removeReferenceVideo={props.removeReferenceVideo}
+          setReferenceVideos={props.setReferenceVideos}
           referenceRichText={props.referenceRichText}
           referenceRichEmbeds={props.referenceRichEmbeds}
           onReferenceRichChange={props.onReferenceRichChange}

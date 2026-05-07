@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Badge, sonnerToast } from "@bs-lab/ui";
-import { CheckCircle2, Eye, FileEdit, Pencil, Plus, ThumbsUp, Trash2, XCircle } from "@bs-lab/ui/icons";
+import { CheckCircle2, FileEdit, Pencil, Plus, ThumbsUp, Trash2, XCircle } from "@bs-lab/ui/icons";
 import { cn } from "@/lib/utils";
 import { formatZhDateTime } from "@/lib/datetime/format-zh";
 import type { ExperimentManageRow } from "../page.hooks";
@@ -70,7 +70,6 @@ interface Props {
   pageSize: number;
   total: number;
   draftTotal?: number;
-  readOnly?: boolean;
   fullScreen?: boolean;
   onPageChange: (n: number) => void;
   subjectNameById: Record<string, string>;
@@ -119,12 +118,10 @@ function metricActive(n: number | null | undefined): boolean {
 export const ExperimentManageV2TableView = React.memo(function ExperimentManageV2TableView({
   items, loading, page, pageSize, total, onPageChange,
   draftTotal,
-  readOnly = false,
   fullScreen = false,
   subjectNameById, gradeNameById, difficultyNameById, onAssign, onEdit, onDelete, deletePending,
 }: Props) {
   const totalPages = Math.ceil(total / pageSize) || 1;
-  const colTeacherWidth = fullScreen ? 220 : 180;
 
   /** 首屏无数据时弹性撑满，避免占位块与「有表 + 遮罩」之间高度切换抖动 */
   if (loading && items.length === 0) {
@@ -149,7 +146,7 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div
         className={cn(
-          "relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden rounded-md border border-border",
+          "relative min-h-0 flex-1 overflow-auto rounded-md border border-border",
           "[scrollbar-gutter:stable]",
         )}
       >
@@ -162,29 +159,33 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
             加载中…
           </div>
         ) : null}
+        <div className="min-w-[1060px]">
         <table className={cn("w-full min-w-0 table-fixed text-[13px] leading-6 min-[2000px]:text-sm min-[2000px]:leading-7", showLoadingOverlay && "pointer-events-none opacity-50")}>
           <colgroup>
-            <col style={{ width: 64 }} />
-            {/* 实验：占满剩余宽度 */}
-            <col />
-            <col style={{ width: 110 }} />
-            <col style={{ width: 96 }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: colTeacherWidth }} />
-            <col style={{ width: 120 }} />
-            <col style={{ width: 150 }} />
-            <col style={{ width: 56 }} />
+            <col style={{ width: 48 }} /> {/* 序号 */}
+            <col style={{ width: 80 }} /> {/* 实验图片 */}
+            <col style={{ width: 200 }} /> {/* 实验名称 */}
+            <col style={{ width: 80 }} /> {/* 学科 */}
+            <col style={{ width: 80 }} /> {/* 年级 */}
+            <col style={{ width: 80 }} /> {/* 难度 */}
+            <col style={{ width: 80 }} /> {/* 状态 */}
+            <col style={{ width: 120 }} /> {/* 发布教师 */}
+            <col style={{ width: 80 }} /> {/* 热度 */}
+            <col style={{ width: 160 }} /> {/* 修改时间 */}
+            <col style={{ width: 100 }} /> {/* 操作 */}
           </colgroup>
           <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
             <tr className="border-b border-border text-left">
               <th className="whitespace-nowrap px-2 py-4 text-center text-sm font-semibold text-black min-[2000px]:px-3">序号</th>
-              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">实验</th>
+              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">实验图片</th>
+              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">实验名称</th>
               <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">学科</th>
+              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">年级</th>
               <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">难度</th>
               <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">状态</th>
               <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">发布教师</th>
               <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">热度</th>
-              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">创建时间</th>
+              <th className="px-2 py-4 text-sm font-semibold text-black min-[2000px]:px-3">修改时间</th>
               <th className="px-2 py-4 text-right text-sm font-semibold text-black min-[2000px]:px-3">操作</th>
             </tr>
           </thead>
@@ -199,36 +200,42 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
                 item.difficultyId ? difficultyNameById[item.difficultyId] ?? item.difficultyId : "—";
               // 对齐参考页：草稿行浅黄底
               const rowBg = item.status === "t" ? "bg-yellow-50" : "";
+              // 封面优先级：exp_pic.pic_url（实验图片）> exp_video.video_url（实验视频，仅图片格式）
+              const coverSrc = item.coverPicUrl?.trim() || item.coverVideoUrl?.trim() || "";
+              const showCover = coverSrc && isImageUrl(coverSrc);
               return (
                 <tr key={item.expId} className={`border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${rowBg}`}>
                   <td className="px-2 py-4 text-sm text-center tabular-nums text-muted-foreground whitespace-nowrap min-[2000px]:px-3">{rowNo}</td>
                   <td className="px-2 py-4 text-sm min-[2000px]:px-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-14 w-20 overflow-hidden rounded-md border border-border bg-muted/20">
-                        {item.coverVideoUrl?.trim() && isImageUrl(item.coverVideoUrl) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.coverVideoUrl}
-                            alt={item.expName}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">—</div>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <Link href={`/experiments/${encodeURIComponent(item.expId)}`} className="font-semibold truncate max-w-[min(520px,100%)] block hover:underline text-foreground">
-                          {item.expName}
-                        </Link>
-                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                          {gr} · {item.classHour ? `约 ${Math.max(5, Math.round(Number(item.classHour) * 45))} 分钟` : "时长 —"}
-                        </p>
-                      </div>
+                    <div className="h-14 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-muted/20">
+                      {showCover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={coverSrc}
+                          alt={item.expName}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">—</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-2 py-4 text-sm min-[2000px]:px-3">
+                    <div className="min-w-0 max-w-[200px]">
+                      <Link href={`/experiments/${encodeURIComponent(item.expId)}`} className="font-semibold block hover:underline text-foreground break-words">
+                        {item.expName}
+                      </Link>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {item.classHour ? `约 ${Math.max(5, Math.round(Number(item.classHour) * 45))} 分钟` : "时长 —"}
+                      </p>
                     </div>
                   </td>
                   <td className="px-2 py-4 text-sm min-[2000px]:px-3">
                     <Badge className={subjectBadgeClassName(subj)}>{subj}</Badge>
+                  </td>
+                  <td className="px-2 py-4 text-sm min-[2000px]:px-3">
+                    <span className="text-sm text-foreground">{gr}</span>
                   </td>
                   <td className="px-2 py-4 text-sm min-[2000px]:px-3">
                     <Badge variant="outline">{difficulty}</Badge>
@@ -245,13 +252,6 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
                   <td className="px-2 py-4 text-sm min-[2000px]:px-3">
                     <div className="flex items-center gap-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 text-xs text-slate-500 tabular-nums">
-                        <Eye
-                          className={cn("size-4 shrink-0 text-slate-400", !metricActive(null) && "opacity-40")}
-                          aria-hidden
-                        />
-                        {metricText(null)}
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs text-slate-500 tabular-nums">
                         <ThumbsUp
                           className={cn("size-4 shrink-0 text-slate-400", !metricActive(item.likeNum) && "opacity-40")}
                           aria-hidden
@@ -261,7 +261,7 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
                     </div>
                   </td>
                   <td className="px-2 py-4 text-sm text-muted-foreground tabular-nums exp-mgmt-table-time min-[2000px]:px-3">
-                    {formatZhDateTime(item.createTime)}
+                    {formatZhDateTime(item.updateTime)}
                   </td>
                   <td className="px-2 py-4 text-right text-sm min-[2000px]:px-3">
                     <div className="flex justify-end">
@@ -273,10 +273,6 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
                             label: "编辑",
                             icon: <Pencil className="size-4 text-muted-foreground" aria-hidden />,
                             onSelect: () => {
-                              if (readOnly) {
-                                sonnerToast.error("当前账号为只读权限", { description: "无法编辑该实验课程。" });
-                                return;
-                              }
                               onEdit(item);
                             },
                           },
@@ -299,10 +295,6 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
                               confirmText: "确认删除",
                             },
                             onSelect: () => {
-                              if (readOnly) {
-                                sonnerToast.error("当前账号为只读权限", { description: "无法删除该实验课程。" });
-                                return;
-                              }
                               onDelete(item);
                             },
                           },
@@ -315,6 +307,7 @@ export const ExperimentManageV2TableView = React.memo(function ExperimentManageV
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between px-1 text-sm text-muted-foreground">

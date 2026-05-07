@@ -74,6 +74,31 @@ export const EXPERIMENTAL_MATERIAL_SAFETY_TAG_OPTIONS: { id: string; label: stri
   { id: "avoid_skin_contact", label: "避免接触皮肤" },
 ];
 
+/** 计量单位本地兜底，真源以 `data_material_unit` 字典表为准 */
+export const EXPERIMENTAL_MATERIAL_UNIT_OPTIONS: { id: string; label: string }[] = [
+  { id: "mL", label: "毫升" },
+  { id: "L", label: "升" },
+  { id: "g", label: "克" },
+  { id: "kg", label: "千克" },
+  { id: "mg", label: "毫克" },
+  { id: "cm", label: "厘米" },
+  { id: "m", label: "米" },
+  { id: "mm", label: "毫米" },
+  { id: "个", label: "个" },
+  { id: "根", label: "根" },
+  { id: "支", label: "支" },
+  { id: "片", label: "片" },
+  { id: "粒", label: "粒" },
+  { id: "条", label: "条" },
+  { id: "块", label: "块" },
+  { id: "段", label: "段" },
+  { id: "滴", label: "滴" },
+  { id: "杯", label: "杯" },
+  { id: "勺", label: "勺" },
+  { id: "份", label: "份" },
+  { id: "瓶", label: "瓶" },
+];
+
 export function experimentalMaterialSummary(record: ExperimentalMaterialRecord): string {
   return record.name.trim() || "未命名材料";
 }

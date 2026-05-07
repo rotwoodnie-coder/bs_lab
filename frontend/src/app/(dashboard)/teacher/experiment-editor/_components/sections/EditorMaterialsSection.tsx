@@ -21,8 +21,18 @@ export function EditorMaterialsSection(props: {
       | "materialType"
       | "safetyReminder"
       | "thumbnailUrl"
-      | "libraryMaterialId",
-    value: string | string[],
+      | "libraryMaterialId"
+      | "numValue"
+      | "unitId"
+      | "expPurpose"
+      | "materialPropId"
+      | "materialSecurityList"
+      | "materialPics",
+    value:
+      | string
+      | string[]
+      | Array<{ securityId: string; securityLevel: number | null }>
+      | Array<{ seqId: string; materialUrl: string | null; sortOrder: number | null }>,
   ) => void;
 }) {
   return (

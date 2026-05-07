@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ExpLibraryListQuery, ExpLibraryStatus, PatchExpLibraryInput } from "../../domain/v2-exp/v2-exp-types.ts";
-import { listExpLibrary, getExpLibraryById, createExpLibrary, patchExpLibrary } from "../../infrastructure/repositories/v2-exp-repository.ts";
+import { listExpLibrary, getExpLibraryById, createExpLibrary, patchExpLibrary, deleteExpMsg } from "../../infrastructure/repositories/v2-exp-repository.ts";
 import { putExpMsgDraft } from "../../infrastructure/repositories/v2-exp-draft-repository.ts";
 import { assertAnyPermission } from "../../lib/auth/permission-guard.ts";
 import { PERMISSIONS } from "../../lib/auth/role-permissions.ts";
@@ -23,7 +23,7 @@ const id32Token = z.string().min(1).max(32).regex(/^[a-zA-Z0-9_]+$/);
 const createLibrarySchema = z.object({ libExpId: id32Token.optional(), libExpName: z.string().min(1), chooseType: z.enum(["y", "n"]).optional(), subjectId: z.string().optional(), schoolLevelId: z.string().optional(), comments: z.string().optional(), status: z.enum(["t", "y", "n"]).optional(), gradeIds: z.array(z.string()).optional() });
 const patchLibrarySchema = z.object({ libExpName: z.string().min(1).max(100).optional(), chooseType: z.enum(["y", "n"]).nullable().optional(), subjectId: z.string().max(32).nullable().optional(), schoolLevelId: z.string().max(32).nullable().optional(), comments: z.string().max(200).nullable().optional(), status: z.enum(["t", "y", "n"]).optional(), gradeIds: z.array(z.string()).optional() });
 const patchExpMsgReviewSchema = z.object({ status: z.enum(["y", "n"]), confirm_comments: z.string().max(200).nullable().optional() });
-const putExpMsgDraftSchema = z.object({ exp_name: z.string().min(1).max(100).optional(), choose_type: z.enum(["y", "n"]).nullable().optional(), subject_id: z.string().nullable().optional(), school_level_id: z.string().nullable().optional(), grade_id: z.string().nullable().optional(), difficulty_id: z.string().nullable().optional(), exp_principle: z.string().nullable().optional(), exp_caution: z.string().max(200).nullable().optional(), exp_danger: z.string().max(200).nullable().optional(), class_hour: z.number().nullable().optional(), coursebook_id: z.string().nullable().optional(), unit_id: z.string().nullable().optional(), exp_task_type: z.enum(["hw", "tk", "self"]).nullable().optional(), simulator_url: z.string().max(200).nullable().optional(), materials: z.array(z.any()).optional(), steps: z.array(z.any()).optional(), results: z.array(z.any()).optional(), references: z.array(z.any()).optional(), scientists: z.array(z.any()).optional(), videos: z.array(z.any()).optional() });
+const putExpMsgDraftSchema = z.object({ exp_name: z.string().min(1).max(100).optional(), choose_type: z.enum(["y", "n"]).nullable().optional(), subject_id: z.string().nullable().optional(), school_level_id: z.string().nullable().optional(), grade_id: z.string().nullable().optional(), difficulty_id: z.string().nullable().optional(), exp_principle: z.string().nullable().optional(), exp_caution: z.string().max(200).nullable().optional(), exp_danger: z.string().max(200).nullable().optional(), class_hour: z.number().nullable().optional(), coursebook_id: z.string().nullable().optional(), unit_id: z.string().nullable().optional(), exp_task_type: z.enum(["hw", "tk", "self"]).nullable().optional(), simulator_url: z.string().max(200).nullable().optional(), materials: z.array(z.any()).optional(), steps: z.array(z.any()).optional(), results: z.array(z.any()).optional(), references: z.array(z.any()).optional(), scientists: z.array(z.any()).optional(), videos: z.array(z.any()).optional(), security: z.array(z.any()).optional(), grades: z.array(z.any()).optional(), material_pics: z.array(z.any()).optional(), reference_videos: z.array(z.any()).optional() });
 
 export async function routeV2Exp(req: Request): Promise<Response> {
   try {
@@ -75,6 +75,11 @@ export async function routeV2Exp(req: Request): Promise<Response> {
       const patch = patchExpMsgReviewSchema.parse(await req.json());
       const { patchExpMsgForReview } = await import("../../infrastructure/repositories/v2-exp-repository.ts");
       return ok(await patchExpMsgForReview(decodeURIComponent(expMatch[1]!), patch as any, actorId));
+    }
+
+    if (expMatch && req.method === "DELETE") {
+      assertAnyPermission(actorRoleId, [PERMISSIONS.EXP_EDIT, PERMISSIONS.EXP_DELETE]);
+      return ok(await deleteExpMsg(decodeURIComponent(expMatch[1]!), actorId, actorRoleId));
     }
 
     // ── 批量分发整本教材实验（课程 → 班级） ──
@@ -140,7 +145,12 @@ export async function routeV2Exp(req: Request): Promise<Response> {
       if (err.code === "EXP_NAME_EMPTY") return fail(4002, "实验名称不能为空", 400);
       return fail(4000, err.message, 400);
     }
-    if (err instanceof Error) return fail(5000, err.message, 500);
+    if (err instanceof Error) {
+      if (err.message === "NOT_FOUND") return fail(404, "实验不存在", 404);
+      if (err.message === "FORBIDDEN_OWNER") return fail(403, "仅可操作本人创建的实验", 403);
+      if (err.message === "PUBLISHED_CANNOT_BE_DELETED") return fail(400, "已发布的实验禁止删除", 400);
+      return fail(5000, err.message, 500);
+    }
     return fail(5000, "服务内部错误", 500);
   }
 }

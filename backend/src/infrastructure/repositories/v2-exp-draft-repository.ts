@@ -39,6 +39,7 @@ function rowToExpMsg(row: RowDataPacket): ExpMsgRecord {
     simulatorUrl: row.simulator_url ? String(row.simulator_url) : null,
     logoUrl: row.logo_url != null ? String(row.logo_url) : null,
     coverVideoUrl: row.cover_video_url != null ? String(row.cover_video_url) : null,
+    coverPicUrl: row.cover_pic_url != null ? String(row.cover_pic_url) : null,
     updateUserId: row.update_user_id ? String(row.update_user_id) : null,
     updateTime: row.update_time ? String(row.update_time) : null,
     isDeleted: Number(row.is_deleted ?? 0) as 0 | 1,
@@ -61,6 +62,9 @@ async function replaceMaterials(
   expId: string,
   rows: NonNullable<PutExpMsgDraftInput["materials"]>,
 ): Promise<void> {
+  // 先删关联表（exp_material_security / exp_material_pic），再删 exp_material（FK RESTRICT）
+  await conn.query(`DELETE FROM exp_material_security WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?)`, [expId]);
+  await conn.query(`DELETE FROM exp_material_pic WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?)`, [expId]);
   await conn.query<ResultSetHeader>(`DELETE FROM exp_material WHERE exp_id = ?`, [expId]);
   let i = 0;
   for (const m of rows) {
@@ -97,6 +101,20 @@ async function replaceMaterials(
         m.sort_order != null ? Number(m.sort_order) : i,
       ],
     );
+    // 插入材料级安全标签
+    if (m.security_list && m.security_list.length > 0) {
+      for (const sec of m.security_list) {
+        const secSeqId = await allocateUniqueMysqlVarchar32Id(conn, {
+          table: "exp_material_security",
+          column: "seq_id",
+          label: `${expId}_matsec_${i}_${sec.security_id}`,
+        });
+        await conn.query<ResultSetHeader>(
+          `INSERT INTO exp_material_security (seq_id, exp_material_id, security_id, security_level) VALUES (?, ?, ?, ?)`,
+          [secSeqId, expMaterialId, sec.security_id, sec.security_level != null ? Number(sec.security_level) : null],
+        );
+      }
+    }
     i += 1;
   }
 }
@@ -245,6 +263,114 @@ async function replaceVideos(
   }
 }
 
+async function replaceSecurity(
+  conn: PoolConnection,
+  expId: string,
+  rows: NonNullable<PutExpMsgDraftInput["security"]>,
+): Promise<void> {
+  await conn.query<ResultSetHeader>(`DELETE FROM exp_security WHERE exp_id = ?`, [expId]);
+  let i = 0;
+  for (const r of rows) {
+    const securityId = String(r.security_id ?? "").trim();
+    if (!securityId) continue;
+    const seqId = await allocateUniqueMysqlVarchar32Id(conn, {
+      table: "exp_security",
+      column: "seq_id",
+      label: `${expId}_sec_${i}`,
+    });
+    await conn.query<ResultSetHeader>(
+      `INSERT INTO exp_security (seq_id, exp_id, security_id, sort_order, security_level)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        seqId,
+        expId,
+        securityId,
+        r.sort_order != null ? Number(r.sort_order) : i,
+        r.security_level != null ? Number(r.security_level) : null,
+      ],
+    );
+    i += 1;
+  }
+}
+
+async function replaceGrades(
+  conn: PoolConnection,
+  expId: string,
+  rows: NonNullable<PutExpMsgDraftInput["grades"]>,
+): Promise<void> {
+  await conn.query<ResultSetHeader>(`DELETE FROM exp_grade WHERE exp_id = ?`, [expId]);
+  let i = 0;
+  for (const g of rows) {
+    const seqId = await allocateUniqueMysqlVarchar32Id(conn, {
+      table: "exp_grade",
+      column: "seq_id",
+      label: `${expId}_gr_${i}`,
+    });
+    await conn.query<ResultSetHeader>(
+      `INSERT INTO exp_grade (seq_id, exp_id, grade_id, sort_order) VALUES (?, ?, ?, ?)`,
+      [seqId, expId, g.grade_id, g.sort_order != null ? Number(g.sort_order) : i],
+    );
+    i += 1;
+  }
+}
+
+async function replaceMaterialPics(
+  conn: PoolConnection,
+  expId: string,
+  rows: NonNullable<PutExpMsgDraftInput["material_pics"]>,
+): Promise<void> {
+  // 先通过 exp_material 表找到该实验的所有材料 ID
+  const [matRows] = await conn.query<RowDataPacket[]>("SELECT exp_material_id FROM exp_material WHERE exp_id = ?", [expId]);
+  const matIds = (matRows as RowDataPacket[]).map((r) => String(r.exp_material_id));
+  if (matIds.length === 0) return;
+
+  const placeholders = matIds.map(() => "?").join(",");
+  await conn.query(`DELETE FROM exp_material_pic WHERE exp_material_id IN (${placeholders})`, matIds);
+
+  let i = 0;
+  for (const p of rows) {
+    const seqId = await allocateUniqueMysqlVarchar32Id(conn, {
+      table: "exp_material_pic",
+      column: "seq_id",
+      label: `${expId}_mp_${i}`,
+    });
+    const targetMatId = matIds[0]!;
+    await conn.query<ResultSetHeader>(
+      `INSERT INTO exp_material_pic (seq_id, exp_material_id, material_url, sort_order) VALUES (?, ?, ?, ?)`,
+      [seqId, targetMatId, p.material_url ?? null, p.sort_order != null ? Number(p.sort_order) : i],
+    );
+    i += 1;
+  }
+}
+
+async function replaceReferenceVideos(
+  conn: PoolConnection,
+  expId: string,
+  rows: NonNullable<PutExpMsgDraftInput["reference_videos"]>,
+): Promise<void> {
+  await conn.query<ResultSetHeader>(`DELETE FROM exp_reference_video WHERE exp_id = ?`, [expId]);
+  let i = 0;
+  for (const v of rows) {
+    const seqId = await allocateUniqueMysqlVarchar32Id(conn, {
+      table: "exp_reference_video",
+      column: "seq_id",
+      label: `${expId}_rv_${i}`,
+    });
+    await conn.query<ResultSetHeader>(
+      `INSERT INTO exp_reference_video (seq_id, video_url, exp_id, sort_order, file_id)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        seqId,
+        v.video_url ?? null,
+        expId,
+        v.sort_order != null ? Number(v.sort_order) : i,
+        v.file_id != null && String(v.file_id).trim() ? String(v.file_id).trim().slice(0, 32) : null,
+      ],
+    );
+    i += 1;
+  }
+}
+
 /**
  * 仅创建人可写；`status = y`（已发布）禁止整包草稿覆盖。
  * 子表：请求体中出现对应数组键时整表替换（空数组即清空）。
@@ -362,6 +488,10 @@ export async function putExpMsgDraft(
     if (input.references !== undefined) await replaceReferences(conn, expId, input.references);
     if (input.scientists !== undefined) await replaceScientists(conn, expId, input.scientists);
     if (input.videos !== undefined) await replaceVideos(conn, expId, input.videos);
+    if (input.security !== undefined) await replaceSecurity(conn, expId, input.security);
+    if (input.grades !== undefined) await replaceGrades(conn, expId, input.grades);
+    if (input.material_pics !== undefined && input.materials !== undefined) await replaceMaterialPics(conn, expId, input.material_pics);
+    if (input.reference_videos !== undefined) await replaceReferenceVideos(conn, expId, input.reference_videos);
 
     fragments.push("update_user_id = ?");
     params.push(actor || null);

@@ -237,6 +237,8 @@ export async function presignPublicUrl(rawUrl: string | null | undefined, expire
   if (!raw) return null;
   // 已包含签名参数说明是上一次签名结果，直接透传避免重复签名
   if (raw.includes("X-Amz-Expires=") || raw.includes("X-Amz-Signature=")) return raw;
+  // 本地同源代理路径（如 /api/media/registry-stream?registryId=xxx&action=view），直接透传
+  if (raw.startsWith("/")) return raw;
   if (raw.startsWith("http://") || raw.startsWith("https://")) {
     // 本机/内网地址浏览器不可达 → 返回 null，UI 自动降级为「无封面」
     if (isPrivateOrLoopbackHost(raw)) return null;

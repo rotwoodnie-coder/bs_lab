@@ -27,6 +27,18 @@ export type ExperimentMaterialDraft = {
   imageUrl?: string;
   /** 缩略图（可选） */
   thumbnailUrl?: string;
+  /** 建议用量数值（如 "500"），与 unitId 分离存储 */
+  numValue?: string;
+  /** 计量单位（如 "mL"），DB 存 code，展示时从字典转中文 */
+  unitId?: string;
+  /** 实验用途，对应 exp_purpose */
+  expPurpose?: string;
+  /** 材料属性 id，对应 material_prop_id */
+  materialPropId?: string;
+  /** 材料的固有关联安全标签列表（从 exp_material_security 聚合） */
+  materialSecurityList?: Array<{ securityId: string; securityLevel: number | null }>;
+  /** 材料图片子表（从 exp_material_pics 聚合） */
+  materialPics?: Array<{ seqId: string; materialUrl: string | null; sortOrder: number | null }>;
 };
 
 export type ExperimentStepDraft = {
@@ -64,6 +76,22 @@ export type ExperimentScientistStoryDraft = {
   storyName: string;
   /** 故事内容（富文本 HTML，使用 RichHtmlEditor） */
   storyComments: string;
+};
+
+/**
+ * 实验安全标识草稿。
+ * 从材料的安全标签（exp_material_security → data_material_security）选择后，
+ * 用户勾选决定实验整体安全标识，存储到 exp_security 表。
+ */
+export type ExperimentSecurityDraft = {
+  /** security_id（data_material_security 主键） */
+  securityId: string;
+  /** 安全标识名称（展示用，不持久化） */
+  securityName: string;
+  /** 危险等级（展示用，持久化到 exp_security.security_level） */
+  securityLevel: number | null;
+  /** 用户是否已勾选 */
+  selected: boolean;
 };
 
 /**

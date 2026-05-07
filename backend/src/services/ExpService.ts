@@ -13,6 +13,7 @@ import type {
   ExpResultRecord,
   ExpReferenceRecord,
   ExpScientistRecord,
+  ExpSecurityRecord,
   ExpVideoRecord,
   ExpPicRecord,
   CreateExpMsgInput,
@@ -67,6 +68,7 @@ function rowToExpMsg(row: RowDataPacket): ExpMsgRecord {
     simulatorUrl: row.simulator_url ? String(row.simulator_url) : null,
     logoUrl: row.logo_url != null ? String(row.logo_url) : null,
     coverVideoUrl: row.cover_video_url != null ? String(row.cover_video_url) : null,
+    coverPicUrl: row.cover_pic_url != null ? String(row.cover_pic_url) : null,
     updateUserId: row.update_user_id ? String(row.update_user_id) : null,
     updateTime: row.update_time ? String(row.update_time) : null,
     isDeleted: Number(row.is_deleted ?? 0) as 0 | 1,
@@ -113,7 +115,10 @@ async function replaceSteps(conn: PoolConnection, expId: string, steps: Array<{ 
   }
 }
 
-async function replaceMaterials(conn: PoolConnection, expId: string, materials: Array<{ material_id?: string | null; material_name?: string | null; is_self?: "y" | "n"; material_num?: number | null; material_unit?: string | null; material_prop_id?: string | null; material_type_id?: string | null; main_pic_url?: string | null; exp_purpose?: string | null; additional_comments?: string | null; comments?: string | null; sort_order?: number | null }>) {
+async function replaceMaterials(conn: PoolConnection, expId: string, materials: Array<{ material_id?: string | null; material_name?: string | null; is_self?: "y" | "n"; material_num?: number | null; material_unit?: string | null; material_prop_id?: string | null; material_type_id?: string | null; main_pic_url?: string | null; exp_purpose?: string | null; additional_comments?: string | null; comments?: string | null; sort_order?: number | null; security_list?: Array<{ security_id: string; security_level?: number | null }> }>) {
+  // 先删关联表（exp_material_security / exp_material_pic），再删 exp_material（FK RESTRICT）
+  await conn.query("DELETE FROM exp_material_security WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?)", [expId]);
+  await conn.query("DELETE FROM exp_material_pic WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?)", [expId]);
   await conn.query("DELETE FROM exp_material WHERE exp_id = ?", [expId]);
   for (const m of materials ?? []) {
     const expMaterialId = makeVarchar32Uuid();
@@ -127,23 +132,89 @@ async function replaceMaterials(conn: PoolConnection, expId: string, materials: 
         m.main_pic_url ?? null, m.exp_purpose ?? null, m.additional_comments ?? null, m.comments ?? null, m.sort_order ?? null,
       ],
     );
+    // 插入材料级安全标签
+    if (m.security_list && m.security_list.length > 0) {
+      for (const sec of m.security_list) {
+        const secSeqId = makeVarchar32Uuid();
+        await conn.query(
+          `INSERT INTO exp_material_security (seq_id, exp_material_id, security_id, security_level) VALUES (?, ?, ?, ?)`,
+          [secSeqId, expMaterialId, sec.security_id, sec.security_level != null ? Number(sec.security_level) : null],
+        );
+      }
+    }
   }
 }
 
-// 注：对 ExpMsgRecord 中所有 URL 字段做预签名（simulatorUrl / logoUrl / coverVideoUrl）
+async function replaceGrades(conn: PoolConnection, expId: string, grades: Array<{ grade_id: string; sort_order?: number | null }>) {
+  await conn.query("DELETE FROM exp_grade WHERE exp_id = ?", [expId]);
+  let i = 0;
+  for (const g of grades ?? []) {
+    const seqId = makeVarchar32Uuid();
+    await conn.query(
+      `INSERT INTO exp_grade (seq_id, exp_id, grade_id, sort_order) VALUES (?, ?, ?, ?)`,
+      [seqId, expId, g.grade_id, g.sort_order != null ? Number(g.sort_order) : i],
+    );
+    i += 1;
+  }
+}
+
+async function replaceMaterialPics(conn: PoolConnection, expId: string, pics: Array<{ material_url: string | null; sort_order?: number | null }>) {
+  // 先通过 exp_material 表找到该实验的所有材料 ID
+  const [matRows] = await conn.query<RowDataPacket[]>("SELECT exp_material_id FROM exp_material WHERE exp_id = ?", [expId]);
+  const matIds = (matRows as RowDataPacket[]).map((r) => String(r.exp_material_id));
+  if (matIds.length === 0) return;
+
+  // 删除所有材料的图片
+  const placeholders = matIds.map(() => "?").join(",");
+  await conn.query(`DELETE FROM exp_material_pic WHERE exp_material_id IN (${placeholders})`, matIds);
+
+  let i = 0;
+  for (const p of pics ?? []) {
+    const seqId = makeVarchar32Uuid();
+    // 将 material_pic 关联到第一个材料 ID（前端传递时不带 exp_material_id）
+    const targetMatId = matIds[0]!;
+    await conn.query(
+      `INSERT INTO exp_material_pic (seq_id, exp_material_id, material_url, sort_order) VALUES (?, ?, ?, ?)`,
+      [seqId, targetMatId, p.material_url ?? null, p.sort_order != null ? Number(p.sort_order) : i],
+    );
+    i += 1;
+  }
+}
+
+async function replaceReferenceVideos(conn: PoolConnection, expId: string, videos: Array<{ video_url: string | null; sort_order?: number | null; file_id?: string | null }>) {
+  await conn.query("DELETE FROM exp_reference_video WHERE exp_id = ?", [expId]);
+  let i = 0;
+  for (const v of videos ?? []) {
+    const seqId = makeVarchar32Uuid();
+    await conn.query(
+      `INSERT INTO exp_reference_video (seq_id, video_url, exp_id, sort_order, file_id) VALUES (?, ?, ?, ?, ?)`,
+      [
+        seqId,
+        v.video_url ?? null,
+        expId,
+        v.sort_order != null ? Number(v.sort_order) : i,
+        v.file_id != null && String(v.file_id).trim() ? String(v.file_id).trim().slice(0, 32) : null,
+      ],
+    );
+    i += 1;
+  }
+}
+
+// 注：对 ExpMsgRecord 中所有 URL 字段做预签名（simulatorUrl / logoUrl / coverVideoUrl / coverPicUrl）
 async function presignExpMsgRecord<T extends ExpMsgRecord>(rec: T): Promise<T> {
-  const [simulatorUrl, logoUrl, coverVideoUrl] = await Promise.all([
+  const [simulatorUrl, logoUrl, coverVideoUrl, coverPicUrl] = await Promise.all([
     presignPublicUrl(rec.simulatorUrl, 3600),
     presignPublicUrl(rec.logoUrl, 3600),
     presignPublicUrl(rec.coverVideoUrl, 3600),
+    presignPublicUrl(rec.coverPicUrl, 3600),
   ]);
-  return { ...rec, simulatorUrl, logoUrl, coverVideoUrl };
+  return { ...rec, simulatorUrl, logoUrl, coverVideoUrl, coverPicUrl };
 }
 
-// 注：对 ExpMsgDetail 中所有子记录 URL 字段预签名（videoUrl / picUrl / mainPicUrl）
+// 注：对 ExpMsgDetail 中所有子记录 URL 字段预签名（videoUrl / picUrl / mainPicUrl / materialUrl）
 async function presignExpDetail(detail: ExpMsgDetail): Promise<ExpMsgDetail> {
   const presigned = await presignExpMsgRecord(detail);
-  const [videos, pics, materials] = await Promise.all([
+  const [videos, pics, materials, materialPics, referenceVideos] = await Promise.all([
     Promise.all(
       presigned.videos.map(async (v) => ({ ...v, videoUrl: await presignPublicUrl(v.videoUrl, 3600) })),
     ),
@@ -151,10 +222,31 @@ async function presignExpDetail(detail: ExpMsgDetail): Promise<ExpMsgDetail> {
       presigned.pics.map(async (p) => ({ ...p, picUrl: await presignPublicUrl(p.picUrl, 3600) })),
     ),
     Promise.all(
-      presigned.materials.map(async (m) => ({ ...m, mainPicUrl: await presignPublicUrl(m.mainPicUrl, 3600) })),
+      presigned.materials.map(async (m) => ({
+        ...m,
+        mainPicUrl: await presignPublicUrl(m.mainPicUrl, 3600),
+        pics: await Promise.all(
+          (m.pics ?? []).map(async (pic) => ({
+            ...pic,
+            materialUrl: await presignPublicUrl(pic.materialUrl, 3600),
+          })),
+        ),
+      })),
+    ),
+    Promise.all(
+      presigned.materialPics.map(async (mp) => ({
+        ...mp,
+        materialUrl: await presignPublicUrl(mp.materialUrl, 3600),
+      })),
+    ),
+    Promise.all(
+      presigned.referenceVideos.map(async (rv) => ({
+        ...rv,
+        videoUrl: await presignPublicUrl(rv.videoUrl, 3600),
+      })),
     ),
   ]);
-  return { ...presigned, videos, pics, materials };
+  return { ...presigned, videos, pics, materials, materialPics, referenceVideos };
 }
 
 export async function getExpDetail(
@@ -164,7 +256,16 @@ export async function getExpDetail(
 ): Promise<ExpMsgDetail | null> {
   const runner = "query" in connOrPool ? connOrPool : getMysqlPool();
   const [rows] = await runner.query<RowDataPacket[]>(
-    `SELECT m.*, owner.user_name AS display_owner_name
+    `SELECT m.exp_id, m.exp_name, m.choose_type,
+            m.subject_id, m.school_level_id, m.grade_id, m.difficulty_id,
+            m.exp_principle, m.exp_caution, m.exp_danger,
+            m.class_hour, m.coursebook_id, m.unit_id,
+            m.create_user_type, m.create_user_id, m.create_time,
+            m.confirm_user_id, m.confirm_time, m.confirm_comments,
+            m.status, m.standard_exp_id, m.link_exp_id, m.exp_task_type,
+            m.like_num, m.notlike_num, m.collection_num, m.evaluate_num,
+            m.simulator_url, m.update_user_id, m.update_time, m.is_deleted,
+            owner.user_name AS display_owner_name
      FROM exp_msg m
      LEFT JOIN sys_user owner ON owner.user_id = m.create_user_id
      WHERE m.exp_id = ? AND m.is_deleted = 0 LIMIT 1`, [expId]);
@@ -178,16 +279,74 @@ export async function getExpDetail(
   const [results] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_result WHERE exp_id = ? ORDER BY sort_order ASC, result_id ASC`, [expId]);
   const [refs] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_reference WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId]);
   const [scientists] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_scientist WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId]);
+  const [security] = await runner.query<RowDataPacket[]>(`SELECT * FROM exp_security WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId]);
+  const [materialSecRows] = await runner.query<RowDataPacket[]>(
+    `SELECT DISTINCT ems.security_id
+     FROM exp_material_security ems
+     JOIN exp_material em ON em.exp_material_id = ems.exp_material_id
+     WHERE em.exp_id = ? ORDER BY ems.security_id`, [expId],
+  );
+
+  // 查询材料级安全标签（含 exp_material_id 和 security_level）
+  const [matSecDetailRows] = await runner.query<RowDataPacket[]>(
+    `SELECT ems.exp_material_id, ems.security_id, ems.security_level
+     FROM exp_material_security ems
+     JOIN exp_material em ON em.exp_material_id = ems.exp_material_id
+     WHERE em.exp_id = ? ORDER BY ems.exp_material_id`, [expId],
+  );
+
+  // 查询 exp_grade
+  const [gradeRows] = await runner.query<RowDataPacket[]>(
+    `SELECT grade_id, sort_order FROM exp_grade WHERE exp_id = ? ORDER BY sort_order ASC`, [expId],
+  );
+
+  // 查询 exp_material_pic
+  const [matPicRows] = await runner.query<RowDataPacket[]>(
+    `SELECT seq_id, exp_material_id, material_url, sort_order FROM exp_material_pic WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?) ORDER BY exp_material_id, sort_order ASC`, [expId],
+  );
+
+  // 查询 exp_reference_video
+  const [refVidRows] = await runner.query<RowDataPacket[]>(
+    `SELECT seq_id, video_url, exp_id, sort_order, file_id FROM exp_reference_video WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId],
+  );
+
+  // 将 matSecDetailRows 按 exp_material_id 分组
+  const materialSecurityMap = new Map<string, Array<{ securityId: string; securityLevel: number | null }>>();
+  for (const r of matSecDetailRows) {
+    const key = String(r.exp_material_id);
+    if (!materialSecurityMap.has(key)) materialSecurityMap.set(key, []);
+    materialSecurityMap.get(key)!.push({ securityId: String(r.security_id), securityLevel: r.security_level != null ? Number(r.security_level) : null });
+  }
+
+  // 将 matPicRows 按 exp_material_id 分组
+  const materialPicMap = new Map<string, Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>>();
+  for (const r of matPicRows) {
+    const key = String(r.exp_material_id);
+    if (!materialPicMap.has(key)) materialPicMap.set(key, []);
+    materialPicMap.get(key)!.push({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null });
+  }
 
   const detail: ExpMsgDetail = {
     ...base,
     videos: (videos as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null } as ExpVideoRecord)),
     pics: (pics as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), picUrl: r.pic_url ? String(r.pic_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null } as ExpPicRecord)),
-    materials: (materials as RowDataPacket[]).map((r) => ({ expMaterialId: String(r.exp_material_id), expId: String(r.exp_id), materialId: r.material_id ? String(r.material_id) : null, materialName: r.material_name ? String(r.material_name) : null, isSelf: String(r.is_self ?? "n") as "y" | "n", materialNum: r.material_num != null ? Number(r.material_num) : null, materialUnit: r.material_unit ? String(r.material_unit) : null, materialPropId: r.material_prop_id ? String(r.material_prop_id) : null, materialTypeId: r.material_type_id ? String(r.material_type_id) : null, mainPicUrl: r.main_pic_url ? String(r.main_pic_url) : null, expPurpose: r.exp_purpose ? String(r.exp_purpose) : null, additionalComments: r.additional_comments ? String(r.additional_comments) : null, comments: r.comments ? String(r.comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null, createTime: r.create_time ? String(r.create_time) : null } as ExpMaterialRecord)),
+    materials: (materials as RowDataPacket[]).map((r) => {
+      const expMaterialId = String(r.exp_material_id);
+      return {
+        ...({ expMaterialId, expId: String(r.exp_id), materialId: r.material_id ? String(r.material_id) : null, materialName: r.material_name ? String(r.material_name) : null, isSelf: String(r.is_self ?? "n") as "y" | "n", materialNum: r.material_num != null ? Number(r.material_num) : null, materialUnit: r.material_unit ? String(r.material_unit) : null, materialPropId: r.material_prop_id ? String(r.material_prop_id) : null, materialTypeId: r.material_type_id ? String(r.material_type_id) : null, mainPicUrl: r.main_pic_url ? String(r.main_pic_url) : null, expPurpose: r.exp_purpose ? String(r.exp_purpose) : null, additionalComments: r.additional_comments ? String(r.additional_comments) : null, comments: r.comments ? String(r.comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null, createTime: r.create_time ? String(r.create_time) : null } as ExpMaterialRecord),
+        materialSecurityList: materialSecurityMap.get(expMaterialId) ?? [],
+        pics: materialPicMap.get(expMaterialId) ?? [],
+      };
+    }),
     steps: (steps as RowDataPacket[]).map((r) => ({ stepId: String(r.step_id), expId: String(r.exp_id), stepName: r.step_name ? String(r.step_name) : null, stepComments: r.step_comments ? String(r.step_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpStepRecord)),
     results: (results as RowDataPacket[]).map((r) => ({ resultId: String(r.result_id), expId: String(r.exp_id), resultName: r.result_name ? String(r.result_name) : null, resultComments: r.result_comments ? String(r.result_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpResultRecord)),
     references: (refs as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expId: String(r.exp_id), referenceName: r.reference_name ? String(r.reference_name) : null, referenceSource: r.reference_source ? String(r.reference_source) : null, referenceComments: r.reference_comments ? String(r.reference_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpReferenceRecord)),
     scientists: (scientists as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expId: String(r.exp_id), scientistName: r.scientist_name ? String(r.scientist_name) : null, storyName: r.story_name ? String(r.story_name) : null, storyComments: r.story_comments ? String(r.story_comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null } as ExpScientistRecord)),
+    security: (security as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expId: String(r.exp_id), securityId: String(r.security_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, securityLevel: r.security_level != null ? Number(r.security_level) : null } as ExpSecurityRecord)),
+    materialSecurityIds: (materialSecRows as RowDataPacket[]).map((r) => String(r.security_id)).filter(Boolean),
+    gradeIds: (gradeRows as RowDataPacket[]).map((r) => String(r.grade_id)).filter(Boolean),
+    materialPics: (matPicRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null })),
+    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null })),
   };
 
   if (options?.presign !== false) {
@@ -219,13 +378,16 @@ export async function getExpList(query: ExpMsgListQuery) {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT e.exp_id, e.exp_name, e.class_hour, e.status, e.create_time, e.exp_principle,
             e.unit_id, e.coursebook_id, e.create_user_id,
-            e.choose_type, e.difficulty_id, e.exp_caution, e.exp_danger,
+            e.choose_type, e.subject_id, e.grade_id, e.difficulty_id, e.exp_caution, e.exp_danger,
             e.standard_exp_id, e.link_exp_id, e.exp_task_type,
             e.like_num, e.notlike_num, e.collection_num, e.evaluate_num,
             e.confirm_user_id, e.confirm_time, e.confirm_comments,
+            e.create_user_type, e.school_level_id,
             e.update_user_id, e.update_time,
+            e.simulator_url,
             fv.video_url AS cover_video_url,
             fv.logo_url,
+            fp.pic_url AS cover_pic_url,
             owner.user_name AS display_owner_name,
             s.subject_name AS subject_name, g.grade_name AS grade_name,
             c.coursebook_name AS coursebook_name, ch.chapter_name AS chapter_name, u.unit_name AS unit_name
@@ -244,6 +406,12 @@ export async function getExpList(query: ExpMsgListQuery) {
        FROM exp_video ev
        LEFT JOIN data_file df ON df.file_id = ev.file_id
      ) fv ON fv.exp_id = e.exp_id AND fv.rn = 1
+     LEFT JOIN (
+       SELECT ep.exp_id,
+              ep.pic_url,
+              ROW_NUMBER() OVER (PARTITION BY ep.exp_id ORDER BY ep.sort_order IS NULL, ep.sort_order ASC, ep.seq_id ASC) AS rn
+       FROM exp_pic ep
+     ) fp ON fp.exp_id = e.exp_id AND fp.rn = 1
      WHERE ${where.join(" AND ")}
      ORDER BY e.create_time DESC, e.exp_id DESC
      LIMIT ? OFFSET ?`,
@@ -290,6 +458,9 @@ export async function saveExp(input: (CreateExpMsgInput | PutExpMsgDraftInput) &
 
     if ("steps" in input && input.steps !== undefined) await replaceSteps(conn, expId, input.steps as any);
     if ("materials" in input && input.materials !== undefined) await replaceMaterials(conn, expId, input.materials as any);
+    if ("grades" in input && input.grades !== undefined) await replaceGrades(conn, expId, input.grades as any);
+    if ("material_pics" in input && input.materials !== undefined && input.material_pics !== undefined) await replaceMaterialPics(conn, expId, input.material_pics as any);
+    if ("reference_videos" in input && input.reference_videos !== undefined) await replaceReferenceVideos(conn, expId, input.reference_videos as any);
 
     await conn.commit();
     const detail = await getExpDetail(pool, expId);

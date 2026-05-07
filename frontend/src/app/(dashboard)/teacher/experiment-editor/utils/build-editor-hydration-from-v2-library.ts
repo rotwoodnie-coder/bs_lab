@@ -42,6 +42,13 @@ function plainOneLine(text: string | null | undefined): string {
     .trim();
 }
 
+/** 每次调用生成唯一后缀，确保占位 ID 不重复 */
+let libPlaceholderSeq = 0;
+function nextLibPlaceholderId(prefix: string): string {
+  libPlaceholderSeq += 1;
+  return `${prefix}${Date.now()}-${libPlaceholderSeq}`;
+}
+
 /**
  * 将标准试验库单条（含 `grades`）映射为编辑器可写入状态；库表无视频/材料/步骤子表，以占位与 `comments` 为主。
  */
@@ -62,7 +69,7 @@ export function buildEditorHydrationFromV2Library(
 
   const materials: ExperimentMaterialDraft[] = [
     {
-      id: "m-lib-placeholder",
+      id: nextLibPlaceholderId("m-lib-"),
       nameLab: "（请补充实验材料）",
       quantity: "",
       materialType: "实验材料",
@@ -76,7 +83,7 @@ export function buildEditorHydrationFromV2Library(
 
   const steps: ExperimentStepDraft[] = [
     normalizeStepDraft({
-      id: "s-lib-placeholder",
+      id: nextLibPlaceholderId("s-lib-"),
       title: "实验步骤",
       content: stepHint,
       contentEmbeds: [],
@@ -86,7 +93,7 @@ export function buildEditorHydrationFromV2Library(
 
   const resultEntries: ExperimentResultEntryDraft[] = [
     normalizeResultEntryDraft({
-      id: "r-lib-placeholder",
+      id: nextLibPlaceholderId("r-lib-"),
       title: "评价摘要",
       content: "",
       contentEmbeds: [],
@@ -123,7 +130,7 @@ export function buildEditorHydrationFromV2Library(
     dangerNotes: parsed.dangerNotes,
     dangerEmbeds: parsed.dangerEmbeds,
     scientistStories: parsed.scientistStory?.trim()
-      ? [{ id: "sci-lib-legacy-1", scientistName: "", storyName: "", storyComments: parsed.scientistStory }]
+      ? [{ id: nextLibPlaceholderId("sci-lib-"), scientistName: "", storyName: "", storyComments: parsed.scientistStory }]
       : [],
     referenceCitations,
     referenceRichText: parsed.referenceRichText,
@@ -131,6 +138,9 @@ export function buildEditorHydrationFromV2Library(
     materials,
     steps,
     resultEntries,
+    materialSecurityIds: [],
+    gradeIds: tax.selectedGradeCodes,
+    referenceVideos: [],
     creatorName: ctx.userName,
     coursebookId: "",
     unitId: "",

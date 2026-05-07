@@ -175,7 +175,6 @@ export default function ExperimentManagePageContainer() {
           pageSize={pageSize}
           total={total}
           draftTotal={draftTotal}
-          readOnly={readOnly}
           fullScreen={fullScreen}
           onPageChange={setPage}
           subjectNameById={subjectNameById}
@@ -285,7 +284,7 @@ export default function ExperimentManagePageContainer() {
               kpis={<ManagementKpiCards items={kpis} />}
               cardTitle={
                 <div className="flex items-center justify-between gap-3">
-                  <span>实验列表</span>
+                  <span>实验课程列表</span>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
                       type="button"

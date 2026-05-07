@@ -18,6 +18,7 @@ import type {
   ExpMsgListQuery,
   CreateExpMsgInput,
   PatchExpMsgReviewInput,
+  ExpSecurityRecord,
   ExpStepRecord,
   ExperimentTaskInfo,
   ExpResultRecord,
@@ -210,6 +211,7 @@ function rowToExpMsg(row: RowDataPacket): ExpMsgRecord {
     simulatorUrl: row.simulator_url ? String(row.simulator_url) : null,
     logoUrl: row.logo_url != null ? String(row.logo_url) : null,
     coverVideoUrl: row.cover_video_url != null ? String(row.cover_video_url) : null,
+    coverPicUrl: row.cover_pic_url != null ? String(row.cover_pic_url) : null,
     updateUserId: row.update_user_id ? String(row.update_user_id) : null,
     updateTime: row.update_time ? String(row.update_time) : null,
     isDeleted: Number(row.is_deleted ?? 0) as 0 | 1,
@@ -534,6 +536,55 @@ export async function getExpMsgDetail(expId: string): Promise<ExpMsgDetail | nul
   const [scientists] = await pool.query<RowDataPacket[]>(
     `SELECT * FROM exp_scientist WHERE exp_id = ? ORDER BY sort_order ASC`, [expId],
   );
+  const [securityRows] = await pool.query<RowDataPacket[]>(
+    `SELECT * FROM exp_security WHERE exp_id = ? ORDER BY sort_order ASC`, [expId],
+  );
+  // 从材料安全性关联表聚合实验所有材料的安全标签
+  const [materialSecRows] = await pool.query<RowDataPacket[]>(
+    `SELECT DISTINCT ems.security_id
+     FROM exp_material_security ems
+     JOIN exp_material em ON em.exp_material_id = ems.exp_material_id
+     WHERE em.exp_id = ? ORDER BY ems.security_id`, [expId],
+  );
+
+  // 查询材料级安全标签详情
+  const [matSecDetailRows] = await pool.query<RowDataPacket[]>(
+    `SELECT ems.exp_material_id, ems.security_id, ems.security_level
+     FROM exp_material_security ems
+     JOIN exp_material em ON em.exp_material_id = ems.exp_material_id
+     WHERE em.exp_id = ? ORDER BY ems.exp_material_id`, [expId],
+  );
+
+  // 查询 exp_grade
+  const [gradeRows] = await pool.query<RowDataPacket[]>(
+    `SELECT grade_id, sort_order FROM exp_grade WHERE exp_id = ? ORDER BY sort_order ASC`, [expId],
+  );
+
+  // 查询 exp_material_pic
+  const [matPicRows] = await pool.query<RowDataPacket[]>(
+    `SELECT seq_id, exp_material_id, material_url, sort_order FROM exp_material_pic WHERE exp_material_id IN (SELECT exp_material_id FROM exp_material WHERE exp_id = ?) ORDER BY exp_material_id, sort_order ASC`, [expId],
+  );
+
+  // 查询 exp_reference_video
+  const [refVidRows] = await pool.query<RowDataPacket[]>(
+    `SELECT seq_id, video_url, exp_id, sort_order, file_id FROM exp_reference_video WHERE exp_id = ? ORDER BY sort_order ASC, seq_id ASC`, [expId],
+  );
+
+  // 将 matSecDetailRows 按 exp_material_id 分组
+  const materialSecurityMap = new Map<string, Array<{ securityId: string; securityLevel: number | null }>>();
+  for (const r of matSecDetailRows) {
+    const key = String(r.exp_material_id);
+    if (!materialSecurityMap.has(key)) materialSecurityMap.set(key, []);
+    materialSecurityMap.get(key)!.push({ securityId: String(r.security_id), securityLevel: r.security_level != null ? Number(r.security_level) : null });
+  }
+
+  // 将 matPicRows 按 exp_material_id 分组
+  const materialPicMap = new Map<string, Array<{ seqId: string; expMaterialId: string; materialUrl: string | null; sortOrder: number | null }>>();
+  for (const r of matPicRows) {
+    const key = String(r.exp_material_id);
+    if (!materialPicMap.has(key)) materialPicMap.set(key, []);
+    materialPicMap.get(key)!.push({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null });
+  }
 
   return {
     ...base,
@@ -547,22 +598,14 @@ export async function getExpMsgDetail(expId: string): Promise<ExpMsgDetail | nul
       expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
       fileId: r.file_id ? String(r.file_id) : null,
     } as ExpPicRecord)),
-    materials: (materials as RowDataPacket[]).map((r) => ({
-      expMaterialId: String(r.exp_material_id), expId: String(r.exp_id),
-      materialId: r.material_id ? String(r.material_id) : null,
-      materialName: r.material_name ? String(r.material_name) : null,
-      isSelf: String(r.is_self ?? "n") as "y" | "n",
-      materialNum: r.material_num != null ? Number(r.material_num) : null,
-      materialUnit: r.material_unit ? String(r.material_unit) : null,
-      materialPropId: r.material_prop_id ? String(r.material_prop_id) : null,
-      materialTypeId: r.material_type_id ? String(r.material_type_id) : null,
-      mainPicUrl: r.main_pic_url ? String(r.main_pic_url) : null,
-      expPurpose: r.exp_purpose ? String(r.exp_purpose) : null,
-      additionalComments: r.additional_comments ? String(r.additional_comments) : null,
-      comments: r.comments ? String(r.comments) : null,
-      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
-      createTime: r.create_time ? String(r.create_time) : null,
-    } as ExpMaterialRecord)),
+    materials: (materials as RowDataPacket[]).map((r) => {
+      const expMaterialId = String(r.exp_material_id);
+      return {
+        ...({ expMaterialId, expId: String(r.exp_id), materialId: r.material_id ? String(r.material_id) : null, materialName: r.material_name ? String(r.material_name) : null, isSelf: String(r.is_self ?? "n") as "y" | "n", materialNum: r.material_num != null ? Number(r.material_num) : null, materialUnit: r.material_unit ? String(r.material_unit) : null, materialPropId: r.material_prop_id ? String(r.material_prop_id) : null, materialTypeId: r.material_type_id ? String(r.material_type_id) : null, mainPicUrl: r.main_pic_url ? String(r.main_pic_url) : null, expPurpose: r.exp_purpose ? String(r.exp_purpose) : null, additionalComments: r.additional_comments ? String(r.additional_comments) : null, comments: r.comments ? String(r.comments) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null, createTime: r.create_time ? String(r.create_time) : null } as ExpMaterialRecord),
+        materialSecurityList: materialSecurityMap.get(expMaterialId) ?? [],
+        pics: materialPicMap.get(expMaterialId) ?? [],
+      };
+    }),
     steps: (steps as RowDataPacket[]).map((r) => ({
       stepId: String(r.step_id), expId: String(r.exp_id),
       stepName: r.step_name ? String(r.step_name) : null,
@@ -589,6 +632,16 @@ export async function getExpMsgDetail(expId: string): Promise<ExpMsgDetail | nul
       storyComments: r.story_comments ? String(r.story_comments) : null,
       sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
     } as ExpScientistRecord)),
+    security: (securityRows as RowDataPacket[]).map((r) => ({
+      seqId: String(r.seq_id), expId: String(r.exp_id),
+      securityId: String(r.security_id),
+      sortOrder: r.sort_order != null ? Number(r.sort_order) : null,
+      securityLevel: r.security_level != null ? Number(r.security_level) : null,
+    } as ExpSecurityRecord)),
+    materialSecurityIds: (materialSecRows as RowDataPacket[]).map((r) => String(r.security_id)).filter(Boolean),
+    gradeIds: (gradeRows as RowDataPacket[]).map((r) => String(r.grade_id)).filter(Boolean),
+    materialPics: (matPicRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), expMaterialId: String(r.exp_material_id), materialUrl: r.material_url ? String(r.material_url) : null, sortOrder: r.sort_order != null ? Number(r.sort_order) : null })),
+    referenceVideos: (refVidRows as RowDataPacket[]).map((r) => ({ seqId: String(r.seq_id), videoUrl: r.video_url ? String(r.video_url) : null, expId: String(r.exp_id), sortOrder: r.sort_order != null ? Number(r.sort_order) : null, fileId: r.file_id ? String(r.file_id) : null })),
   };
 }
 
@@ -702,4 +755,43 @@ export async function listStudentWorksForReview(page = 1, pageSize = 20): Promis
     [pageSize, (page - 1) * pageSize],
   );
   return { items: rows.map(rowToExpMsg), total, page, pageSize };
+}
+
+/**
+ * 软删除实验：
+ * - 系统管理员（roleId 为 system_admin/role_sys_admin）可删除任何人的实验
+ * - 非管理员只能删除自己创建的实验
+ * - 已通过审核（status = y）禁止删除；草稿（t）与驳回（n）可删除
+ */
+export async function deleteExpMsg(
+  expId: string,
+  actorId?: string,
+  actorRoleId?: string,
+): Promise<{ expId: string }> {
+  const pool = getMysqlPool();
+  const [curRows] = await pool.query<RowDataPacket[]>(
+    `SELECT create_user_id, status FROM exp_msg WHERE exp_id = ? AND is_deleted = 0 LIMIT 1`,
+    [expId],
+  );
+  if (curRows.length === 0) throw new Error("NOT_FOUND");
+  const actor = (actorId ?? "").trim();
+  const ownerId = curRows[0]!.create_user_id != null ? String(curRows[0]!.create_user_id) : "";
+  const isSysAdmin = isSystemAdmin(actorRoleId);
+  // 非管理员必须为创建人本人
+  if (!isSysAdmin && actor && ownerId && actor !== ownerId) throw new Error("FORBIDDEN_OWNER");
+  // 已发布（y）禁止删除
+  const st = curRows[0]!.status != null ? String(curRows[0]!.status) : "";
+  if (st === "y") throw new Error("PUBLISHED_CANNOT_BE_DELETED");
+
+  const [hdr] = await pool.query<ResultSetHeader>(
+    `UPDATE exp_msg SET is_deleted = 1, update_user_id = ?, update_time = NOW() WHERE exp_id = ? AND is_deleted = 0`,
+    [actorId ?? null, expId],
+  );
+  if (hdr.affectedRows === 0) throw new Error("NOT_FOUND");
+  return { expId };
+}
+
+function isSystemAdmin(roleId?: string): boolean {
+  const r = (roleId ?? "").trim().toLowerCase();
+  return r === "role_sys_admin" || r === "system_admin";
 }

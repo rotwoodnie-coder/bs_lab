@@ -66,7 +66,9 @@ export function EditorBasicSection(props: {
     phaseLabel?: string;
     gradeLabels?: string[];
     curriculumRefShort?: string;
+    mandatory?: "mandatory" | "optional";
   } | null;
+  pickerLinkedName?: string | null;
   pickerUseCustomExp: boolean;
   pickerListFilterPhases: EducationPhase[];
   onPickerSetListFilterPhases: React.Dispatch<React.SetStateAction<EducationPhase[]>>;
@@ -185,6 +187,8 @@ export function EditorBasicSection(props: {
         <EditorExpPickerBar
           fieldDisabled={props.fieldDisabled}
           pickerSelectedStandardId={props.pickerSelectedStandardId}
+          pickerSelectedStandardRow={props.pickerSelectedStandardRow}
+          pickerLinkedName={props.pickerLinkedName}
           pickerTable={props.pickerTable}
           pickerRowsLength={props.pickerRowsLength}
           pickerUseCustomExp={props.pickerUseCustomExp}

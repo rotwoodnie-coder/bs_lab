@@ -7,6 +7,7 @@ import type {
   ExperimentReferenceCitationDraft,
   ExperimentResultEntryDraft,
   ExperimentScientistStoryDraft,
+  ExperimentSecurityDraft,
   ExperimentStepDraft,
 } from "../types";
 import { composeExpPrincipleForDb, composeStepCommentsForDb } from "./exp-editor-text-fences";
@@ -47,10 +48,16 @@ export type BuildV2ExpDraftPutBodyArgs = {
   referenceRichText: string;
   referenceRichEmbeds: RichMediaEmbed[];
   scientistStories: ExperimentScientistStoryDraft[];
+  /** 实验安全标识：用户勾选后存入 exp_security */
+  security: ExperimentSecurityDraft[];
   simulatorUrl: string;
   mainVideoId: string | null;
   mainVideoUrl: string;
   mainVideoEmbeds: RichMediaEmbed[];
+  gradeIds: string[];
+  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  /** 材料图片列表 */
+  materialPics?: Array<{ materialUrl: string; sortOrder?: number }>;
 };
 
 function durationMinToClassHour(durationMin: string): number | null {
@@ -76,17 +83,27 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
     material_name: (m.nameLab ?? "").trim().slice(0, 60) || null,
     is_self: m.libraryMaterialId ? ("n" as const) : ("y" as const),
     material_num: (() => {
+      const v = (m.numValue ?? "").trim();
+      if (v) {
+        const q = Number.parseInt(v, 10);
+        return Number.isFinite(q) ? q : null;
+      }
       const q = Number.parseInt(String(m.quantity ?? "").trim(), 10);
       return Number.isFinite(q) ? q : null;
     })(),
-    material_unit: (m.materialType ?? "").trim().slice(0, 32) || null,
-    material_prop_id: null,
+    material_unit: (m.unitId ?? "").trim().slice(0, 32) || null,
+    material_prop_id: (m.materialPropId ?? "").trim().slice(0, 32) || null,
     material_type_id: null,
     main_pic_url: ((m.thumbnailUrl ?? m.imageUrl ?? "") as string).trim().slice(0, 200) || null,
-    exp_purpose: null,
+    exp_purpose: (m.expPurpose ?? "").trim().slice(0, 200) || null,
     additional_comments: (m.nameHomeSubstitute ?? "").trim().slice(0, 200) || null,
     comments: (m.notes ?? "").trim().slice(0, 200) || null,
     sort_order: idx,
+    security_list: ((m as any).materialSecurityList as Array<{ securityId: string; securityLevel: number | null }> | undefined)
+      ?.map((s) => ({
+        security_id: s.securityId,
+        security_level: s.securityLevel ?? null,
+      })) ?? [],
   }));
   const steps = a.steps.map((s, idx) => ({
     step_name: (s.title ?? "").trim().slice(0, 60) || null,
@@ -112,11 +129,28 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
   }));
   const fileId = (a.mainVideoId ?? "").trim().slice(0, 32) || null;
   const videos = mv ? [{ video_url: mv, sort_order: 0, file_id: fileId }] : [];
+  const security = a.security
+    .filter((s) => s.selected)
+    .map((s, idx) => ({
+      security_id: s.securityId.trim(),
+      security_level: s.securityLevel,
+      sort_order: idx,
+    }));
   const firstScientistStory = a.scientistStories[0]?.storyComments ?? "";
   const simulatorUrl = (a.simulatorUrl ?? "").trim().slice(0, 200);
   const difficultyId = (a.difficultyId ?? "").trim().slice(0, 32);
   const coursebookId = (a.coursebookId ?? "").trim().slice(0, 32);
   const unitId = (a.unitId ?? "").trim().slice(0, 32);
+  const grades = a.gradeIds
+    .map((gid, idx) => ({ grade_id: gid.trim().slice(0, 32), sort_order: idx }))
+    .filter((g) => g.grade_id.length > 0);
+  const referenceVideos = (a.referenceVideos ?? [])
+    .map((rv, idx) => ({ video_url: rv.videoUrl.trim().slice(0, 200) || null, sort_order: rv.sortOrder ?? idx }))
+    .filter((rv) => rv.video_url != null);
+  // 从每个材料中提取图片列表，扁平化为 material_pics
+  const materialPics = (a.materialPics ?? [])
+    .map((mp, idx) => ({ material_url: mp.materialUrl.trim().slice(0, 200) || null, sort_order: mp.sortOrder ?? idx }))
+    .filter((mp) => mp.material_url != null);
 
   return {
     exp_name: (a.expName ?? "").trim().slice(0, 100) || "未命名实验",
@@ -156,5 +190,9 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
     references,
     scientists,
     videos,
+    security,
+    grades,
+    material_pics: materialPics,
+    reference_videos: referenceVideos,
   };
 }

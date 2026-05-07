@@ -11,10 +11,8 @@ import {
   CardTitle,
   Input,
   Label,
-  VideoManagerField,
   type RichMediaEmbed,
   type RichMediaValue,
-  sonnerToast,
 } from "@bs-lab/ui";
 
 import { MediaAssetPickerDialog } from "@/components/business/media/MediaAssetPickerDialog";
@@ -39,38 +37,47 @@ export function EditorExperimentReferencePanel(props: {
   ) => void;
   referenceVideo: string;
   setReferenceVideo: (v: string) => void;
+  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  addReferenceVideo: () => void;
+  removeReferenceVideo: (id: number) => void;
+  setReferenceVideos: (v: Array<{ videoUrl: string; sortOrder?: number }>) => void;
   referenceRichText: string;
   referenceRichEmbeds: RichMediaEmbed[];
   onReferenceRichChange: (next: RichMediaValue) => void;
 }) {
   const [pickerOpen, setPickerOpen] = React.useState(false);
+  const [pickingIndex, setPickingIndex] = React.useState<number | null>(null);
 
-  const applyVideoRegistry = React.useCallback(
+  const openPickerForIndex = React.useCallback((idx: number) => {
+    setPickingIndex(idx);
+    setPickerOpen(true);
+  }, []);
+
+  const handlePick = React.useCallback(
     async (registryId: string) => {
       const url = mediaRegistryStreamUrl(registryId, "view", props.mediaActor);
-      props.setReferenceVideo(url);
+      if (pickingIndex != null && pickingIndex < props.referenceVideos.length) {
+        const next = [...props.referenceVideos];
+        next[pickingIndex] = { ...next[pickingIndex], videoUrl: url };
+        props.setReferenceVideos(next);
+      }
       setPickerOpen(false);
+      setPickingIndex(null);
     },
-    [props],
+    [pickingIndex, props],
   );
 
-  const uploadVideo = React.useCallback(
-    async (file: File) => {
-      let result;
-      try {
-        result = await uploadMediaFileToPlatform(props.mediaActor, file, { kind: "video", title: file.name });
-      } catch {
-        return;
-      }
-      try {
-        await applyVideoRegistry(result.registryId);
-      } catch (error) {
-        sonnerToast.error("上传已成功但预览地址绑定失败", {
-          description: error instanceof Error ? error.message : "未知错误",
-        });
-      }
+  const handleAddFromLibrary = React.useCallback(() => {
+    props.addReferenceVideo();
+    const newIdx = props.referenceVideos.length;
+    openPickerForIndex(newIdx);
+  }, [openPickerForIndex, props]);
+
+  const removeVideo = React.useCallback(
+    (idx: number) => {
+      props.removeReferenceVideo(idx);
     },
-    [applyVideoRegistry, props.mediaActor],
+    [props],
   );
 
   return (
@@ -146,23 +153,81 @@ export function EditorExperimentReferencePanel(props: {
               ))}
             </ul>
           )}
-          <div className="grid gap-2 border-t border-border pt-4">
-            <Label htmlFor="ref-video">参考视频（可选）</Label>
-            <VideoManagerField
-              value={props.referenceVideo}
-              onChange={props.setReferenceVideo}
-              disabled={props.fieldDisabled}
-              onUploadFile={uploadVideo}
-              onOpenLibrary={() => setPickerOpen(true)}
-              libraryPicker={
-                <MediaAssetPickerDialog
-                  open={pickerOpen}
-                  onOpenChange={setPickerOpen}
-                  kind="video"
-                  actor={props.mediaActor}
-                  onPick={applyVideoRegistry}
-                />
-              }
+          {/* 引用视频列表（多视频） */}
+          <div className="grid gap-3 border-t border-border pt-4">
+            <div className="flex items-center justify-between">
+              <Label>引用视频</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={props.fieldDisabled}
+                onClick={handleAddFromLibrary}
+              >
+                新增引用视频
+              </Button>
+            </div>
+            {props.referenceVideos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">暂未添加引用视频。</p>
+            ) : (
+              <ul className="grid gap-3">
+                {props.referenceVideos.map((rv, idx) => (
+                  <li key={`refvid-${idx}`} className="flex items-center gap-3 rounded-lg border border-border bg-muted/10 p-3">
+                    <div className="h-16 w-28 shrink-0 overflow-hidden rounded-md border border-border bg-muted/20">
+                      {rv.videoUrl ? (
+                        <div className="flex h-full w-full items-center justify-center bg-black/5 text-xs text-muted-foreground">
+                          视频 {idx + 1}
+                        </div>
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                          待选择
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-foreground">
+                        {rv.videoUrl ? `视频 ${idx + 1}` : "未选择视频"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {rv.videoUrl ? rv.videoUrl.slice(0, 60) : "请从媒体库选择视频"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={props.fieldDisabled}
+                        onClick={() => openPickerForIndex(idx)}
+                      >
+                        选择
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        disabled={props.fieldDisabled}
+                        onClick={() => removeVideo(idx)}
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <MediaAssetPickerDialog
+              open={pickerOpen}
+              onOpenChange={(open) => {
+                setPickerOpen(open);
+                if (!open) setPickingIndex(null);
+              }}
+              kind="video"
+              actor={props.mediaActor}
+              title="选择引用视频"
+              description="从媒体中台已登记素材中选择引用视频。"
+              onPick={handlePick}
             />
           </div>
           <div className="grid gap-2 border-t border-border pt-4">

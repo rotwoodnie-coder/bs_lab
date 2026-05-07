@@ -32,9 +32,9 @@ export function EditorTeachingContextSection(props: {
   teachingContextEmbeds: RichMediaEmbed[];
   onTeachingContextRichChange: (next: RichMediaValue) => void;
   coursebookId: string;
-  setCoursebookId: React.Dispatch<React.SetStateAction<string>>;
+  setCoursebookId: (v: string) => void;
   unitId: string;
-  setUnitId: React.Dispatch<React.SetStateAction<string>>;
+  setUnitId: (v: string) => void;
 }) {
   const mergeSourceText = React.useMemo(
     () =>

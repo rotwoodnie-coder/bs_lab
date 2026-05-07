@@ -11,7 +11,7 @@
  Target Server Version : 90001
  File Encoding         : 65001
 
- Date: 06/05/2026 21:31:08
+ Date: 07/05/2026 17:23:27
 */
 
 SET NAMES utf8mb4;
@@ -106,7 +106,7 @@ CREATE TABLE `data_file`  (
   `content_sha256` char(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '内容 SHA-256(hex)',
   `is_hidden_from_gallery` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否在媒体库列表中隐藏（1=隐藏，0=展示）',
   `biz_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '业务类型：avatar（头像）、media（媒体素材）、document（文档），空表示未归类',
-  `create_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
   `parent_file_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '父文件ID（自引用），表达从属关系',
   `relation_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '关系类型：logo（封面）、transcoded（转码）等',
@@ -369,6 +369,7 @@ CREATE TABLE `exp_arbitration_like`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_arb_like_exp`(`exp_id` ASC) USING BTREE,
   INDEX `idx_exp_arb_like_user`(`user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_exp_arb_like_exp_user`(`exp_id` ASC, `user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_arb_like_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_arb_like_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁支持记录' ROW_FORMAT = DYNAMIC;
@@ -386,6 +387,7 @@ CREATE TABLE `exp_arbitration_notlike`  (
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_arb_notlike_exp`(`exp_id` ASC) USING BTREE,
   INDEX `idx_exp_arb_notlike_user`(`user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_exp_arb_notlike_exp_user`(`exp_id` ASC, `user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_arb_notlike_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_arb_notlike_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '仲裁反对记录（仅实验小法庭中展示，不可删除）' ROW_FORMAT = DYNAMIC;
@@ -396,13 +398,13 @@ CREATE TABLE `exp_arbitration_notlike`  (
 DROP TABLE IF EXISTS `exp_grade`;
 CREATE TABLE `exp_grade`  (
   `seq_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '主键id',
-  `lib_exp_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '试验id',
+  `exp_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '实验 ID（关联 exp_msg）',
   `grade_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '年级id',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
   PRIMARY KEY (`seq_id`) USING BTREE,
-  INDEX `idx_exp_grade_exp`(`lib_exp_id` ASC) USING BTREE,
+  INDEX `idx_exp_grade_exp`(`exp_id` ASC) USING BTREE,
   INDEX `idx_exp_grade_grade`(`grade_id` ASC) USING BTREE,
-  CONSTRAINT `fk_exp_grade_exp` FOREIGN KEY (`lib_exp_id`) REFERENCES `exp_library` (`lib_exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT `fk_exp_grade_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_grade_grade` FOREIGN KEY (`grade_id`) REFERENCES `data_school_grade` (`grade_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '试验适用年级' ROW_FORMAT = DYNAMIC;
 
@@ -425,6 +427,7 @@ CREATE TABLE `exp_homework`  (
   INDEX `idx_exp_homework_exp`(`exp_id` ASC) USING BTREE,
   INDEX `idx_exp_homework_teacher`(`teacher_user_id` ASC) USING BTREE,
   INDEX `idx_exp_homework_class`(`class_id` ASC) USING BTREE,
+  INDEX `idx_exp_homework_class_time`(`class_id` ASC, `create_time` ASC) USING BTREE,
   CONSTRAINT `fk_exp_homework_class` FOREIGN KEY (`class_id`) REFERENCES `sys_org` (`org_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_homework_exp` FOREIGN KEY (`exp_id`) REFERENCES `exp_msg` (`exp_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_homework_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
@@ -452,6 +455,7 @@ CREATE TABLE `exp_homework_student`  (
   INDEX `idx_exp_hw_student_exp`(`exp_id` ASC) USING BTREE,
   INDEX `idx_exp_hw_student_student`(`student_user_id` ASC) USING BTREE,
   INDEX `fk_exp_hw_student_teacher`(`teacher_user_id` ASC) USING BTREE,
+  UNIQUE INDEX `uk_exp_hw_student_work_stu`(`work_id` ASC, `student_user_id` ASC) USING BTREE,
   CONSTRAINT `fk_exp_hw_student_student` FOREIGN KEY (`student_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_hw_student_teacher` FOREIGN KEY (`teacher_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_hw_student_work` FOREIGN KEY (`work_id`) REFERENCES `exp_homework` (`work_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
@@ -567,6 +571,7 @@ CREATE TABLE `exp_material_security`  (
   `material_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '材料主库id',
   `security_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '安全性id',
   `sort_order` int NULL DEFAULT NULL COMMENT '排序',
+  `security_level` int NULL DEFAULT NULL COMMENT '实验场景下的危险等级，覆盖字典默认值（数值越低越危险）',
   `create_time` datetime NULL DEFAULT NULL COMMENT '创建时间',
   PRIMARY KEY (`seq_id`) USING BTREE,
   INDEX `idx_exp_material_sec_material`(`exp_material_id` ASC) USING BTREE,
@@ -585,7 +590,7 @@ CREATE TABLE `exp_msg`  (
   `choose_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '必做/选做：y 必做，n 选做',
   `subject_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '学科id',
   `school_level_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '学段id',
-  `grade_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '年级id',
+  `grade_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '年级\r\n如果只有一个就直接采用这里的值，多个需要查询exp_grade表来支持对应多个年级',
   `difficulty_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '难度id',
   `exp_principle` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '试验原理（富文本）',
   `exp_caution` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '注意事项',
@@ -622,6 +627,8 @@ CREATE TABLE `exp_msg`  (
   INDEX `idx_exp_msg_create_user`(`create_user_id` ASC) USING BTREE,
   INDEX `idx_exp_msg_create_user_type`(`create_user_type` ASC) USING BTREE,
   INDEX `idx_exp_msg_status`(`status` ASC) USING BTREE,
+  INDEX `idx_exp_msg_status_time`(`status` ASC, `create_time` ASC) USING BTREE,
+  INDEX `idx_exp_msg_subject_grade_status`(`subject_id` ASC, `grade_id` ASC, `status` ASC) USING BTREE,
   CONSTRAINT `fk_exp_msg_coursebook` FOREIGN KEY (`coursebook_id`) REFERENCES `data_coursebook` (`coursebook_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_msg_create_user` FOREIGN KEY (`create_user_id`) REFERENCES `sys_user` (`user_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT `fk_exp_msg_difficulty` FOREIGN KEY (`difficulty_id`) REFERENCES `data_exp_difficulty` (`difficulty_id`) ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -933,7 +940,7 @@ CREATE TABLE `migration_error_log`  (
   `error_msg` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL,
   `created_at` datetime NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Dynamic;
 
 -- ----------------------------
 -- Table structure for migration_id_map
@@ -1113,7 +1120,7 @@ CREATE TABLE `subject_group`  (
   `subject_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '所属学科ID',
   `owner_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '负责人用户ID (所有者)',
   `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '原始创建人ID',
-  `create_time` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '创建时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`group_id`) USING BTREE,
   INDEX `idx_owner`(`owner_id` ASC) USING BTREE,
   INDEX `idx_subject`(`subject_id` ASC) USING BTREE,
@@ -1131,11 +1138,12 @@ CREATE TABLE `subject_group_member`  (
   `user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户ID',
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'JOINED' COMMENT '成员状态: JOINED-已加入, QUITTED-已退出',
   `create_user_id` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '添加人ID',
-  `create_time` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '加入时间',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
   PRIMARY KEY (`seq_id`) USING BTREE,
   UNIQUE INDEX `uk_group_user`(`group_id` ASC, `user_id` ASC) USING BTREE,
   INDEX `idx_group`(`group_id` ASC) USING BTREE,
-  INDEX `idx_user`(`user_id` ASC) USING BTREE
+  INDEX `idx_user`(`user_id` ASC) USING BTREE,
+  CONSTRAINT `fk_subject_group_member_group` FOREIGN KEY (`group_id`) REFERENCES `subject_group` (`group_id`) ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '组成员关系表' ROW_FORMAT = Dynamic;
 
 -- ----------------------------

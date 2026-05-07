@@ -9,6 +9,8 @@ export interface ExperimentFillPayload {
   subjectId?: string;
   schoolLevelId?: string;
   gradeId?: string;
+  selectedGradeCodes?: string[];
+  gradeIds?: string[];
   chooseType?: "y" | "n" | null;
   expTaskType?: "hw" | "tk" | "self" | null;
   difficultyId?: string;

@@ -124,7 +124,10 @@ export function useExperimentalMaterialsApiPage(role: UserRole, orgId: string, h
     if (!hydrated) return;
     void fetchExperimentalMaterialDimensions(actor)
       .then(setDimensions)
-      .catch(() => setDimensions(null));
+      .catch((err) => {
+        console.warn("[ExperimentalMaterials] 维表 API 请求失败，将使用本地兜底数据。错误：", err);
+        setDimensions(null);
+      });
   }, [actor, hydrated]);
 
   const toolbarTypeOptions = React.useMemo(() => {

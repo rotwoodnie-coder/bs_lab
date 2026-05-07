@@ -54,7 +54,8 @@ export function v2ExpMsgItemToMgmtRow(
     lifecycleStatus: dbStatusToLifecycle(item.status),
     rejectReason:
       item.status === "n" ? (item.rejectReason?.trim() || item.confirmComments?.trim() || undefined) : undefined,
-    coverVideoUrl: item.coverVideoUrl?.trim() || null,
+    // 封面优先级：exp_pic.pic_url（实验图片）> exp_video.video_url（实验视频）
+    coverVideoUrl: item.coverPicUrl?.trim() || item.coverVideoUrl?.trim() || null,
     durationHint: durationHintFromClassHour(item.classHour),
     sourceType: 'msg',
     publishStatus: item.status,

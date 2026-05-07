@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type { RichMediaEmbed, RichMediaValue } from "@bs-lab/ui";
 
 import type { CoreApiActor } from "@/lib/core-api-shared";
-import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
+import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail, V2ExpMsgSecurityRow } from "@/lib/v2/v2-exp-api";
 import { createV2Exp, putV2ExpDraft, patchV2ExpMsgReview, publishCourseTask } from "@/lib/v2/v2-exp-api";
 import { syncExperimentMaterialLinksApi } from "@/lib/experimental-materials-api";
 import { buildMaterialsApiActor } from "@/lib/materials-api-actor";
@@ -16,6 +16,7 @@ import type {
   ExperimentReferenceCitationDraft,
   ExperimentResultEntryDraft,
   ExperimentScientistStoryDraft,
+  ExperimentSecurityDraft,
   ExperimentStepDraft,
   PhaseKey,
 } from "../types";
@@ -103,7 +104,10 @@ export interface EditorStoreState {
 
   // 视频
   mainVideoUrl: string;
+  mainVideoId: string | null;
   mainVideoEmbeds: RichMediaEmbed[];
+  gradeIds: string[];
+  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
 
   // 子表数组
   materials: ExperimentMaterialDraft[];
@@ -111,6 +115,9 @@ export interface EditorStoreState {
   resultEntries: ExperimentResultEntryDraft[];
   referenceCitations: ExperimentReferenceCitationDraft[];
   scientistStories: ExperimentScientistStoryDraft[];
+
+  // 安全标识（从材料的安全标签勾选，存到 exp_security）
+  securityDrafts: ExperimentSecurityDraft[];
 
   // UI 状态
   phase: PhaseKey;
@@ -154,9 +161,17 @@ export interface EditorStoreActions {
   addReferenceCitation: () => void;
   removeReferenceCitation: (id: string) => void;
   updateReferenceCitation: (id: string, field: "citedExperimentTitle" | "sourceOrLink" | "note", value: string) => void;
+  addReferenceVideo: () => void;
+  removeReferenceVideo: (id: number) => void;
   addScientistStory: () => void;
   removeScientistStory: (id: string) => void;
   updateScientistStory: (id: string, field: "scientistName" | "storyName" | "storyComments", value: string) => void;
+
+  // 安全标识
+  setSecurityDrafts: (drafts: ExperimentSecurityDraft[]) => void;
+  toggleSecurity: (securityId: string) => void;
+  /** 根据材料安全标签候选项 + 已存选择，重建 securityDrafts */
+  reconcileSecurityDrafts: (materialSecurityIds: string[], securityDict: V2DictItem[], existingSecurity: V2ExpMsgSecurityRow[]) => void;
 
   // 生命周期
   initialize: (opts: {
@@ -223,13 +238,17 @@ const initialState: EditorStoreState = {
   referenceRichEmbeds: [],
 
   mainVideoUrl: "",
+  mainVideoId: null,
   mainVideoEmbeds: [],
+  gradeIds: [],
+  referenceVideos: [],
 
   materials: [DEFAULT_MATERIAL],
   steps: [DEFAULT_STEP],
   resultEntries: [DEFAULT_RESULT],
   referenceCitations: [],
   scientistStories: [],
+  securityDrafts: [],
 
   phase: "senior",
   discipline: "physics",
@@ -382,6 +401,14 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     set((s) => ({
       referenceCitations: s.referenceCitations.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
     })),
+  addReferenceVideo: () =>
+    set((s) => ({
+      referenceVideos: [...s.referenceVideos, { videoUrl: "", sortOrder: s.referenceVideos.length }],
+    })),
+  removeReferenceVideo: (id) =>
+    set((s) => ({
+      referenceVideos: s.referenceVideos.filter((_, i) => i !== id),
+    })),
 
   // ── 科学家故事子表 ──
   addScientistStory: () =>
@@ -399,6 +426,31 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
     set((s) => ({
       scientistStories: s.scientistStories.map((sci) => (sci.id === id ? { ...sci, [field]: value } : sci)),
     })),
+
+  // ── 安全标识 ──
+  setSecurityDrafts: (drafts) => set({ securityDrafts: drafts }),
+  toggleSecurity: (securityId) =>
+    set((s) => ({
+      securityDrafts: s.securityDrafts.map((d) =>
+        d.securityId === securityId ? { ...d, selected: !d.selected } : d,
+      ),
+    })),
+  reconcileSecurityDrafts: (materialSecurityIds, securityDict, existingSecurity) => {
+    const existingSet = new Set(existingSecurity.map((s) => s.securityId));
+    const drafts: ExperimentSecurityDraft[] = materialSecurityIds
+      .map((sid) => {
+        const dict = securityDict.find((d) => d.id === sid);
+        if (!dict) return null;
+        return {
+          securityId: sid,
+          securityName: dict.name,
+          securityLevel: dict.securityLevel ?? null,
+          selected: existingSet.has(sid),
+        };
+      })
+      .filter((d): d is ExperimentSecurityDraft => d !== null);
+    set({ securityDrafts: drafts });
+  },
 
   // ── 初始化 ──
   initialize: (opts) =>
@@ -434,6 +486,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       simulatorUrl: p.simulatorUrl,
       difficultyId: p.difficultyId,
       mainVideoUrl: p.mainVideoUrl,
+      mainVideoId: p.mainVideoId,
       curriculum: p.curriculum,
       teachingContextContent: p.teachingContextContent,
       teachingContextEmbeds: p.teachingContextEmbeds,
@@ -453,6 +506,9 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       creatorName: p.creatorName,
       coursebookId: p.coursebookId,
       unitId: p.unitId,
+      // 确保 gradeIds 与 selectedGradeCodes 同步
+      gradeIds: p.gradeIds?.length ? p.gradeIds : (p.selectedGradeCodes ?? []),
+      referenceVideos: p.referenceVideos,
       saveStatus: "idle",
       errorMessage: null,
     });
@@ -510,7 +566,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
         durationMin: s.durationMin,
         simulatorUrl: s.simulatorUrl,
         difficultyId: s.difficultyId,
-        mainVideoId: null,
+        mainVideoId: s.mainVideoId,
         mainVideoUrl: s.mainVideoUrl,
         mainVideoEmbeds: s.mainVideoEmbeds,
         materials: s.materials,
@@ -520,6 +576,11 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
         referenceRichText: s.referenceRichText,
         referenceRichEmbeds: s.referenceRichEmbeds,
         scientistStories: s.scientistStories,
+        security: s.securityDrafts,
+        gradeIds: s.gradeIds,
+        referenceVideos: s.referenceVideos,
+        // 从所有材料的 materialPics 平铺提取
+        materialPics: s.materials.flatMap((m) => (m as any).materialPics?.map((p: any) => ({ materialUrl: p.materialUrl ?? "", sortOrder: p.sortOrder ?? 0 })) ?? []),
       });
 
       if (s.expId) {

@@ -83,6 +83,11 @@ export function canManageExperimentShelfWorkflow(user: AuthUser | null | undefin
   return can(user, PERMISSIONS.EXP_PUBLISH);
 }
 
+/** 实验课程管理页是否可编辑/删除（与后端 DELETE 路由权限一致：EXP_EDIT || EXP_DELETE） */
+export function canMutateExperimentInManage(user: AuthUser | null | undefined): boolean {
+  return can(user, PERMISSIONS.EXP_EDIT) || can(user, PERMISSIONS.EXP_DELETE);
+}
+
 /** 教材书架写入（与后端 `edu-textbooks:write` 对齐）：教研员、区级管理员、超级管理员 */
 export function canWriteEduTextbooks(user: AuthUser | null | undefined): boolean {
   return can(user, PERMISSIONS.EXP_EDIT) || can(user, PERMISSIONS.EXP_PUBLISH);
