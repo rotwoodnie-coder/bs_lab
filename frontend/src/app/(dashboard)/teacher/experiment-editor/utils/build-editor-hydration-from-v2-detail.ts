@@ -58,7 +58,7 @@ export type EditorHydrationFromV2Payload = {
   /** 从 exp_material_security 聚合的唯一 security_id 列表（供前端勾选候选） */
   materialSecurityIds: string[];
   gradeIds: string[];
-  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  referenceVideos: Array<{ seqId: string; videoUrl: string; fileId?: string; sortOrder: number }>;
   creatorName: string;
   coursebookId: string;
   unitId: string;
@@ -240,8 +240,10 @@ export function buildEditorHydrationFromV2Detail(
     materialSecurityIds: (detail as V2ExpMsgDetail & { materialSecurityIds?: string[] }).materialSecurityIds ?? [],
     gradeIds: detail.gradeIds ?? [],
     referenceVideos: (detail.referenceVideos ?? []).map((rv) => ({
+      seqId: rv.seqId || `refvid-${Date.now()}`,
       videoUrl: (rv.videoUrl ?? "").trim(),
-      sortOrder: rv.sortOrder ?? undefined,
+      fileId: rv.fileId ?? undefined,
+      sortOrder: rv.sortOrder ?? 0,
     })),
     creatorName: (detail.displayOwnerName ?? ctx.userName).trim() || ctx.userName,
     coursebookId: (detail.coursebookId ?? "").trim(),

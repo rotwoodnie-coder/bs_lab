@@ -80,7 +80,8 @@ export function EditorExperimentReferencePanel(props: {
 
   const removeVideo = React.useCallback(
     (idx: number) => {
-      props.removeReferenceVideo(idx);
+      const vid = props.referenceVideos[idx];
+      if (vid) props.removeReferenceVideo(vid.id);
     },
     [props],
   );

@@ -44,10 +44,10 @@ export function EditorTailSections(props: {
   ) => void;
   referenceVideo: string;
   setReferenceVideo: (v: string) => void;
-  referenceVideos: Array<{ videoUrl: string; sortOrder?: number }>;
+  referenceVideos: Array<{ id: string; videoUrl: string; fileId: string | null; sortOrder: number }>;
   addReferenceVideo: () => void;
-  removeReferenceVideo: (id: number) => void;
-  setReferenceVideos: (v: Array<{ videoUrl: string; sortOrder?: number }>) => void;
+  removeReferenceVideo: (id: string) => void;
+  setReferenceVideos: (v: Array<{ id: string; videoUrl: string; fileId: string | null; sortOrder: number }>) => void;
   referenceRichText: string;
   referenceRichEmbeds: import("@bs-lab/ui").RichMediaEmbed[];
   onReferenceRichChange: (next: RichMediaValue) => void;

@@ -26,7 +26,7 @@ export default function TeacherExperimentEditorContainer() {
     win.store = useEditorStore;
 
     const timer = window.setTimeout(() => {
-      const currentStore = (window as unknown as { store?: typeof useEditorStore }).store;
+      const currentStore = (window as unknown as { store?: typeof useEditorStore & { __debugSetStatePatched?: boolean } }).store;
       if (!currentStore || currentStore.__debugSetStatePatched) return;
       if (typeof currentStore.setState !== "function" || typeof currentStore.getState !== "function") {
         console.warn("store monitor skipped: invalid store object", currentStore);
@@ -43,8 +43,8 @@ export default function TeacherExperimentEditorContainer() {
         count += 1;
         const prev = currentStore.getState();
         const next = typeof partial === "function" ? partial(prev) : partial;
-        const changedKeys = Object.keys(next as Record<string, unknown>).filter(
-          (key) => (next as Record<string, unknown>)[key] !== (prev as Record<string, unknown>)[key],
+        const changedKeys = Object.keys(next as unknown as Record<string, unknown>).filter(
+          (key) => (next as unknown as Record<string, unknown>)[key] !== (prev as unknown as Record<string, unknown>)[key],
         );
         if (changedKeys.length === 0) {
           console.warn(`[store:${count}] no actual changes`, next);
@@ -58,7 +58,7 @@ export default function TeacherExperimentEditorContainer() {
           console.error("store update loop suspected, stopping after 30 calls");
           throw new Error("Infinite loop detected");
         }
-        return origSetState(partial, replace);
+        return origSetState(partial, replace as false | undefined);
       }) as typeof currentStore.setState;
       console.log("✅ store monitor armed");
     }, 100);
