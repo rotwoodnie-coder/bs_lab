@@ -33,6 +33,7 @@ import { routeGroup } from "./routes/group.ts";
 import { routeV2TeacherClassConfig } from "./routes/v2-teacher-class-config.ts";
 import { routeV2Review } from "./routes/v2-review.ts";
 import { routeV2Version } from "./routes/v2-version.ts";
+import { routeV2Ai } from "./routes/v2-ai.ts";
 import { parseCookies, verifyV2AccessToken } from "../lib/auth/v2-session.ts";
 import { deepPresignResponse } from "../lib/presign-response.ts";
 
@@ -142,6 +143,7 @@ const routes = [
   routeV2TeacherClassConfig,
   routeV2Review,
   routeV2Version,
+  routeV2Ai,
 ];
 
 createServer(async (req, res) => {

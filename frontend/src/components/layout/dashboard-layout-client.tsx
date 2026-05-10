@@ -17,11 +17,12 @@ import {
   DropdownMenuTrigger,
   sonnerToast,
 } from "@bs-lab/ui";
-import { Bell, Bug, FlaskConical, Link as LinkIcon, MessageSquarePlus, Sparkles } from "@bs-lab/ui/icons";
+import { Bell, Bot, Bug, FlaskConical, Link as LinkIcon, MessageSquarePlus, Sparkles } from "@bs-lab/ui/icons";
 
 import { AppShell } from "@/components/layout/app-shell";
 import type { AppShellSidebarContext } from "@/components/layout/app-shell/types";
 import { FeedbackSubmitDialog } from "@/components/business/feedback/feedback-submit-dialog";
+import { AIAssistantPanel } from "@/components/ai-assistant-panel";
 import { useResourceCenterPolicy } from "@/components/layout/resource-center-policy-context";
 import { DashboardCommandPalette } from "@/components/layout/dashboard-command-palette";
 import { useAppMode } from "@/context/app-mode-context";
@@ -153,6 +154,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const [switching, setSwitching] = React.useState(false);
   const [parentBindingApproved, setParentBindingApproved] = React.useState(false);
   const [feedbackOpen, setFeedbackOpen] = React.useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = React.useState(false);
 
   const pathOnly = pathname.split("?")[0] || pathname;
   /** `useSearchParams()` 返回对象引用可能每帧变化，勿直接放入 effect 依赖，否则门户路由守卫会高频重跑。 */
@@ -534,8 +536,17 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* 浮动 Bug 上报按钮 */}
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* 浮动操作按钮组 */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+        <Button
+          size="sm"
+          className="gap-1.5 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+          onClick={() => setAiPanelOpen(true)}
+          aria-label="AI 助教"
+        >
+          <Bot className="size-3.5" />
+          <span className="text-xs font-medium">AI 助教</span>
+        </Button>
         <Button
           size="sm"
           className="gap-1.5 rounded-full bg-foreground text-background shadow-lg hover:bg-foreground/90"
@@ -547,6 +558,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         </Button>
       </div>
 
+      <AIAssistantPanel open={aiPanelOpen} onOpenChange={setAiPanelOpen} />
       <FeedbackSubmitDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </AppShell>
   );
