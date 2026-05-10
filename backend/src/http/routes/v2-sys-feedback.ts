@@ -115,8 +115,8 @@ export async function routeV2SysFeedback(req: Request): Promise<Response> {
       const file = formData.get("file") as File | null;
       if (!file) return fail("缺少 file 字段", 400);
 
-      if (file.size > 10 * 1024 * 1024) {
-        return fail("图片大小不能超过 10MB", 400);
+      if (file.size > 200 * 1024 * 1024) {
+        return fail("图片大小不能超过 200MB", 400);
       }
 
       const buffer = Buffer.from(await file.arrayBuffer());

@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@bs-lab/ui/react-table";
-import { Star, StarOff } from "lucide-react";
+import { Star, StarOff, Trash2 } from "lucide-react";
 
 import type { ExperimentalMaterialsViewMode } from "../page.types";
 import { ExperimentalMaterialsViewToggle } from "./ExperimentalMaterialsViewToggle";
@@ -222,6 +222,18 @@ export function ExperimentalMaterialsTableView(props: {
                   ) : (
                     <StarOff className="size-4 text-muted-foreground" />
                   )}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-md text-destructive hover:text-destructive"
+                  disabled={!props.canMaintain}
+                  onClick={() => props.onDelete(row.original)}
+                  aria-label="删除材料"
+                >
+                  <Trash2 className="size-4" />
+                  删除
                 </Button>
               </>
             )}

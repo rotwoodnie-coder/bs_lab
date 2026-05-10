@@ -15,6 +15,7 @@ import { V2ApiServiceError } from "@/lib/v2/apiService";
 import type { CurriculumStandardsStore } from "@/types/curriculum-standard";
 import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
 import { applyAutofillToForm } from "@/lib/experiment-autofill";
+import { resolveExpTaxonomyIds } from "../utils/resolve-exp-taxonomy-ids";
 
 import { useEditorStore } from "./use-editor-store";
 import { EDITOR_ANCHORS, getRolePermissions, phaseLabelOf } from "./editor-bootstrap-utils";
@@ -487,16 +488,56 @@ export function useEditorBootstrap() {
     [store, v2Peer],
   );
 
+  const buildLinkedExperimentAnnouncement = React.useCallback(
+    (input: { title: string; phase?: string; discipline?: string; gradeLabels?: string[] }) => {
+      const parts = [
+        input.title.trim(),
+        input.phase?.trim(),
+        input.discipline?.trim(),
+        input.gradeLabels?.length ? input.gradeLabels.join("、") : "",
+      ].filter((item) => item && item.length > 0);
+      return `关联实验：${parts.join(" · ")}`;
+    },
+    [],
+  );
+
   const confirmLinkedExperiment = React.useCallback(
-    (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => {
+    (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string; phase?: EducationPhase | null; discipline?: SubjectDiscipline | null; gradeCodes?: string[] }) => {
       const id = meta.expId?.trim();
       if (!id) return;
-      const rowName = meta.expName?.trim() || v2Peer.peerRows.find((r) => r.id === id)?.title?.trim();
+      const row = v2Peer.peerRows.find((r) => r.id === id) ?? null;
+      const rowName = meta.expName?.trim() || row?.title?.trim();
+      const phase = meta.phase ?? row?.phase ?? null;
+      const discipline = meta.discipline ?? row?.discipline ?? null;
+      const gradeCodes = meta.gradeCodes?.length ? meta.gradeCodes : row?.gradeCodes ?? [];
+
       store.setField("selectedStandardId", id);
       setLinkedStandardName(rowName || id);
       store.setField("useCustomExperiment", false);
+      if (rowName) store.setField("expName", rowName);
+      if (phase) store.setField("phase", phase);
+      if (discipline) store.setField("discipline", discipline);
+      store.setField("selectedGradeCodes", gradeCodes);
 
-      // 判断用户是否已有编辑内容：如果已有非默认子表或非空主表字段，使用 merge 保留现有编辑
+      const resolved = resolveExpTaxonomyIds({
+        disciplineLabel: row?.disciplineLabel?.trim() || row?.subjectLabel?.trim() || discipline || "",
+        selectedGradeCodes: gradeCodes,
+        gradeOptions,
+        subjects: v2Peer.subjects,
+        grades: v2Peer.grades,
+      });
+      if (resolved.subject_id) store.setField("subjectId", resolved.subject_id);
+      if (resolved.school_level_id) store.setField("schoolLevelId", resolved.school_level_id);
+      if (resolved.grade_id) store.setField("gradeId", resolved.grade_id);
+
+      const announcement = buildLinkedExperimentAnnouncement({
+        title: rowName || id,
+        phase: row?.phaseLabel ?? undefined,
+        discipline: row?.disciplineLabel ?? row?.subjectLabel ?? undefined,
+        gradeLabels: gradeCodes.map((code) => listGradeOptions.find((g) => g.code === code)?.label ?? code),
+      });
+      store.setField("curriculum", announcement);
+
       const hasUserEdits =
         store.steps.length > 1 ||
         store.materials.length > 1 ||
@@ -511,7 +552,7 @@ export function useEditorBootstrap() {
       sonnerToast.success("已关联实验", { description: rowName || id });
       autoFillFromLinkedExperiment(strategy, id);
     },
-    [v2Peer.peerRows, autoFillFromLinkedExperiment, store],
+    [autoFillFromLinkedExperiment, buildLinkedExperimentAnnouncement, gradeOptions, listGradeOptions, store, v2Peer.grades, v2Peer.peerRows, v2Peer.subjects],
   );
 
   // ── 完成度计算 ──

@@ -1,9 +1,12 @@
 import type { PoolConnection, RowDataPacket, ResultSetHeader } from "mysql2/promise";
 import { randomBytes } from "node:crypto";
 import { getMysqlPool } from "../infrastructure/mysql/mysql-client.ts";
-import { resolveVarchar32PrimaryKey } from "../infrastructure/ids/identifiable-varchar32.ts";
+import {
+  isValidMysqlVarchar32Id,
+  allocateUniqueMysqlVarchar32Id,
+} from "../infrastructure/ids/identifiable-varchar32.ts";
 import { sanitizeAndNormalizeRichText } from "../utils/text.ts";
-import { presignPublicUrl, tryStorageKeyFromFileUrl } from "../infrastructure/storage/s3-storage.ts";
+import { presignPublicUrl } from "../infrastructure/storage/s3-storage.ts";
 import type {
   MaterialMsgRecord,
   MaterialPicRecord,
@@ -34,12 +37,9 @@ function normalizeText(input: unknown, maxLen: number, code: MaterialServiceErro
   return text;
 }
 
+/** 将 S3 key 或代理路径转为浏览器可访问的 URL；presignPublicUrl 已全覆盖同源代理路径与 S3 key */
 async function materializeMaterialUrl(rawUrl: string | null): Promise<string | null> {
-  const raw = rawUrl?.trim();
-  if (!raw) return null;
-  const storageKey = tryStorageKeyFromFileUrl(raw);
-  if (!storageKey) return raw;
-  return presignPublicUrl(storageKey, 3600);
+  return presignPublicUrl(rawUrl, 3600);
 }
 
 function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
@@ -209,12 +209,19 @@ export async function saveMaterial(input: SaveMaterialInput, actorId?: string): 
 
     const materialName = normalizeText(input.materialName, 120, "MATERIAL_NAME_EMPTY", "物料名称不能为空");
     if (!materialName) throw new MaterialServiceError("MATERIAL_NAME_EMPTY", "物料名称不能为空");
-    const materialId = await resolveVarchar32PrimaryKey(conn, {
-      table: "material_msg",
-      column: "material_id",
-      label: materialName,
-      explicit: input.materialId,
-    });
+    // 注：更新时 explicit ID 已存在库中，跳过唯一性检查，仅验证格式
+    const explicitId = input.materialId?.trim();
+    let materialId: string;
+    if (explicitId) {
+      if (!isValidMysqlVarchar32Id(explicitId)) throw new MaterialServiceError("INTERNAL_ERROR", "材料 ID 格式无效");
+      materialId = explicitId;
+    } else {
+      materialId = await allocateUniqueMysqlVarchar32Id(conn, {
+        table: "material_msg",
+        column: "material_id",
+        label: materialName,
+      });
+    }
     const ownerUserId = input.ownerUserId ?? actorId ?? null;
 
     const existing = await conn.query<RowDataPacket[]>(

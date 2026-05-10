@@ -61,7 +61,7 @@ type Props = {
   setSelectedStandardId: (v: string | null) => void;
   setUseCustomExperiment: (v: boolean) => void;
   setCurriculum: (v: string) => void;
-  onConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => void | Promise<void>;
+  onConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string; phase?: EducationPhase | null; discipline?: SubjectDiscipline | null; gradeCodes?: string[] }) => void | Promise<void>;
   setPhase: (v: EducationPhase) => void;
   setDiscipline: (v: SubjectDiscipline) => void;
   setSelectedGradeCodes: React.Dispatch<React.SetStateAction<string[]>>;

@@ -39,7 +39,7 @@ type Props = {
   onPickerSetSelectedStandardId: (v: string | null) => void;
   onPickerSetUseCustomExp: (v: boolean) => void;
   onPickerSetCurriculum: (v: string) => void;
-  onPickerConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => void | Promise<void>;
+  onPickerConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string; phase?: EducationPhase | null; discipline?: SubjectDiscipline | null; gradeCodes?: string[] }) => void | Promise<void>;
   onPickerSetLinkedName?: (v: string | null) => void;
   onAutoFillBasic?: () => void | Promise<void>;
   onAutoFillAll?: () => void | Promise<void>;
@@ -157,14 +157,7 @@ export function EditorExpPickerBar(props: Props) {
         setDiscipline={props.onPickerSetDiscipline}
         setSelectedGradeCodes={props.onPickerSetSelectedGradeCodes}
       />
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="secondary" onClick={props.onAutoFillBasic}>
-          自动填写基础信息
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={props.onAutoFillAll}>
-          自动填写全部内容
-        </Button>
-      </div>
+
     </div>
   );
 }

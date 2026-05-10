@@ -87,7 +87,7 @@ export function EditorBasicSection(props: {
   onPickerSetSelectedStandardId: (v: string | null) => void;
   onPickerSetUseCustomExp: (v: boolean) => void;
   onPickerSetCurriculum: (v: string) => void;
-  onPickerConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string }) => void | Promise<void>;
+  onPickerConfirm: (meta: { expId: string; expName?: string; sourceType?: 'library' | 'msg'; publishStatus?: string | null; libraryId?: string; phase?: EducationPhase | null; discipline?: SubjectDiscipline | null; gradeCodes?: string[] }) => void | Promise<void>;
   onAutoFillBasic?: () => void | Promise<void>;
   onAutoFillAll?: () => void | Promise<void>;
   onPickerSetPhase: (v: EducationPhase) => void;
@@ -125,22 +125,12 @@ export function EditorBasicSection(props: {
     () => (props.gradeOptions ?? []) as Array<{ id: string; name: string; levelId?: string | null }>,
     [props.gradeOptions],
   );
-  const [localSubjectId, setLocalSubjectId] = React.useState<string | null>(props.subjectId);
-  const [localSchoolLevelId, setLocalSchoolLevelId] = React.useState<string | null>(props.schoolLevelId);
-  const initExpIdRef = React.useRef<string | null>(props.expId);
-  React.useEffect(() => {
-    if (initExpIdRef.current === props.expId) return;
-    initExpIdRef.current = props.expId;
-    setLocalSubjectId(props.subjectId);
-    setLocalSchoolLevelId(props.schoolLevelId);
-  }, [props.expId, props.schoolLevelId, props.subjectId]);
-  const subjectOptionValue = React.useMemo(() => (localSubjectId?.trim() ? localSubjectId.trim() : "__none__"), [localSubjectId]);
-  const phaseOptionValue = React.useMemo(() => (localSchoolLevelId?.trim() ? localSchoolLevelId.trim() : "__none__"), [localSchoolLevelId]);
+  const subjectOptionValue = React.useMemo(() => (props.subjectId?.trim() ? props.subjectId.trim() : "__none__"), [props.subjectId]);
+  const phaseOptionValue = React.useMemo(() => (props.schoolLevelId?.trim() ? props.schoolLevelId.trim() : "__none__"), [props.schoolLevelId]);
 
   const onPickSubjectId = React.useCallback(
     (next: string) => {
       const subjectId = next === "__none__" ? null : next;
-      setLocalSubjectId(subjectId);
       if (subjectId !== props.subjectId) props.setSubjectId(subjectId);
       props.setSelectedGradeCodes((prev) => {
         const allowed = new Set(gradeOptions.map((g) => g.id));
@@ -155,7 +145,6 @@ export function EditorBasicSection(props: {
   const onPickPhase = React.useCallback(
     (next: string) => {
       const phase = next === "__none__" ? null : next;
-      setLocalSchoolLevelId(phase);
       if (phase !== props.schoolLevelId) props.setSchoolLevelId(phase);
       props.setSelectedGradeCodes((prev) => {
         const allowed = new Set(gradeOptions.map((g) => g.id));
@@ -181,15 +170,6 @@ export function EditorBasicSection(props: {
     (embeds: Array<{ id: string; kind: "video"; src: string; caption?: string }>, url: string) => {
       props.setMainVideoEmbeds(embeds);
       props.setMainVideoUrl(url);
-    },
-    [props],
-  );
-
-  const handleExpNameOcr = React.useCallback((title: string) => props.setExpName(title), [props]);
-  const handleGradeOcr = React.useCallback(
-    (gradeId: string, schoolLevelId: string) => {
-      props.setGradeId(gradeId);
-      props.setSchoolLevelId(schoolLevelId);
     },
     [props],
   );
@@ -234,8 +214,7 @@ export function EditorBasicSection(props: {
           onPickerSetDiscipline={props.onPickerSetDiscipline}
           onPickerSetSelectedGradeCodes={props.onPickerSetSelectedGradeCodes}
         />
-
-        <EditorMainVideoSection
+          <EditorMainVideoSection
           mediaActor={props.mediaActor}
           fieldDisabled={props.fieldDisabled}
           mainVideoEmbeds={props.mainVideoEmbeds}
@@ -243,10 +222,6 @@ export function EditorBasicSection(props: {
           onMainVideoChange={handleMainVideoChange}
           onMainVideoIdChange={props.onMainVideoIdChange}
           gradeDictOptions={props.gradeDictOptions}
-          expId={props.expId}
-          userId={props.userId}
-          onExpNameOcr={handleExpNameOcr}
-          onGradeOcr={handleGradeOcr}
         />
 
         <div className="flex items-center gap-2 lg:col-span-4">
@@ -261,7 +236,7 @@ export function EditorBasicSection(props: {
         <div className="grid gap-4 lg:col-span-12 lg:grid-cols-2">
           <div className="grid gap-2">
             <Label>学段</Label>
-            <Select key={`phase-${props.expId ?? "new"}`} defaultValue={phaseOptionValue} onValueChange={onPickPhase} disabled={props.fieldDisabled}>
+            <Select key={`phase-${props.expId ?? "new"}`} value={phaseOptionValue} onValueChange={onPickPhase} disabled={props.fieldDisabled}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="学段" />
               </SelectTrigger>
@@ -275,7 +250,7 @@ export function EditorBasicSection(props: {
           </div>
           <div className="grid gap-2">
             <Label>学科</Label>
-            <Select key={`subject-${props.expId ?? "new"}`} defaultValue={subjectOptionValue} onValueChange={onPickSubjectId} disabled={props.fieldDisabled}>
+            <Select key={`subject-${props.expId ?? "new"}`} value={subjectOptionValue} onValueChange={onPickSubjectId} disabled={props.fieldDisabled}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="学科" />
               </SelectTrigger>

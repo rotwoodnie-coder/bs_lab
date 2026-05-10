@@ -108,9 +108,10 @@ async function uploadAndReadTeacherMaterialRow(
       fileUrl: up.fileUrl ?? null,
     });
   } catch (error) {
+    const originalMsg = error instanceof Error ? error.message : String(error);
     const structured = buildStructuredMaterialFlowError(
       "UPLOAD_MATERIAL_FAILED",
-      "素材上传失败",
+      originalMsg,
       "teacher-materials:create:upload",
       true,
       {
@@ -141,9 +142,10 @@ async function uploadAndReadTeacherMaterialRow(
     });
     return { up, created: teacherMaterialFromDataFileRecord(fileRow) };
   } catch (error) {
+    const fetchMsg = error instanceof Error ? error.message : String(error);
     const structured = buildStructuredMaterialFlowError(
       "READ_MATERIAL_ROW_FAILED",
-      "读取素材记录失败",
+      fetchMsg,
       "teacher-materials:create:fetch",
       true,
       {
