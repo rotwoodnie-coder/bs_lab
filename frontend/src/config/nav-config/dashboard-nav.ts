@@ -124,6 +124,7 @@ export function resolveDashboardNavId(
   if (pathname.startsWith("/teacher/experiment-editor")) return "exp-mgmt";
   if (pathname.startsWith("/teacher/research-project-groups")) return "teacher-research-project-groups";
   if (pathname.startsWith("/admin/menu-config")) return "sys-roles";
+  if (pathname.startsWith("/ai-assistant")) return "ai-assistant";
 
   const primary = getPrimaryNavItemsForRole(role, viewMode);
 

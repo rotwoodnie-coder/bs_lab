@@ -1,5 +1,6 @@
 import {
   Bell,
+  Bot,
   FlaskConical,
   Footprints,
   Home,
@@ -42,6 +43,7 @@ export const PORTAL_NAV_ITEMS: readonly SystemNavItemDefinition[] = [
   { id: RESOURCE_CENTER_NAV_ID, label: "实验工坊", href: "/resources", Icon: Library },
   { id: "student-challenge", label: getNavLabel("student-challenge", "实验闯关"), href: "/student/experiment-challenge", Icon: Trophy },
   { id: "footprints", label: getNavLabel("footprints", "成长足迹"), href: "/student/footprints", Icon: Footprints },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 ] as const;
 
 /**
@@ -53,6 +55,7 @@ export const STUDENT_PARENT_PORTAL_NAV: readonly SystemNavItemDefinition[] = [
   { id: RESOURCE_CENTER_NAV_ID, label: "实验工坊", href: "/resources", Icon: Library },
   { id: "student-challenge", label: getNavLabel("student-challenge", "实验闯关"), href: "/student/experiment-challenge", Icon: Trophy },
   { id: "footprints", label: getNavLabel("footprints", "成长足迹"), href: "/student/footprints", Icon: Footprints },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 ] as const;
 
 /** 学生 · 管理台 */
@@ -70,6 +73,7 @@ const STUDENT_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
     href: "/student/footprints",
     Icon: Footprints,
   },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 ] as const;
 
 /** 家长 · 管理台（任务中心、家庭实验室等） */
@@ -86,6 +90,7 @@ const PARENT_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
     href: "/parent/lab",
     Icon: FlaskConical,
   },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 ] as const;
 
 /**

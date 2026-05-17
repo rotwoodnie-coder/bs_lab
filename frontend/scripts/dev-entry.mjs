@@ -66,6 +66,9 @@ function spawnNextDev() {
   // 开发环境强制为 development，避免 .env.local 中误写 NODE_ENV=production
   childEnv.NODE_ENV = "development";
 
+  // 压制 util._extend 弃用警告（来源：Next.js 内部 bundled http-proxy，非项目代码可控制）
+  childEnv.NODE_OPTIONS = (childEnv.NODE_OPTIONS ? childEnv.NODE_OPTIONS + " " : "") + "--no-deprecation";
+
   // 透传 MINIO_ENDPOINT → NEXT_PUBLIC_MINIO_ENDPOINT、MINIO_PUBLIC_URL → NEXT_PUBLIC_MINIO_PUBLIC_URL
   if (childEnv.MINIO_ENDPOINT?.trim()) {
     childEnv.NEXT_PUBLIC_MINIO_ENDPOINT = childEnv.MINIO_ENDPOINT.trim();

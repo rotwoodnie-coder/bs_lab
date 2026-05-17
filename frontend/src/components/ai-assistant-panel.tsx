@@ -32,7 +32,7 @@ export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) 
     {
       id: "welcome",
       role: "assistant",
-      content: "您好！我是 AI 助教。您可以向我提问实验教学相关的问题，例如\"设计一个水的沸腾实验\"或\"铁钉生锈需要哪些材料？\"",
+      content: "同学你好！我是**石头老师**，专为1-6年级同学设计小学科学实验方案。请告诉我你的年级和你想探究的科学问题吧~",
     },
   ])
   const [input, setInput] = useState("")
@@ -115,10 +115,10 @@ export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) 
         <SheetHeader className="border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <Bot className="size-5 text-primary" />
-            <SheetTitle className="text-base">AI 助教</SheetTitle>
+            <SheetTitle className="text-base">石头老师</SheetTitle>
           </div>
           <p className="text-xs text-muted-foreground">
-            实验方案生成 | 安全预审 | 教学建议
+            小学科学实验方案设计
           </p>
         </SheetHeader>
 

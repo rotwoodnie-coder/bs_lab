@@ -3,6 +3,7 @@ import {
   Bell,
   BookMarked,
   BookOpen,
+  Bot,
   Building2,
   ClipboardCheck,
   Database,
@@ -47,6 +48,7 @@ export const SCHOOL_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   { id: "console-review-student-works", label: "作品审核", href: "/console/review/student-works", Icon: ClipboardCheck },
   { id: "console-review-research-groups", label: "课题组审核", href: "/console/review/research-groups", Icon: ClipboardCheck },
   { id: "console-ai-strategies", label: getNavLabel("console-ai-strategies", "AI 配置"), href: "/console/operations/ai-strategies", Icon: Layers },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
   { id: "console-reports-templates", label: getNavLabel("console-reports-templates", "报告模板"), href: "/console/reports/templates", Icon: ScrollText },
   { id: "console-social-review", label: getNavLabel("console-social-review", "评价与审核"), href: "/console/social/review", Icon: ClipboardCheck },
   { id: "console-social-court", label: getNavLabel("console-social-court", "实验小法庭"), href: "/console/social/court", Icon: Scale },
@@ -71,6 +73,7 @@ export const SUPER_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   { id: "console-cfg-dictionaries", label: "字典设置", href: "/console/settings/dictionaries", Icon: Database },
   { id: "console-cfg-incentives", label: getNavLabel("console-cfg-incentives", "积分与激励"), href: "/console/settings/incentives", Icon: Medal },
   { id: "console-cfg-sim-dev", label: "模拟开发配置", href: "/admin/simulation-dev", Icon: LayoutDashboard },
+  { id: "ai-prompt-templates", label: "提示词管理", href: "/admin/ai-prompts", Icon: Bot },
 
   // ── 系统管理 ──
   { id: "console-system-base", label: getNavLabel("console-system-base", "用户管理"), href: "/console/settings/system/users", Icon: Server },
@@ -85,6 +88,7 @@ export const SUPER_ADMIN_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
   { id: "console-review-research-groups", label: "课题组审核", href: "/console/review/research-groups", Icon: ClipboardCheck },
   { id: "console-reports-templates", label: getNavLabel("console-reports-templates", "报告模板"), href: "/console/reports/templates", Icon: ScrollText },
   { id: "console-ai-strategies", label: getNavLabel("console-ai-strategies", "AI 引导语与策略"), href: "/console/operations/ai-strategies", Icon: Layers },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 
   // ── 教研组管理 ──
   { id: "researcher-teaching-research-groups", label: "教研组管理", href: "/researcher/teaching-research-groups", Icon: School },

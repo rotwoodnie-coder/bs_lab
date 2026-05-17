@@ -20,6 +20,9 @@ export type AiAccepted = "y" | "n" | "partial";
 /** 草稿来源 */
 export type AiDraftSource = "web" | "mobile" | "api";
 
+/** 对话消息角色 */
+export type AiChatRole = "user" | "assistant";
+
 // ─── AI 任务日志 ai_task_log ─────────────────────────
 
 export interface AiTaskLogRecord {
@@ -38,6 +41,8 @@ export interface AiTaskLogRecord {
   userFeedbackScore: number | null;
   errorMessage: string | null;
   traceId: string | null;
+  requestText: string | null;
+  responseText: string | null;
   createTime: string | null;
 }
 
@@ -55,6 +60,8 @@ export interface CreateAiTaskLogInput {
   contextRefId?: string;
   errorMessage?: string;
   traceId?: string;
+  requestText?: string;
+  responseText?: string;
 }
 
 export interface UpdateAiTaskLogInput {
@@ -63,6 +70,13 @@ export interface UpdateAiTaskLogInput {
   completionTokens?: number;
   durationMs?: number;
   errorMessage?: string;
+  responseText?: string;
+}
+
+/** 用于构建对话历史的精简记录 */
+export interface AiChatHistoryItem {
+  role: AiChatRole;
+  content: string;
 }
 
 // ─── AI 草稿缓存 ai_task_draft ──────────────────────
@@ -111,4 +125,51 @@ export interface AiChatResponse {
   reply: string;
   logId: string;
   draftId: string | null;
+}
+
+/** SSE 流式响应数据块 */
+export interface AiChatStreamChunk {
+  type: "token" | "done" | "error";
+  data: string;
+  logId?: string;
+  draftId?: string | null;
+}
+
+// ─── Prompt 模板 ai_prompt_template ─────────────────
+
+export interface AiPromptTemplateRecord {
+  templateId: string;
+  code: string;
+  name: string;
+  role: string;
+  content: string;
+  version: number;
+  isActive: "y" | "n";
+  description: string | null;
+  createUserId: string | null;
+  updateUserId: string | null;
+  createTime: string | null;
+  updateTime: string | null;
+}
+
+export interface CreateAiPromptTemplateInput {
+  templateId?: string;
+  code: string;
+  name: string;
+  role: string;
+  content: string;
+  version?: number;
+  isActive?: "y" | "n";
+  description?: string;
+  createUserId?: string;
+  updateUserId?: string;
+}
+
+export interface UpdateAiPromptTemplateInput {
+  name?: string;
+  content?: string;
+  version?: number;
+  isActive?: "y" | "n";
+  description?: string;
+  updateUserId?: string;
 }

@@ -33,7 +33,7 @@ import { routeGroup } from "./routes/group.ts";
 import { routeV2TeacherClassConfig } from "./routes/v2-teacher-class-config.ts";
 import { routeV2Review } from "./routes/v2-review.ts";
 import { routeV2Version } from "./routes/v2-version.ts";
-import { routeV2Ai } from "./routes/v2-ai.ts";
+import { routeV2Ai, handleAiStreamRoute } from "./routes/v2-ai.ts";
 import { parseCookies, verifyV2AccessToken } from "../lib/auth/v2-session.ts";
 import { deepPresignResponse } from "../lib/presign-response.ts";
 
@@ -105,7 +105,7 @@ function buildCorsHeaders(origin: string | null): HeadersInit {
     "access-control-allow-origin": allowOrigin,
     "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers":
-      "content-type,x-role,x-user-id,x-org-id,x-org-name,x-user-name,x-trace-id,x-tenant-id,x-app-id,x-subject-key",
+      "content-type,x-role,x-user-id,x-org-id,x-org-name,x-user-name,x-trace-id,x-tenant-id,x-app-id,x-subject-key,x-school-level-id",
     "access-control-allow-credentials": "true",
     "vary": "origin",
   };
@@ -156,6 +156,20 @@ createServer(async (req, res) => {
     res.end();
     return;
   }
+
+  // SSE 流式路由：直接操作 Node.js 原生 req/res，不经 Request 抽象
+  if (req.method === "POST" && req.url?.startsWith("/v2/ai/chat/stream")) {
+    handleAiStreamRoute(req, res).catch((err) => {
+      console.error("[sse] unhandled error", err);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader("content-type", "application/json; charset=utf-8");
+        res.end(JSON.stringify({ success: false, error: { message: "INTERNAL_SERVER_ERROR" } }));
+      }
+    });
+    return;
+  }
+
   const safeSend = (statusCode: number, body: string) => {
     if (res.headersSent) return;
     res.statusCode = statusCode;
@@ -188,6 +202,7 @@ createServer(async (req, res) => {
         incomingHeaders["x-user-id"] = actor.userId;
         if (actor.orgId) incomingHeaders["x-org-id"] = actor.orgId;
         if (actor.roleId) incomingHeaders["x-role"] = actor.roleId;
+        if (actor.schoolLevelId) incomingHeaders["x-school-level-id"] = actor.schoolLevelId;
       }
     }
   }

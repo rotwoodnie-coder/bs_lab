@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  Bot,
   FileQuestion,
   Library,
   ListChecks,
@@ -59,4 +60,5 @@ export const TEACHER_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
     href: "/experimental-materials",
     Icon: Package,
   },
+  { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
 ] as const;

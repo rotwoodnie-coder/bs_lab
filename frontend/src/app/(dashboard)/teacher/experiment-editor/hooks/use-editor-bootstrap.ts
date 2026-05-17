@@ -522,7 +522,7 @@ export function useEditorBootstrap() {
       const resolved = resolveExpTaxonomyIds({
         disciplineLabel: row?.disciplineLabel?.trim() || row?.subjectLabel?.trim() || discipline || "",
         selectedGradeCodes: gradeCodes,
-        gradeOptions,
+        gradeOptions: listGradeOptions,
         subjects: v2Peer.subjects,
         grades: v2Peer.grades,
       });
@@ -552,7 +552,7 @@ export function useEditorBootstrap() {
       sonnerToast.success("已关联实验", { description: rowName || id });
       autoFillFromLinkedExperiment(strategy, id);
     },
-    [autoFillFromLinkedExperiment, buildLinkedExperimentAnnouncement, gradeOptions, listGradeOptions, store, v2Peer.grades, v2Peer.peerRows, v2Peer.subjects],
+    [autoFillFromLinkedExperiment, buildLinkedExperimentAnnouncement, listGradeOptions, store, v2Peer.grades, v2Peer.peerRows, v2Peer.subjects],
   );
 
   // ── 完成度计算 ──

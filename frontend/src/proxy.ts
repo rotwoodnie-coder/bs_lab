@@ -119,7 +119,7 @@ function buildSafeRedirect(req: NextRequest, pathname: string, destination: stri
   return response;
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 非 /m 路由完全放行，避免影响 PC 端页面与根域名访问。

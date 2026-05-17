@@ -59,6 +59,7 @@ export const NAV_LABELS = {
   messages: "消息",
   profile: "个人中心",
   settings: "系统设置",
+  "ai-assistant": "AI 助教",
 } as const;
 
 export type NavLabelId = keyof typeof NAV_LABELS;

@@ -21,7 +21,7 @@ function readVersion(): string {
 export function routeV2Version(request: Request): Promise<Response> | Response {
   const url = new URL(request.url);
   if (request.method !== "GET" || url.pathname !== "/v2/version") {
-    return Response.json({ success: false, data: null, error: { message: "NOT_FOUND" } }, { status: 404 });
+    return new Response(null, { status: 404 });
   }
   return Response.json({ success: true, data: { version: readVersion() } });
 }

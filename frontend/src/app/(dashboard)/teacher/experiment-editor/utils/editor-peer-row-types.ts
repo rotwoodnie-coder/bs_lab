@@ -3,7 +3,7 @@
  */
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import type { V2DictGradeItem, V2DictItem, V2ExpMsgDetail, V2ExpMsgItem } from "@/lib/v2/v2-exp-api";
-import type { SubjectDiscipline } from "@/types/subject";
+import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
 import {
   EXP_MSG_STATUS_LABEL,
   EXP_CHOOSE_TYPE_LABEL,
@@ -79,6 +79,11 @@ export type EditorPeerRow = {
   libraryId?: string;
   /** 发布状态（DB 原始状态码） */
   publishStatus?: string | null;
+  /** 关联实验的阶段／学科／年级（从 V2 详情透传，用于关联填充） */
+  phase?: EducationPhase | null;
+  discipline?: SubjectDiscipline | null;
+  gradeCodes?: string[];
+  disciplineLabel?: string;
 };
 
 export function deriveEditorPeerLifecycleFromWorkflow(
