@@ -118,6 +118,7 @@ export function buildEditorHydrationFromV2Library(
     difficultyId: "",
     mainVideoUrl: "",
     mainVideoId: null,
+    mainVideoEmbeds: [],
     participation: item.chooseType === "y" ? "required" : "optional",
     curriculum: parsed.curriculum.trim() ? parsed.curriculum : `标准试验库 · ${item.libExpId}`,
     teachingContextContent: parsed.teachingContextContent.trim()

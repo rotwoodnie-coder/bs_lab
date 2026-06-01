@@ -138,6 +138,8 @@ export function useEditorBootstrap() {
   // ── 初始 hydration ──
   React.useEffect(() => {
     if (!expId || !v2Peer.actor.userId) return;
+    // 等待字典型录加载完成后再 hydration，确保 phase/discipline 正确解析
+    if (v2Peer.subjects.length === 0 || v2Peer.grades.length === 0) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -159,7 +161,7 @@ export function useEditorBootstrap() {
       }
     })();
     return () => { cancelled = true; };
-  }, [expId, v2Peer.actor.userId]);
+  }, [expId, v2Peer.actor.userId, v2Peer.subjects, v2Peer.grades]);
 
   // ── 从标准库加载（forkFrom） ──
   React.useEffect(() => {

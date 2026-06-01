@@ -501,6 +501,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       difficultyId: p.difficultyId,
       mainVideoUrl: p.mainVideoUrl,
       mainVideoId: p.mainVideoId,
+      mainVideoEmbeds: p.mainVideoEmbeds,
       curriculum: p.curriculum,
       teachingContextContent: p.teachingContextContent,
       teachingContextEmbeds: p.teachingContextEmbeds,

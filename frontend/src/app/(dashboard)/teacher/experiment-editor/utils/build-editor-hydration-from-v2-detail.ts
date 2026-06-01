@@ -64,6 +64,8 @@ export type EditorHydrationFromV2Payload = {
   unitId: string;
   /** 从 exp_msg.standard_exp_id 恢复关联实验 ID */
   selectedStandardId: string | null;
+  /** 从 exp_video 恢复到 RichMediaEditor 的视频嵌入 */
+  mainVideoEmbeds: RichMediaEmbed[];
 };
 
 function classHourToDurationMin(ch: number | null | undefined): string {
@@ -123,6 +125,11 @@ export function buildEditorHydrationFromV2Detail(
   const firstVideo = detail.videos?.[0];
   const vid = (firstVideo?.videoUrl ?? "").trim();
   const mainVideoId = firstVideo?.fileId?.trim() ?? null;
+  // 构建视频嵌入，供 RichMediaEditor 恢复显示
+  const mainVideoEmbeds: RichMediaEmbed[] =
+    vid
+      ? [{ id: `video-hydrated-${firstVideo!.seqId ?? "1"}`, kind: "video" as const, src: vid, caption: mainVideoId ? `登记 ${mainVideoId.slice(0, 8)}` : undefined }]
+      : [];
 
   const materials: ExperimentMaterialDraft[] = (detail.materials ?? []).map((m, idx) => {
     const row = m as V2ExpMsgMaterialRow;
@@ -223,6 +230,7 @@ export function buildEditorHydrationFromV2Detail(
     difficultyId: (detail.difficultyId ?? "").trim(),
     mainVideoUrl: vid,
     mainVideoId,
+    mainVideoEmbeds,
     participation: detail.chooseType === "y" ? "required" : "optional",
     curriculum: parsed.curriculum,
     teachingContextContent: parsed.teachingContextContent,
