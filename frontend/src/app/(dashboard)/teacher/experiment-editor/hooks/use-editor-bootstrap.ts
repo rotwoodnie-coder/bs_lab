@@ -536,53 +536,90 @@ export function useEditorBootstrap() {
       const id = meta.expId?.trim();
       if (!id) return;
       const row = v2Peer.peerRows.find((r) => r.id === id) ?? null;
-      const rowName = meta.expName?.trim() || row?.title?.trim();
-      const phase = meta.phase ?? row?.phase ?? null;
-      const discipline = meta.discipline ?? row?.discipline ?? null;
-      const gradeCodes = meta.gradeCodes?.length ? meta.gradeCodes : row?.gradeCodes ?? [];
+      const rowName = meta.expName?.trim() || row?.title?.trim() || id;
 
-      store.setField("selectedStandardId", id);
-      setLinkedStandardName(rowName || id);
-      store.setField("useCustomExperiment", false);
-      if (rowName) store.setField("expName", rowName);
-      if (phase) store.setField("phase", phase);
-      if (discipline) store.setField("discipline", discipline);
-      store.setField("selectedGradeCodes", gradeCodes);
+      // 独立获取标准实验库数据，填补阶段/学科/年级信息（peerRows 可能不包含选中行）
+      void (async () => {
+        let phase = meta.phase ?? row?.phase ?? null;
+        let discipline = meta.discipline ?? row?.discipline ?? null;
+        let gradeCodes = meta.gradeCodes?.length ? meta.gradeCodes : row?.gradeCodes ?? [];
+        let finalName = rowName;
+        let directSubjectId: string | null = null;
+        let directSchoolLevelId: string | null = null;
+        let directGradeId: string | null = null;
 
-      const resolved = resolveExpTaxonomyIds({
-        disciplineLabel: row?.disciplineLabel?.trim() || row?.subjectLabel?.trim() || discipline || "",
-        selectedGradeCodes: gradeCodes,
-        gradeOptions: listGradeOptions,
-        subjects: v2Peer.subjects,
-        grades: v2Peer.grades,
-      });
-      if (resolved.subject_id) store.setField("subjectId", resolved.subject_id);
-      if (resolved.school_level_id) store.setField("schoolLevelId", resolved.school_level_id);
-      if (resolved.grade_id) store.setField("gradeId", resolved.grade_id);
+        if (!phase || !discipline || !gradeCodes.length) {
+          try {
+            const libItem = await fetchV2ExpLibraryById(v2Peer.actor, id);
+            if (libItem) {
+              const hyd = buildEditorHydrationFromV2Library(libItem, {
+                subjects: v2Peer.subjects,
+                grades: v2Peer.grades,
+                userName: user.userName,
+              });
+              if (!phase) phase = hyd.phase as EducationPhase | null;
+              if (!discipline) discipline = hyd.discipline;
+              if (!gradeCodes.length) gradeCodes = hyd.selectedGradeCodes;
+              if (hyd.expName?.trim()) finalName = hyd.expName.trim();
+              directSubjectId = hyd.subjectId;
+              directSchoolLevelId = hyd.schoolLevelId;
+              directGradeId = hyd.gradeId;
+            }
+          } catch {
+            // 非标准库条目时 404，静默降级到 peerRows 已有值
+          }
+        }
 
-      const announcement = buildLinkedExperimentAnnouncement({
-        title: rowName || id,
-        phase: row?.phaseLabel ?? undefined,
-        discipline: row?.disciplineLabel ?? row?.subjectLabel ?? undefined,
-        gradeLabels: gradeCodes.map((code) => listGradeOptions.find((g) => g.code === code)?.label ?? code),
-      });
-      store.setField("curriculum", announcement);
+        store.setField("selectedStandardId", id);
+        setLinkedStandardName(finalName);
+        store.setField("useCustomExperiment", false);
+        store.setField("expName", finalName);
+        if (phase) store.setField("phase", phase as any);
+        if (discipline) store.setField("discipline", discipline);
+        store.setField("selectedGradeCodes", gradeCodes);
 
-      const hasUserEdits =
-        store.steps.length > 1 ||
-        store.materials.length > 1 ||
-        store.resultEntries.length > 1 ||
-        store.principle.trim().length > 0 ||
-        store.safetyNotes.trim().length > 0 ||
-        store.dangerNotes.trim().length > 0 ||
-        store.summary.trim().length > 0 ||
-        store.teachingContextContent.trim().length > 0;
-      const strategy = hasUserEdits ? "merge" as const : ("replace" as const);
+        // 优先使用标准实验库直接返回的 ID，否则用标签匹配方式兜底
+        if (directSubjectId || directSchoolLevelId || directGradeId) {
+          if (directSubjectId) store.setField("subjectId", directSubjectId);
+          if (directSchoolLevelId) store.setField("schoolLevelId", directSchoolLevelId);
+          if (directGradeId) store.setField("gradeId", directGradeId);
+        } else {
+          const resolved = resolveExpTaxonomyIds({
+            disciplineLabel: row?.disciplineLabel?.trim() || row?.subjectLabel?.trim() || discipline || "",
+            selectedGradeCodes: gradeCodes,
+            gradeOptions: listGradeOptions,
+            subjects: v2Peer.subjects,
+            grades: v2Peer.grades,
+          });
+          if (resolved.subject_id) store.setField("subjectId", resolved.subject_id);
+          if (resolved.school_level_id) store.setField("schoolLevelId", resolved.school_level_id);
+          if (resolved.grade_id) store.setField("gradeId", resolved.grade_id);
+        }
 
-      sonnerToast.success("已关联实验", { description: rowName || id });
-      autoFillFromLinkedExperiment(strategy, id);
+        const announcement = buildLinkedExperimentAnnouncement({
+          title: finalName,
+          phase: (row?.phaseLabel ?? null) || undefined,
+          discipline: (row?.disciplineLabel ?? row?.subjectLabel ?? null) || undefined,
+          gradeLabels: gradeCodes.map((code) => listGradeOptions.find((g) => g.code === code)?.label ?? code),
+        });
+        store.setField("curriculum", announcement);
+
+        const hasUserEdits =
+          store.steps.length > 1 ||
+          store.materials.length > 1 ||
+          store.resultEntries.length > 1 ||
+          store.principle.trim().length > 0 ||
+          store.safetyNotes.trim().length > 0 ||
+          store.dangerNotes.trim().length > 0 ||
+          store.summary.trim().length > 0 ||
+          store.teachingContextContent.trim().length > 0;
+        const strategy = hasUserEdits ? "merge" as const : ("replace" as const);
+
+        sonnerToast.success("已关联实验", { description: finalName });
+        autoFillFromLinkedExperiment(strategy, id);
+      })();
     },
-    [autoFillFromLinkedExperiment, buildLinkedExperimentAnnouncement, listGradeOptions, store, v2Peer.grades, v2Peer.peerRows, v2Peer.subjects],
+    [autoFillFromLinkedExperiment, buildLinkedExperimentAnnouncement, listGradeOptions, store, v2Peer.actor, v2Peer.grades, v2Peer.peerRows, v2Peer.subjects, user.userName],
   );
 
   // ── 完成度计算 ──
