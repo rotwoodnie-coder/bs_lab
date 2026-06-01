@@ -598,7 +598,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
         referenceRichEmbeds: s.referenceRichEmbeds,
         scientistStories: s.scientistStories,
         security: s.securityDrafts,
-        gradeIds: s.gradeIds,
+        gradeIds: s.selectedGradeCodes,
         referenceVideos: s.referenceVideos,
         // 从所有材料的 materialPics 平铺提取
         materialPics: s.materials.flatMap((m) => (m as any).materialPics?.map((p: any) => ({ materialUrl: p.materialUrl ?? "", sortOrder: p.sortOrder ?? 0 })) ?? []),
