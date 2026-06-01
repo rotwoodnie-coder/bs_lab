@@ -10,6 +10,8 @@ export interface V2AiChatRequest {
   message: string;
   context_ref_type?: string;
   context_ref_id?: string;
+  agent_type?: string;
+  school_level_name?: string;
 }
 
 export interface V2AiChatResponse {
@@ -21,6 +23,11 @@ export interface V2AiChatResponse {
 export interface V2AiFeedbackRequest {
   is_accepted: "y" | "n" | "partial";
   feedback_score?: number;
+}
+
+export interface V2AiUserContext {
+  gradeName: string | null;
+  schoolLevelName: string | null;
 }
 
 // ─── API ─────────────────────────────────────────────────
@@ -41,4 +48,11 @@ export function postV2AiDraftFeedback(
   input: V2AiFeedbackRequest,
 ): Promise<{ updated: boolean }> {
   return createV2ApiService(actor).post<{ updated: boolean }>(`/v2/ai/draft/${draftId}/feedback`, input);
+}
+
+/**
+ * 获取当前用户的 AI 上下文（年级名称、学段名称）
+ */
+export function fetchAiUserContext(actor: CoreApiActor): Promise<V2AiUserContext> {
+  return createV2ApiService(actor).get<V2AiUserContext>("/v2/ai/context");
 }

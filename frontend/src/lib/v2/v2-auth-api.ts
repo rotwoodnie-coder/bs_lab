@@ -4,6 +4,20 @@
  */
 import { buildApiUrl } from "@/lib/core-api-shared";
 
+// ─── 401 重定向锁（模块级，导出供其他 API 模块复用） ────────
+// 防止并发请求全部命中 401 时多条重定向指令互相覆盖
+let redirectingToLogin = false;
+
+export function ensureRedirectToLogin(): void {
+  if (redirectingToLogin) return;
+  redirectingToLogin = true;
+  if (typeof window !== "undefined") {
+    const currentPath = window.location.pathname + window.location.search;
+    const nextParam = encodeURIComponent(currentPath);
+    window.location.href = `/login?next=${nextParam}`;
+  }
+}
+
 export const V2_AUTH_SESSION_KEY = "bs_lab_v2_auth_session";
 
 export type V2AuthSession = {

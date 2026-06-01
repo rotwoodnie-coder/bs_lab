@@ -117,8 +117,12 @@ export interface UpdateAiTaskDraftInput {
 
 export interface AiChatRequest {
   message: string;
+  threadId?: string;
+  agentType?: string;
   contextRefType?: string;
   contextRefId?: string;
+  /** 学段："低段" | "中段" | "高段"，由前端传入后透传至 agents-service */
+  schoolLevelName?: string;
 }
 
 export interface AiChatResponse {

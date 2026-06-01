@@ -94,7 +94,7 @@ export function buildV2ExpDraftPutBody(a: BuildV2ExpDraftPutBodyArgs): V2ExpDraf
     })(),
     material_unit: (m.unitId ?? "").trim().slice(0, 32) || null,
     material_prop_id: (m.materialPropId ?? "").trim().slice(0, 32) || null,
-    material_type_id: null,
+    material_type_id: (m.materialTypeId ?? "").trim().slice(0, 32) || null,
     main_pic_url: ((m.thumbnailUrl ?? m.imageUrl ?? "") as string).trim().slice(0, 200) || null,
     exp_purpose: (m.expPurpose ?? "").trim().slice(0, 200) || null,
     additional_comments: (m.nameHomeSubstitute ?? "").trim().slice(0, 200) || null,

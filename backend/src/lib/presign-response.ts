@@ -32,6 +32,9 @@ const MINIO_URL_FIELDS = new Set<string>([
 
   // ── feedback（反馈图片）──
   "feedbackPicUrl",
+
+  // ── virtual-experiment（虚拟实验封面）──
+  "coverUrl",
 ]);
 
 /**

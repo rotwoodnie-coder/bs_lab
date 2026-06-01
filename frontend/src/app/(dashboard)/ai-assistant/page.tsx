@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm"
 import { Send, Bot, Loader2, User, ThumbsUp, ThumbsDown, Sparkles, Square, Copy, Check } from "@bs-lab/ui/icons"
 import { Button } from "@bs-lab/ui"
 import { cn } from "@/lib/utils"
-import { postV2AiChat, postV2AiDraftFeedback } from "@/lib/v2/v2-ai-api"
+import { postV2AiChat, postV2AiDraftFeedback, fetchAiUserContext } from "@/lib/v2/v2-ai-api"
 import { buildApiUrl } from "@/lib/core-api-shared"
 import { useSessionActor } from "@/hooks/use-session-actor"
 
@@ -120,49 +120,72 @@ function saveMessages(userId: string, messages: Message[]) {
 export default function AiAssistantPage() {
   const { actor, hydrated } = useSessionActor()
 
-  /** 根据真实姓名生成个性化欢迎语 */
-  function buildWelcomeContent(name: string): string {
-    const displayName = name?.trim() || "同学"
-    return `${displayName}你好呀！我是**石头老师**，10年教龄的小学科学老师，让我帮你一起设计和优化小学科学实验方案吧~你还有其他科学探究想法吗，快和石头老师说说，咱们再设计个新实验。`
-  }
-
-  const [messages, setMessages] = useState<Message[]>(() => {
-    // 页面初始化时从 localStorage 恢复
-    if (hydrated && actor?.userId) {
-      const saved = loadMessages(actor.userId)
-      if (saved.length > 0) return saved
-    }
-    return [
-      {
-        id: "welcome",
-        role: "assistant",
-        content: buildWelcomeContent(actor?.userName ?? ""),
-      },
-    ]
-  })
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [gradeName, setGradeName] = useState<string | null>(null)
+  const [schoolLevelName, setSchoolLevelName] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const initializedRef = useRef(false)
+  const ctxFetchedRef = useRef(false)
 
-  // 初始化时恢复对话记录
+  //  hydrated 后获取用户年级信息并更新欢迎语
+  useEffect(() => {
+    if (hydrated && actor?.userId && !ctxFetchedRef.current) {
+      ctxFetchedRef.current = true
+      const name = actor.userName?.trim() || "同学"
+
+      // 尝试从 localStorage 恢复缓存的年级
+      const cached = localStorage.getItem(`ai-grade-${actor.userId}`)
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as { gradeName: string | null; schoolLevelName: string | null }
+          if (parsed.gradeName || parsed.schoolLevelName) {
+            setGradeName(parsed.gradeName)
+            setSchoolLevelName(parsed.schoolLevelName)
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 异步获取最新年级信息
+      fetchAiUserContext(actor).then((ctx) => {
+        setGradeName(ctx.gradeName)
+        setSchoolLevelName(ctx.schoolLevelName)
+        if (ctx.gradeName || ctx.schoolLevelName) {
+          localStorage.setItem(`ai-grade-${actor.userId}`, JSON.stringify(ctx))
+        }
+      }).catch(() => { /* silent */ })
+    }
+  }, [hydrated, actor?.userId, actor?.userName, actor])
+
+  // 仅在 hydrated 后初始化：恢复历史对话或设欢迎语
   useEffect(() => {
     if (hydrated && actor?.userId && !initializedRef.current) {
       initializedRef.current = true
+      const name = actor.userName?.trim() || "同学"
+      const gradePart = gradeName ? `（${gradeName}）` : ""
       const saved = loadMessages(actor.userId)
       if (saved.length > 0) {
         setMessages(saved)
+      } else {
+        setMessages([
+          {
+            id: "welcome",
+            role: "assistant",
+            content: `${name}你好${gradePart}！我是**石头老师**，专为1-6年级同学设计小学科学实验方案。请告诉我你想探究的科学问题吧~`,
+          },
+        ])
       }
     }
-  }, [hydrated, actor?.userId])
+  }, [hydrated, actor?.userId, actor?.userName, gradeName])
 
-  // 消息变化时自动保存
+  // 消息变化时自动保存（排除未初始化的空状态）
   useEffect(() => {
-    if (hydrated && actor?.userId && initializedRef.current) {
+    if (hydrated && actor?.userId && initializedRef.current && messages.length > 0) {
       saveMessages(actor.userId, messages)
     }
   }, [messages, hydrated, actor?.userId])
@@ -204,7 +227,11 @@ export default function AiAssistantPage() {
     } catch {
       // SSE 失败则回退到非流式
       try {
-        const result = await postV2AiChat(actor, { message: text })
+        const result = await postV2AiChat(actor, {
+          message: text,
+          agent_type: actor.role?.replace(/^Role_/, "").toLowerCase(),
+          school_level_name: schoolLevelName ?? undefined,
+        })
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMsg.id
@@ -226,7 +253,7 @@ export default function AiAssistantPage() {
     } finally {
       setLoading(false)
     }
-  }, [input, loading, hydrated, actor])
+  }, [input, loading, hydrated, actor, schoolLevelName])
 
   // ─── SSE 流式聊天 ───────────────────────────────────
   const streamChat = useCallback(
@@ -234,7 +261,11 @@ export default function AiAssistantPage() {
       const controller = new AbortController()
       abortRef.current = controller
 
-      const body = JSON.stringify({ message: text })
+      const body = JSON.stringify({
+        message: text,
+        agent_type: userRole.replace(/^Role_/, "").toLowerCase(),
+        school_level_name: schoolLevelName ?? undefined,
+      })
 
       const response = await fetch(buildApiUrl("/v2/ai/chat/stream"), {
         method: "POST",
@@ -325,7 +356,7 @@ export default function AiAssistantPage() {
         ),
       )
     },
-    [],
+    [schoolLevelName],
   )
 
   // ─── 停止生成 ──────────────────────────────────────

@@ -9,7 +9,8 @@
     "dompurify": "^3.2.4"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter new-core-backend --filter new-core-frontend run dev",
+    "dev": "node scripts/dev-with-bot.mjs",
+    "dev:core": "pnpm --parallel --filter new-core-backend --filter new-core-frontend run dev",
     "dev:fresh": "node scripts/dev-fresh.mjs",
     "guardrails:check": "node scripts/guardrails-check.mjs",
     "guardrails:check:changed": "node scripts/guardrails-check.mjs --changed",

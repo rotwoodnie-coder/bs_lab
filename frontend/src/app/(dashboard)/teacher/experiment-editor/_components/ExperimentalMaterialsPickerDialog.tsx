@@ -64,6 +64,7 @@ export function ExperimentalMaterialsPickerDialog(props: Props) {
         thumbnailUrl: record.photoUrl,
         nameLab: record.name,
         quantity: record.suggestedAmount || "1",
+        materialTypeId: record.materialType,
         materialType: getExperimentalMaterialTypeLabel(record.materialType),
         nameHomeSubstitute: record.homeAlternative,
         hazardFlags,

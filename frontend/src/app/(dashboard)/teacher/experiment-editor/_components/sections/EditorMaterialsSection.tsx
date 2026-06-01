@@ -19,6 +19,7 @@ export function EditorMaterialsSection(props: {
       | "hazardFlags"
       | "quantity"
       | "materialType"
+      | "materialTypeId"
       | "safetyReminder"
       | "thumbnailUrl"
       | "libraryMaterialId"

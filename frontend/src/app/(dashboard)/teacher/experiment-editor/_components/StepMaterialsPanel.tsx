@@ -4,7 +4,6 @@ import { LayoutGrid, LayoutList, MoreHorizontal } from "@bs-lab/ui/icons";
 import { getCoreRowModel, getPaginationRowModel, useReactTable } from "@bs-lab/ui/react-table";
 import type { ExperimentMaterialDraft } from "../types";
 import { StepExperimentalMaterialFormDialog } from "./StepExperimentalMaterialFormDialog";
-import { StepMaterialsBulkInput } from "./StepMaterialsBulkInput";
 import { StepMaterialsLibraryPanel } from "./StepMaterialsLibraryPanel";
 import { buildStepMaterialsColumns } from "./step-materials-table-columns";
 
@@ -24,6 +23,7 @@ type Props = {
       | "notes"
       | "quantity"
       | "materialType"
+      | "materialTypeId"
       | "safetyReminder"
       | "thumbnailUrl"
       | "libraryMaterialId"
@@ -67,6 +67,7 @@ export function StepMaterialsPanel(props: Props) {
       props.onUpdateMaterial(editingMaterialId, "nameLab", draft.nameLab);
       props.onUpdateMaterial(editingMaterialId, "quantity", draft.quantity ?? "1");
       props.onUpdateMaterial(editingMaterialId, "materialType", draft.materialType ?? "实验材料");
+      props.onUpdateMaterial(editingMaterialId, "materialTypeId", draft.materialTypeId ?? "");
       props.onUpdateMaterial(editingMaterialId, "nameHomeSubstitute", draft.nameHomeSubstitute);
       props.onUpdateMaterial(editingMaterialId, "hazardFlags", draft.hazardFlags);
       props.onUpdateMaterial(editingMaterialId, "safetyReminder", draft.safetyReminder ?? "");
@@ -110,8 +111,6 @@ export function StepMaterialsPanel(props: Props) {
     <div className="grid gap-3">
       <Card className="rounded-[28px] border-0 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
         <CardContent className="grid gap-3 pt-4">
-          <StepMaterialsBulkInput disabled={props.disabled} onAppendMaterials={props.onAppendMaterials} />
-
           <div className="flex flex-wrap items-center gap-2">
             <Label>本次实验材料</Label>
             <label className="flex items-center gap-2 text-sm">

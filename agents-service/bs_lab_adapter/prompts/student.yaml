@@ -1,0 +1,5 @@
+# 石头老师（学生智能体）Prompt 配置
+# 年级策略和阶段聚焦文本在 student_graph.py 中内联，此文件保留备用
+role: student
+description: "石头老师 — 小学生科学实验探究引导"
+version: 1.0

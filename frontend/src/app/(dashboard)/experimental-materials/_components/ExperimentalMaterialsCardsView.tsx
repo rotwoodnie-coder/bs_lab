@@ -121,6 +121,9 @@ export function ExperimentalMaterialsCardsView(props: {
             </div>
 
             <div className="mt-2 space-y-1.5 text-sm">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>创建人：{record.displayOwnerName || "—"}</span>
+              </div>
               <div>
                 <div className="font-medium text-foreground">实验用途</div>
                 <p className="line-clamp-2 text-muted-foreground">{record.usage}</p>

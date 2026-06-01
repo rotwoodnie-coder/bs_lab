@@ -27,6 +27,8 @@ export interface MaterialMsgRecord {
   additionalComments: string | null;
   comments: string | null;
   status: string | null;
+  /** 创建人姓名（列表 JOIN sys_user 得到） */
+  displayOwnerName?: string | null;
   ownerUserId: string | null;
   createUserId: string | null;
   createTime: string | null;

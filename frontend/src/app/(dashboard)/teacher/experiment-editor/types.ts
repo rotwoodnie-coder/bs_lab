@@ -13,6 +13,8 @@ export type ExperimentMaterialDraft = {
   nameLab: string;
   /** 材料数量（展示用） */
   quantity?: string;
+  /** 材料分类 id，对应 material_type_id */
+  materialTypeId?: string;
   /** 材料类型（展示用） */
   materialType?: string;
   /** 对齐实验列表材料字段：家庭替代材料 */

@@ -16,7 +16,7 @@ import type {
   SaveMaterialInput,
 } from "../domain/v2-material/v2-material-types.ts";
 
-export type MaterialServiceErrorCode = "MATERIAL_NAME_EMPTY" | "CONTENT_TOO_LONG" | "NOT_FOUND" | "INTERNAL_ERROR";
+export type MaterialServiceErrorCode = "MATERIAL_NAME_EMPTY" | "CONTENT_TOO_LONG" | "NOT_FOUND" | "NO_PERMISSION" | "INTERNAL_ERROR";
 
 export class MaterialServiceError extends Error {
   code: MaterialServiceErrorCode;
@@ -68,6 +68,9 @@ function rowToMaterial(row: RowDataPacket): MaterialMsgRecord {
     additionalComments: row.additional_comments ? String(row.additional_comments) : null,
     comments: row.comments ? String(row.comments) : null,
     status: row.status ? String(row.status) : null,
+    // 列表查询中通过 LEFT JOIN sys_user 得到创建人姓名
+    // 使用 COALESCE 优先显示用户姓名，无匹配时回退显示创建人 ID（如 "teacher-materials-page" 等合成 ID 或真实 ID）
+    displayOwnerName: row.owner_user_name ? String(row.owner_user_name) : (row.create_user_id ? String(row.create_user_id) : null),
     // material_msg 基线无 owner_user_id：以 create_user_id 视为归属人
     ownerUserId: row.create_user_id ? String(row.create_user_id) : null,
     createUserId: row.create_user_id ? String(row.create_user_id) : null,
@@ -231,7 +234,7 @@ export async function saveMaterial(input: SaveMaterialInput, actorId?: string): 
     const isUpdate = existing[0].length > 0;
     const existingOwnerUserId = isUpdate ? (existing[0][0]?.create_user_id ? String(existing[0][0].create_user_id) : null) : null;
     if (isUpdate && existingOwnerUserId && ownerUserId && existingOwnerUserId !== ownerUserId) {
-      throw new MaterialServiceError("NOT_FOUND", "无权限修改其他用户的私有材料");
+      throw new MaterialServiceError("NO_PERMISSION", "无权限修改其他用户的私有材料");
     }
 
     const materialNum = normalizeText(input.materialNum, 60, "CONTENT_TOO_LONG", "物料内容过长");
@@ -292,6 +295,39 @@ export async function saveMaterial(input: SaveMaterialInput, actorId?: string): 
     const detail = await getMaterialDetail(conn, materialId);
     if (!detail) throw new MaterialServiceError("NOT_FOUND", "未找到该物料");
     return detail;
+  } catch (err) {
+    await conn.rollback();
+    if (err instanceof MaterialServiceError) throw err;
+    throw new MaterialServiceError("INTERNAL_ERROR", err instanceof Error ? err.message : String(err));
+  } finally {
+    conn.release();
+  }
+}
+
+export async function deleteMaterial(materialId: string, actorId?: string): Promise<{ materialId: string; deleted: boolean }> {
+  const pool = getMysqlPool();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query<RowDataPacket[]>(
+      `SELECT material_id, create_user_id FROM material_msg WHERE material_id = ? AND is_deleted = 0 LIMIT 1`,
+      [materialId],
+    );
+    if (rows.length === 0) throw new MaterialServiceError("NOT_FOUND", "未找到该材料");
+
+    const createUserId = rows[0]!.create_user_id ? String(rows[0]!.create_user_id) : null;
+    if (createUserId && actorId && createUserId !== actorId) {
+      throw new MaterialServiceError("NO_PERMISSION", "无权限删除其他用户的材料");
+    }
+
+    await conn.query<ResultSetHeader>(
+      `UPDATE material_msg SET is_deleted = 1, update_user_id = ?, update_time = CURRENT_TIMESTAMP WHERE material_id = ? AND is_deleted = 0`,
+      [actorId ?? null, materialId],
+    );
+
+    await conn.commit();
+    return { materialId, deleted: true };
   } catch (err) {
     await conn.rollback();
     if (err instanceof MaterialServiceError) throw err;

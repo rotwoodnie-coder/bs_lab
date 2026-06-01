@@ -35,9 +35,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="zh-CN" className={appFontVariableClassName} suppressHydrationWarning>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <GlobalErrorSentinel>
-          <AppProviders>{children}</AppProviders>
-        </GlobalErrorSentinel>
+        <AppProviders>
+          <GlobalErrorSentinel>{children}</GlobalErrorSentinel>
+        </AppProviders>
       </body>
     </html>
   );

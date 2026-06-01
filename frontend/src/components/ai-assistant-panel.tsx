@@ -10,7 +10,7 @@ import {
   SheetTitle,
 } from "@bs-lab/ui"
 import { cn } from "@/lib/utils"
-import { postV2AiChat, postV2AiDraftFeedback } from "@/lib/v2/v2-ai-api"
+import { postV2AiChat, postV2AiDraftFeedback, fetchAiUserContext } from "@/lib/v2/v2-ai-api"
 import { useSessionActor } from "@/hooks/use-session-actor"
 
 interface Message {
@@ -26,21 +26,75 @@ interface AIAssistantPanelProps {
   onOpenChange: (open: boolean) => void
 }
 
+const WELCOME_SUGGESTIONS = [
+  "我想探究沉在水中物体是否受到了水的浮力",
+  "我想知道种子发芽需要什么条件",
+  "不同颜色吸热不一样吗？我想做实验看看",
+  "我想研究一下小苏打和白醋的反应",
+]
+
+/** 根据姓名和年级生成个性化欢迎语 */
+function buildWelcomeContent(name: string, gradePart: string): string {
+  const displayName = name?.trim() || "同学"
+  return `${displayName}你好${gradePart}！我是**石头老师**，专为1-6年级同学设计小学科学实验方案。请告诉我你想探究的科学问题吧~`
+}
+
 export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) {
   const { actor, hydrated } = useSessionActor()
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
       role: "assistant",
-      content: "同学你好！我是**石头老师**，专为1-6年级同学设计小学科学实验方案。请告诉我你的年级和你想探究的科学问题吧~",
+      content: "同学你好！我是**石头老师**，专为1-6年级同学设计小学科学实验方案。请告诉我你想探究的科学问题吧~",
     },
   ])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  /** 错误提示 */
   const [error, setError] = useState<string | null>(null)
+  const [gradeName, setGradeName] = useState<string | null>(null)
+  const [schoolLevelName, setSchoolLevelName] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const ctxFetchedRef = useRef(false)
+
+  //  hydrated 后获取用户年级信息并更新欢迎语
+  useEffect(() => {
+    if (hydrated && actor?.userId && !ctxFetchedRef.current) {
+      ctxFetchedRef.current = true
+      const name = actor.userName?.trim() || "同学"
+
+      // 尝试从 localStorage 恢复缓存的年级
+      const cached = localStorage.getItem(`ai-grade-${actor.userId}`)
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached) as { gradeName: string | null; schoolLevelName: string | null }
+          if (parsed.gradeName || parsed.schoolLevelName) {
+            setGradeName(parsed.gradeName)
+            setSchoolLevelName(parsed.schoolLevelName)
+            const gradePart = parsed.gradeName ? `（${parsed.gradeName}）` : ""
+            setMessages([
+              { id: "welcome", role: "assistant", content: buildWelcomeContent(name, gradePart) },
+            ])
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 异步获取最新年级信息
+      fetchAiUserContext(actor).then((ctx) => {
+        setGradeName(ctx.gradeName)
+        setSchoolLevelName(ctx.schoolLevelName)
+        if (ctx.gradeName || ctx.schoolLevelName) {
+          localStorage.setItem(`ai-grade-${actor.userId}`, JSON.stringify(ctx))
+        }
+        const gradePart = ctx.gradeName ? `（${ctx.gradeName}）` : ""
+        setMessages([
+          { id: "welcome", role: "assistant", content: buildWelcomeContent(name, gradePart) },
+        ])
+      }).catch(() => {
+        // 静默，保留已有 welcome
+      })
+    }
+  }, [hydrated, actor?.userId, actor?.userName, actor])
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -65,7 +119,11 @@ export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) 
     setError(null)
 
     try {
-      const result = await postV2AiChat(actor, { message: text })
+      const result = await postV2AiChat(actor, {
+        message: text,
+        agent_type: actor.role?.replace(/^Role_/, "").toLowerCase(),
+        school_level_name: schoolLevelName ?? undefined,
+      })
       const aiMsg: Message = {
         id: `a-${Date.now()}`,
         role: "assistant",
@@ -76,7 +134,6 @@ export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) 
     } catch (err) {
       const msg = err instanceof Error ? err.message : "请求失败，请稍后重试"
       setError(msg)
-      // 添加一条助手错误提示
       setMessages((prev) => [
         ...prev,
         {
@@ -88,25 +145,20 @@ export function AIAssistantPanel({ open, onOpenChange }: AIAssistantPanelProps) 
     } finally {
       setLoading(false)
     }
-  }, [input, loading, hydrated, actor])
+  }, [input, loading, hydrated, actor, schoolLevelName])
 
-  /** 采纳：记录为 accepted */
+  /** 采纳 */
   const handleAccept = useCallback(async (draftId: string) => {
     try {
       await postV2AiDraftFeedback(actor, draftId, { is_accepted: "y" })
-      // 反馈成功无需前端状态变更
-    } catch {
-      // 静默吞错，反馈不影响用户体验
-    }
+    } catch { /* silent */ }
   }, [actor])
 
-  /** 拒绝：记录为 rejected */
+  /** 拒绝 */
   const handleReject = useCallback(async (draftId: string) => {
     try {
       await postV2AiDraftFeedback(actor, draftId, { is_accepted: "n" })
-    } catch {
-      // 静默吞错
-    }
+    } catch { /* silent */ }
   }, [actor])
 
   return (

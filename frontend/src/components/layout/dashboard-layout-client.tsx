@@ -42,13 +42,13 @@ import {
   getManagementDeniedRedirectPath,
   isManagementPathAllowedForRole,
 } from "@/lib/rbac/management-access";
-import { fetchV2Profile, postV2Logout, postV2SwitchRole } from "@/lib/v2/v2-auth-api";
+import { postV2Logout, postV2SwitchRole } from "@/lib/v2/v2-auth-api";
 import { DASHBOARD_MAIN_CONTAINER_CLASS } from "@/lib/layout-container-classes";
 import { cn } from "@/lib/utils";
 import { materialStorageBrowserHref } from "@/lib/material-asset-url";
 import { UserRole, userRoleLabelZh } from "@/types/auth";
 import { useSessionActor } from "@/hooks/use-session-actor";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthContext } from "@/lib/v2/auth-context";
 
 const AVATAR_FALLBACK: Record<UserRole, string> = {
   Role_Student: "学",
@@ -69,10 +69,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [ready, setReady] = React.useState(false);
+
+  // 从全局单例 Context 读取鉴权状态，无需独立发起 fetchV2Profile
+  const { user, loading, error } = useAuthContext();
+  const roleId = user.userId ? String(user.roleId ?? "").trim().toLowerCase() : "";
+  const isParent = roleId === "role_parent" || roleId === "parent";
+  const approvedCount = user.parentBindingSummary?.approvedCount ?? 0;
 
   React.useEffect(() => {
-    let cancelled = false;
     let bc: BroadcastChannel | null = null;
     try {
       bc = new BroadcastChannel("auth");
@@ -83,52 +87,37 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     } catch {
       bc = null;
     }
-    (async () => {
-      try {
-        const profile = await fetchV2Profile();
-        if (cancelled) return;
-        // 家长门禁：未通过绑定前，只允许进入绑定页（/profile/family）。
-        const roleLower = String(profile.userRoleId ?? "").trim().toLowerCase();
-        const isParent = roleLower === "role_parent" || roleLower === "parent";
-        const approvedCount = Number((profile as any).parentBindingSummary?.approvedCount ?? 0);
-        const pathOnly = (pathname ?? "").split("?")[0] ?? "";
-        // 家长门禁：未通过绑定时只允许进入绑定页；已通过绑定时自动跳转到家长实验室。
-        if (isParent) {
-          const allowed = new Set<string>(["/profile/family"]);
-          if (approvedCount <= 0) {
-            if (!allowed.has(pathOnly)) {
-              router.replace("/profile/family");
-              return;
-            }
-          } else {
-            // 已审核通过的家长如果还在绑定页，自动跳转到家长实验室
-            if (allowed.has(pathOnly)) {
-              router.replace("/parent/lab");
-              return;
-            }
-          }
-        }
-        if (profile.userRoleId === "Role_Sys_Admin") {
-          setReady(true);
-          return;
-        }
-        setReady(true);
-      } catch {
-        if (cancelled) return;
-        router.replace(buildLoginHref(pathname, searchParams));
-      }
-    })();
     return () => {
-      cancelled = true;
-      try {
-        bc?.close();
-      } catch {
-        /* ignore */
-      }
+      try { bc?.close(); } catch { /* ignore */ }
     };
   }, [pathname, router, searchParams]);
 
-  if (!ready) {
+  // 加载完成后的守卫逻辑
+  React.useEffect(() => {
+    if (loading) return;
+    if (error || !user.userId) {
+      router.replace(buildLoginHref(pathname, searchParams));
+      return;
+    }
+    // 家长门禁
+    if (isParent) {
+      const pathOnly = (pathname ?? "").split("?")[0] ?? "";
+      const allowed = new Set<string>(["/profile/family"]);
+      if (approvedCount <= 0) {
+        if (!allowed.has(pathOnly)) {
+          router.replace("/profile/family");
+          return;
+        }
+      } else {
+        if (allowed.has(pathOnly)) {
+          router.replace("/parent/lab");
+          return;
+        }
+      }
+    }
+  }, [loading, error, user.userId, isParent, approvedCount, pathname, router, searchParams]);
+
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
         正在校验登录状态…
@@ -144,15 +133,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const session = useSessionActor();
-  const auth = useAuth();
+  // 全局 AuthContext：仅加载一次 profile，此处只读，不触发额外请求
+  const auth = useAuthContext();
   const role = session.role;
   const roleHydrated = session.hydrated;
   const { viewMode, setViewMode, consumePendingModeSwitchToast, menuConfigRevision } = useAppMode();
   const { getEffectiveForRole } = useResourceCenterPolicy();
   const [loggingOut, setLoggingOut] = React.useState(false);
-  const [bindings, setBindings] = React.useState<Array<{ orgId: string; roleId: string; orgName: string | null; roleName: string | null }>>([]);
   const [switching, setSwitching] = React.useState(false);
-  const [parentBindingApproved, setParentBindingApproved] = React.useState(false);
   const [feedbackOpen, setFeedbackOpen] = React.useState(false);
   const [aiPanelOpen, setAiPanelOpen] = React.useState(false);
 
@@ -161,40 +149,27 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const searchParamsKey = searchParams.toString();
   const isHomePath = pathOnly === "/" || pathOnly === "";
 
+  // 从全局 context 读取 bindings 和 parentBindingApproved，避免单独 fetchV2Profile() 重复请求
+  const bindings = React.useMemo(
+    () =>
+      auth.user.userRoleBindings
+        .map((b) => ({
+          orgId: b.orgId ?? "",
+          roleId: b.roleId,
+          orgName: b.orgName,
+          roleName: b.roleName,
+        }))
+        .filter((x): x is { orgId: string; roleId: string; orgName: string | null; roleName: string | null } =>
+          x.orgId.length > 0 && x.roleId.length > 0,
+        ),
+    [auth.user.userRoleBindings],
+  );
+  const parentBindingApproved = (auth.user.parentBindingSummary?.approvedCount ?? 0) > 0;
+
   React.useEffect(() => {
     if (!consumePendingModeSwitchToast()) return;
     sonnerToast.success(getModeSwitchToastMessage(role, viewMode));
   }, [viewMode, role, consumePendingModeSwitchToast]);
-
-
-  // 真实身份上下文：来自后端 profile.userRoleBindings（sys_user_role）。
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const p = await fetchV2Profile();
-        if (cancelled) return;
-        const list = Array.isArray(p.userRoleBindings) ? p.userRoleBindings : [];
-        setBindings(
-          list
-            .map((x) => ({
-              orgId: String((x as any).orgId ?? ""),
-              roleId: String((x as any).roleId ?? ""),
-              orgName: (x as any).orgName != null ? String((x as any).orgName) : null,
-              roleName: (x as any).roleName != null ? String((x as any).roleName) : null,
-            }))
-            .filter((x) => x.orgId.length > 0 && x.roleId.length > 0),
-        );
-        const approvedCount = Number((p as any).parentBindingSummary?.approvedCount ?? 0);
-        setParentBindingApproved(approvedCount > 0);
-      } catch {
-        setBindings([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // Portal route guard: depend on searchParamsKey, not searchParams — Next can give a new object each render.
   React.useEffect(() => {

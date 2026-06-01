@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { setDefaultMediaDisplaySrcResolver, SonnerToaster, TooltipProvider } from "@bs-lab/ui";
 
 import { materialStorageBrowserHref } from "@/lib/material-asset-url";
+import { AuthProvider } from "@/lib/v2/auth-context";
 import { CatalogSeedProvider } from "@/components/providers/catalog-seed-provider";
 import { MobileProvider } from "@/contexts/MobileContext";
 
@@ -30,6 +31,7 @@ function MswBootstrap() {
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <CatalogSeedProvider>
+      <AuthProvider>
       <AppModeProvider>
         <ResourceCenterPolicyProvider>
           <TooltipProvider delayDuration={0}>
@@ -42,6 +44,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
           </TooltipProvider>
         </ResourceCenterPolicyProvider>
       </AppModeProvider>
+      </AuthProvider>
     </CatalogSeedProvider>
   );
 }

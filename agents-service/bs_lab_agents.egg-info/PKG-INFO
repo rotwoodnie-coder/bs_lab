@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: bs-lab-agents
+Version: 1.0.0
+Summary: LangGraph Agent Platform for bs-lab
+Requires-Python: >=3.11
+Requires-Dist: langgraph>=0.4.0
+Requires-Dist: langchain-community>=0.3.0
+Requires-Dist: langchain-openai>=0.3.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn[standard]>=0.34.0
+Requires-Dist: sqlalchemy[asyncio]>=2.0.36
+Requires-Dist: aiomysql>=0.2.0
+Requires-Dist: openai>=1.60.0
+Requires-Dist: pydantic>=2.10.0
+Requires-Dist: pydantic-settings>=2.7.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: postgres
+Requires-Dist: psycopg[binary]>=3.2.0; extra == "postgres"

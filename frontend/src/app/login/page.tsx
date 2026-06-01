@@ -61,8 +61,7 @@ export default function LoginPage() {
         }
         return resolveRedirectByRole(roleId);
       })();
-      router.replace(target);
-      router.refresh();
+      window.location.href = target;
     } catch (err) {
       sonnerToast.error(err instanceof Error ? err.message : "登录失败");
     } finally {

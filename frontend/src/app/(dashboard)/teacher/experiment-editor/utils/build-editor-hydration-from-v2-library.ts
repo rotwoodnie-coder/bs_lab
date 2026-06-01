@@ -73,6 +73,7 @@ export function buildEditorHydrationFromV2Library(
       nameLab: "（请补充实验材料）",
       quantity: "",
       materialType: "实验材料",
+      materialTypeId: undefined,
       nameHomeSubstitute: "",
       hazardFlags: [],
       safetyReminder: "",
@@ -144,5 +145,6 @@ export function buildEditorHydrationFromV2Library(
     creatorName: ctx.userName,
     coursebookId: "",
     unitId: "",
+    selectedStandardId: null,
   };
 }

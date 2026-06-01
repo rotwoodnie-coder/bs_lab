@@ -51,14 +51,22 @@ export function resolveExperimentalMaterialsOrgId(orgId: string): string {
   return orgId;
 }
 
-export function buildMaterialsApiActor(role: UserRole, orgId: string, context: MaterialsApiActorContext): ApiActor {
+/** 材料库数据的访问与写入身份。优先使用真实用户标识，兜底用合成 ID（兼容旧场景）。 */
+export function buildMaterialsApiActor(
+  role: UserRole,
+  orgId: string,
+  context: MaterialsApiActorContext,
+  realUserId?: string,
+  realUserName?: string,
+): ApiActor {
   const suffix = suffixByContext[context];
   const resolvedOrg = resolveExperimentalMaterialsOrgId(orgId);
+  const syntheticId = `${role.toLowerCase()}-${suffix}`;
   return {
     role,
     orgId: resolvedOrg,
-    userId: `${role.toLowerCase()}-${suffix}`,
-    userName: `${role.toLowerCase()}-${suffix}`,
+    userId: realUserId ?? syntheticId,
+    userName: realUserName ?? syntheticId,
   };
 }
 

@@ -64,7 +64,7 @@ function formFromRecord(record: ExperimentalMaterialRecord): ExperimentalMateria
   };
 }
 
-export function useExperimentalMaterialsApiPage(role: UserRole, orgId: string, hydrated: boolean) {
+export function useExperimentalMaterialsApiPage(role: UserRole, orgId: string, hydrated: boolean, userId?: string, userName?: string) {
   const [rows, setRows] = React.useState<ExperimentalMaterialRecord[]>([]);
   const [total, setTotal] = React.useState(0);
   const [pageIndex, setPageIndex] = React.useState(0);
@@ -94,7 +94,7 @@ export function useExperimentalMaterialsApiPage(role: UserRole, orgId: string, h
     tenantId: "district-001",
     appId: "materials",
   } as any);
-  const actor = React.useMemo(() => buildMaterialsApiActor(role, orgId, "materials-page"), [role, orgId]);
+  const actor = React.useMemo(() => buildMaterialsApiActor(role, orgId, "materials-page", userId, userName), [role, orgId, userId, userName]);
 
   const setFilters = React.useCallback((updater: React.SetStateAction<ExperimentalMaterialsFilters>) => {
     setFiltersState(updater);

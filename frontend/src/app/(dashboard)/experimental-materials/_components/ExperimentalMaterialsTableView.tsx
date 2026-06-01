@@ -183,6 +183,14 @@ export function ExperimentalMaterialsTableView(props: {
         },
       },
       {
+        accessorKey: "displayOwnerName",
+        meta: { label: "创建人" },
+        header: ({ column }) => <DataTableColumnHeader column={column} title="创建人" />,
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">{row.original.displayOwnerName || "—"}</span>
+        ),
+      },
+      {
         accessorKey: "updatedAt",
         meta: { label: "更新时间" },
         header: ({ column }) => <DataTableColumnHeader column={column} title="更新时间" />,

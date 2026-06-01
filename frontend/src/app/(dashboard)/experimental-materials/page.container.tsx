@@ -33,9 +33,9 @@ export default function ExperimentalMaterialsPageContainer() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { role, orgId, hydrated } = useSessionActor();
-  const page = useExperimentalMaterialsApiPage(role, orgId, hydrated);
-  const mediaActor = React.useMemo(() => buildMaterialsApiActor(role, orgId, "materials-page"), [orgId, role]);
+  const { role, orgId, hydrated, actor: sessionActor } = useSessionActor();
+  const page = useExperimentalMaterialsApiPage(role, orgId, hydrated, sessionActor.userId, sessionActor.userName);
+  const mediaActor = React.useMemo(() => buildMaterialsApiActor(role, orgId, "materials-page", sessionActor.userId, sessionActor.userName), [orgId, role, sessionActor.userId, sessionActor.userName]);
 
   const settingsOpen = searchParams.get("settings") === "true";
   const setSettingsOpen = React.useCallback(

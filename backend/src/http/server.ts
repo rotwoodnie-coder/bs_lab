@@ -26,6 +26,7 @@ import { routeV2OpsCache } from "./routes/v2-ops-cache.ts";
 import { routeV2SysLog } from "./routes/v2-sys-log.ts";
 import { routeV2SysFeedback } from "./routes/v2-sys-feedback.ts";
 import { routeV2FeedbackAutoSubmit } from "./routes/v2-feedback-auto-submit.ts";
+import { routeV2VirtualExperiment } from "./routes/v2-virtual-experiment.ts";
 import { routeV2Class } from "./routes/v2-class.ts";
 import { routeV2Student } from "./routes/v2-student.ts";
 import { routeV2Parent } from "./routes/v2-parent.ts";
@@ -143,6 +144,7 @@ const routes = [
   routeV2TeacherClassConfig,
   routeV2Review,
   routeV2Version,
+  routeV2VirtualExperiment,
   routeV2Ai,
 ];
 

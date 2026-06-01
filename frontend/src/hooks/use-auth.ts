@@ -1,13 +1,8 @@
 "use client";
 
-import * as React from "react";
-
 import { UserRole } from "@/types/auth";
-import {
-  fetchV2Profile,
-  readV2AuthSession,
-  type V2AuthProfile,
-} from "@/lib/v2/v2-auth-api";
+import { useAuthContext } from "@/lib/v2/auth-context";
+import type { AuthState } from "@/lib/v2/auth-context";
 
 export type AuthRole =
   | "Role_Researcher"
@@ -112,7 +107,7 @@ export type AuthUser = {
   parentBindingSummary: { approvedCount: number } | null;
 };
 
-const DEFAULT_AUTH_USER: AuthUser = {
+export const DEFAULT_AUTH_USER: AuthUser = {
   role: "Role_Student",
   roleId: null,
   orgId: "",
@@ -200,173 +195,13 @@ export function authRoleToUserRole(role: AuthRole): UserRole {
   }
 }
 
-function mapProfile(p: V2AuthProfile, tenantId: string, appId: string): AuthUser {
-  return {
-    role: roleCodeToAuthRole(p.userRoleId),
-    roleId: typeof p.userRoleId === "string" ? p.userRoleId : null,
-    orgId: p.userOrgId ?? "",
-    userId: p.userId,
-    userName: p.userName?.trim() || p.loginName || "用户",
-    tenantId,
-    appId,
-    loginName: p.loginName ?? null,
-    orgName: typeof p.orgName === "string" ? p.orgName : null,
-    roleDisplayName: typeof p.roleName === "string" ? p.roleName : null,
-    permissions: Array.isArray(p.permissions) ? p.permissions.map(String) : [],
-    userLogo: typeof p.userLogo === "string" ? p.userLogo : null,
-    userNickName: typeof p.userNickName === "string" ? p.userNickName : null,
-    userPhone: p.userPhone ?? null,
-    userEmail: p.userEmail ?? null,
-    status: p.status ?? null,
-    expireDate: typeof p.expireDate === "string" ? p.expireDate : null,
-    lastLoginTime: typeof p.lastLoginTime === "string" ? p.lastLoginTime : null,
-    prefTitleId: typeof p.prefTitleId === "string" ? p.prefTitleId : null,
-    prefTitleName: typeof p.prefTitleName === "string" ? p.prefTitleName : null,
-    perScore: typeof p.perScore === "number" ? p.perScore : Number(p.perScore ?? 0),
-    perResume: typeof p.perResume === "string" ? p.perResume : null,
-    comments: typeof p.comments === "string" ? p.comments : null,
-    createUserId: typeof p.createUserId === "string" ? p.createUserId : null,
-    createTime: typeof p.createTime === "string" ? p.createTime : null,
-    updateUserId: typeof p.updateUserId === "string" ? p.updateUserId : null,
-    updateTime: typeof p.updateTime === "string" ? p.updateTime : null,
-    isDeleted: typeof p.isDeleted === "number" ? (p.isDeleted as 0 | 1) : null,
-    recordUserOrgId: typeof p.recordUserOrgId === "string" ? p.recordUserOrgId : null,
-    recordUserRoleId: typeof p.recordUserRoleId === "string" ? p.recordUserRoleId : null,
-    recordOrgName: typeof p.recordOrgName === "string" ? p.recordOrgName : null,
-    recordRoleName: typeof p.recordRoleName === "string" ? p.recordRoleName : null,
-    sessionOrgName: typeof p.sessionOrgName === "string" ? p.sessionOrgName : null,
-    sessionRoleName: typeof p.sessionRoleName === "string" ? p.sessionRoleName : null,
-    teachingResearchGroups: Array.isArray(p.teachingResearchGroups)
-      ? p.teachingResearchGroups
-          .filter((g) => g && typeof g === "object")
-          .map((g) => ({
-            groupId: String((g as any).groupId ?? ""),
-            groupName: String((g as any).groupName ?? ""),
-            status: (String((g as any).status ?? "Y").toUpperCase() === "N" ? "N" : "Y") as "Y" | "N",
-            ownerId: (g as any).ownerId ? String((g as any).ownerId) : null,
-            ownerName: (g as any).ownerName ? String((g as any).ownerName).trim() || null : null,
-            subjectId: (g as any).subjectId ? String((g as any).subjectId) : null,
-          }))
-          .filter((g) => g.groupId.length > 0)
-      : [],
-    userRoleBindings: Array.isArray((p as any).userRoleBindings)
-      ? ((p as any).userRoleBindings as unknown[])
-          .filter((b) => b && typeof b === "object")
-          .map((b) => ({
-            seqId: String((b as any).seqId ?? ""),
-            roleId: String((b as any).roleId ?? ""),
-            orgId: (b as any).orgId != null && String((b as any).orgId).trim() ? String((b as any).orgId) : null,
-            roleName: (b as any).roleName != null ? String((b as any).roleName) : null,
-            orgName: (b as any).orgName != null ? String((b as any).orgName) : null,
-          }))
-          .filter((b) => b.seqId.length > 0)
-      : [],
-    scoreTitleProgress: (() => {
-      const raw = (p as any).scoreTitleProgress;
-      if (!raw || typeof raw !== "object") return null;
-      const tiers = Array.isArray(raw.tiers)
-        ? raw.tiers
-            .filter((t: unknown) => t && typeof t === "object")
-            .map((t: any) => ({
-              seqId: String(t.seqId ?? ""),
-              titleName: String(t.titleName ?? ""),
-              scoreNum: Number(t.scoreNum ?? 0),
-              icon: t.icon != null ? String(t.icon) : null,
-            }))
-        : [];
-      return {
-        currentTitleName: raw.currentTitleName != null ? String(raw.currentTitleName) : null,
-        nextTitleName: raw.nextTitleName != null ? String(raw.nextTitleName) : null,
-        nextThreshold: raw.nextThreshold != null ? Number(raw.nextThreshold) : null,
-        pointsToNext: raw.pointsToNext != null ? Number(raw.pointsToNext) : null,
-        tiers,
-      };
-    })(),
-    scaleLogRecent: Array.isArray((p as any).scaleLogRecent)
-      ? ((p as any).scaleLogRecent as unknown[])
-          .filter((r) => r && typeof r === "object")
-          .map((r: any) => ({
-            seqId: String(r.seqId ?? ""),
-            scaleSource: r.scaleSource != null ? String(r.scaleSource) : null,
-            scaleNum: Number(r.scaleNum ?? 0),
-            createTime: r.createTime != null ? String(r.createTime) : null,
-          }))
-      : [],
-    sysLogRecent: Array.isArray((p as any).sysLogRecent)
-      ? ((p as any).sysLogRecent as unknown[])
-          .filter((r) => r && typeof r === "object")
-          .map((r: any) => ({
-            logId: String(r.logId ?? ""),
-            logType: r.logType != null ? String(r.logType) : null,
-            logTime: r.logTime != null ? String(r.logTime) : null,
-            logDataType: r.logDataType != null ? String(r.logDataType) : null,
-            logDataId: r.logDataId != null ? String(r.logDataId) : null,
-          }))
-      : [],
-    teachingSubjects: Array.isArray(p.teachingSubjects)
-      ? p.teachingSubjects
-          .filter((s) => s && typeof s === "object")
-          .map((s) => ({ subjectId: String((s as any).subjectId ?? ""), subjectName: String((s as any).subjectName ?? "") }))
-          .filter((s) => s.subjectId.length > 0 && s.subjectName.trim().length > 0)
-      : [],
-    sessionOrgPathNodes: Array.isArray(p.sessionOrgPathNodes)
-      ? p.sessionOrgPathNodes
-          .filter((n) => n && typeof n === "object")
-          .map((n) => ({ orgId: String((n as any).orgId ?? ""), orgName: String((n as any).orgName ?? "") }))
-          .filter((n) => n.orgId.length > 0)
-      : [],
-    recordOrgPathNodes: Array.isArray(p.recordOrgPathNodes)
-      ? p.recordOrgPathNodes
-          .filter((n) => n && typeof n === "object")
-          .map((n) => ({ orgId: String((n as any).orgId ?? ""), orgName: String((n as any).orgName ?? "") }))
-          .filter((n) => n.orgId.length > 0)
-      : [],
-    parentBindingSummary:
-      p.parentBindingSummary && typeof p.parentBindingSummary === "object"
-        ? { approvedCount: Number((p.parentBindingSummary as any).approvedCount ?? 0) }
-        : null,
-  };
-}
-
-export function useAuth(): {
-  user: AuthUser;
-  loading: boolean;
-  error: string | null;
-  refresh: () => Promise<void>;
-} {
-  const [user, setUser] = React.useState<AuthUser>(() => ({ ...DEFAULT_AUTH_USER }));
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const tenantId =
-      process.env.NEXT_PUBLIC_EXPERIMENT_CATALOG_TENANT_ID?.trim() || DEFAULT_AUTH_USER.tenantId;
-    const appId = "console";
-    try {
-      // 登录态真源：服务端 Cookie Session。localStorage 仅保留为开发期兜底（逐步移除）。
-      const bootstrapId = process.env.NEXT_PUBLIC_V2_BOOTSTRAP_USER_ID?.trim() || "";
-      if (bootstrapId) {
-        // 兼容旧联调方式：仍允许用 userId 取 profile（后续会被 Actor 注入迁移替代）
-        const session = typeof window !== "undefined" ? readV2AuthSession() : null;
-        void session;
-      }
-      const profile = await fetchV2Profile();
-      setUser(mapProfile(profile, tenantId, appId));
-    } catch (e) {
-      setUser({ ...DEFAULT_AUTH_USER, tenantId, appId });
-      setError(e instanceof Error ? e.message : "鉴权上下文加载失败");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  return { user, loading, error, refresh: load };
+/**
+ * 全局单例用户鉴权 Context。
+ * 每个组件无需独立发起 profile 请求，由 <AuthProvider> 统一管理加载一次。
+ * 401 重定向由请求锁机制统一处理（见 v2-auth-api.ts 的 redirectingToLogin 模块级锁）。
+ */
+export function useAuth(): AuthState {
+  return useAuthContext();
 }
 
 /**

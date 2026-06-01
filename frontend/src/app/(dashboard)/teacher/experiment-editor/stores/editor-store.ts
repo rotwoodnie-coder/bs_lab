@@ -522,6 +522,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
       unitId: p.unitId,
       // 确保 gradeIds 与 selectedGradeCodes 同步
       gradeIds: p.gradeIds?.length ? p.gradeIds : (p.selectedGradeCodes ?? []),
+      selectedStandardId: p.selectedStandardId,
       referenceVideos: p.referenceVideos.map((v, idx) => ({
         id: v.seqId || `refvid-${idx + 1}`,
         videoUrl: v.videoUrl ?? "",
@@ -621,6 +622,7 @@ export const useEditorStore = create<EditorStoreState & EditorStoreActions>((set
         subjectId: s.subjectId?.trim() ? s.subjectId.trim() : undefined,
         schoolLevelId: s.schoolLevelId?.trim() ? s.schoolLevelId.trim() : undefined,
         gradeId: s.gradeId?.trim() ? s.gradeId.trim() : undefined,
+        standardExpId: s.selectedStandardId?.trim() ? s.selectedStandardId.trim() : undefined,
       });
       const newId = created.expId;
       set({ expId: newId, saveStatus: "idle" });

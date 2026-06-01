@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SUBJECT_CASCADE } from "@/data/subject-tree";
 import { readCurriculumStandardsStoreCatalogSeedOnly } from "@/lib/curriculum-standards-storage";
 import { canEditMaterialsAndStepContent, isSuperUserRole } from "@/lib/rbac/management-access";
-import { fetchV2ExpDetail, fetchV2ExpLibraryById, type V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
+import { fetchV2ExpDetail, fetchV2ExpLibraryById, type V2ExpLibraryItem, type V2ExpMsgDetail } from "@/lib/v2/v2-exp-api";
 import { V2ApiServiceError } from "@/lib/v2/apiService";
 import type { CurriculumStandardsStore } from "@/types/curriculum-standard";
 import type { EducationPhase, SubjectDiscipline } from "@/types/subject";
@@ -31,6 +31,7 @@ import type { PhaseKey } from "../types";
 import { buildEditorHydrationFromV2Library } from "../utils/build-editor-hydration-from-v2-library";
 import { buildEditorHydrationFromV2Detail } from "../utils/build-editor-hydration-from-v2-detail";
 import { editorPeerRowFromV2ExpMsgItem } from "../utils/editor-peer-row-types";
+import { v2ExpLibraryItemToMgmtRow } from "../../../experiment-manage/v2-exp-library-item-to-mgmt-row";
 
 export function useEditorBootstrap() {
   const searchParams = useSearchParams();
@@ -68,6 +69,8 @@ export function useEditorBootstrap() {
   });
 
   const [linkedStandardName, setLinkedStandardName] = React.useState<string | null>(null);
+  /** 独立获取的关联试验库条目（当 peerRows 分页/筛选截断时的后备） */
+  const [linkedLibItem, setLinkedLibItem] = React.useState<V2ExpLibraryItem | null>(null);
   const [curriculumStore, setCurriculumStore] = React.useState<CurriculumStandardsStore | null>(null);
   const setMainVideoId = React.useCallback(
     (v: string | null) => store.setField("mainVideoId", v),
@@ -80,11 +83,37 @@ export function useEditorBootstrap() {
   const [mainVideoPoster, setMainVideoPoster] = React.useState("");
 
   React.useEffect(() => setCurriculumStore(readCurriculumStandardsStoreCatalogSeedOnly()), []);
+
+  // 按需独立获取关联实验条目（从 exp_library 独立获取，不依赖 peerRows 分页缓存）
   React.useEffect(() => {
-    if (!store.selectedStandardId?.trim()) {
-      setLinkedStandardName(null);
+    const id = store.selectedStandardId?.trim();
+    if (!id || !v2Peer.actor.userId) {
+      setLinkedLibItem(null);
+      return;
     }
-  }, [store.selectedStandardId]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const item = await fetchV2ExpLibraryById(v2Peer.actor, id);
+        if (!cancelled) setLinkedLibItem(item);
+      } catch {
+        if (!cancelled) setLinkedLibItem(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [store.selectedStandardId, v2Peer.actor.userId]);
+
+  // linkedStandardName: 从独立获取的 linkedLibItem 读取标题
+  React.useEffect(() => {
+    const id = store.selectedStandardId?.trim();
+    if (!id) {
+      setLinkedStandardName(null);
+      return;
+    }
+    if (linkedLibItem?.libExpName?.trim()) {
+      setLinkedStandardName(linkedLibItem.libExpName.trim());
+    }
+  }, [store.selectedStandardId, linkedLibItem]);
 
   // ── Store 初始化（actor、权限、分发上下文） ──
   const initRef = React.useRef(false);
@@ -114,7 +143,6 @@ export function useEditorBootstrap() {
       try {
         const detail = await fetchV2ExpDetail(v2Peer.actor, expId);
         if (cancelled) return;
-        if (detail.status !== "y") return; // 仅已发布的实验才能用于 hydration
         store.hydrateFromDetail(detail, {
           grades: v2Peer.grades,
           subjects: v2Peer.subjects,
@@ -671,10 +699,18 @@ export function useEditorBootstrap() {
   } = useEditorBootstrapFlags(expId, row, isTeacher, isResearcher);
 
   const selectedStandardRow = React.useMemo(() => {
-    const r = v2Peer.peerRows.find((r) => r.id === store.selectedStandardId) ?? null;
-    if (!r) return null;
-    return { ...r, phaseLabel: r.phaseLabel ?? r.subjectLabel.split("·")[0]?.trim() ?? "—" };
-  }, [store.selectedStandardId, v2Peer.peerRows]);
+    const id = store.selectedStandardId?.trim();
+    if (!id) return null;
+    // 从独立获取的 linkedLibItem 构造行
+    if (linkedLibItem) {
+      const row = v2ExpLibraryItemToMgmtRow(linkedLibItem, {
+        subjects: v2Peer.subjects,
+        grades: v2Peer.grades,
+      });
+      return { ...row, phaseLabel: row.phaseLabel ?? row.subjectLabel.split("·")[0]?.trim() ?? "—" };
+    }
+    return null;
+  }, [store.selectedStandardId, linkedLibItem, v2Peer.subjects, v2Peer.grades]);
 
   // 为编辑器组件兼容 React.Dispatch 形式的 setter（接受 updater 函数）
   const setPhaseDispatch = React.useCallback(

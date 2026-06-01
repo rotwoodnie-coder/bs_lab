@@ -15,6 +15,7 @@ export const NAV_LABELS = {
   "exp-mgmt": "实验课程管理",
   "exp-question-bank": "实验题库",
   "community-court": "社区与法庭",
+  "virtual-experiment": "虚拟实验管理",
   "teacher-materials": "实验素材库",
   "mgmt-materials-lib": "实验材料库",
   "console-system-base": "用户管理",

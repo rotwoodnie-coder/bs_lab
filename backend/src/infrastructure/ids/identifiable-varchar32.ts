@@ -62,7 +62,7 @@ export async function allocateUniqueMysqlVarchar32Id(
   if (!table || !column) throw new Error("SQL_IDENTIFIER_INVALID");
   const stemBase = asciiSlugFromHumanLabel(opts.label) || "id";
   for (let attempt = 0; attempt < 48; attempt++) {
-    const suffix = attempt === 0 ? "" : `_${randomBytes(2).toString("hex")}`;
+    const suffix = `_${randomBytes(2).toString("hex")}`;
     const budget = 32 - suffix.length;
     let stem = stemBase.slice(0, Math.max(1, budget)).replace(/_+$/g, "") || "v";
     if (stem.length > budget) stem = stem.slice(0, budget);

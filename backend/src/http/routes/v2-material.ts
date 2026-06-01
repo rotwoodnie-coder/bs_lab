@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getMaterialList, getMaterialDetail, saveMaterial, MaterialServiceError } from "../../services/MaterialService.ts";
+import { getMaterialList, getMaterialDetail, saveMaterial, deleteMaterial, MaterialServiceError } from "../../services/MaterialService.ts";
 import { getMysqlPool } from "../../infrastructure/mysql/mysql-client.ts";
 
 function ok(data: unknown): Response {
@@ -61,6 +61,11 @@ export async function routeV2Material(req: Request): Promise<Response> {
       return ok(await saveMaterial({ ...input, materialId: decodeURIComponent(matMatch[1]!) }, actorId));
     }
 
+    if (matMatch && req.method === "DELETE") {
+      const id = decodeURIComponent(matMatch[1]!);
+      return ok(await deleteMaterial(id, actorId));
+    }
+
     return new Response(null, { status: 404 });
   } catch (err) {
     if (err instanceof z.ZodError) return fail(4000, `参数校验失败：${err.errors[0]?.message ?? "未知字段"}`, 400);
@@ -68,6 +73,7 @@ export async function routeV2Material(req: Request): Promise<Response> {
       if (err.code === "MATERIAL_NAME_EMPTY") return fail(4002, "物料名称不能为空", 400);
       if (err.code === "CONTENT_TOO_LONG") return fail(4001, "物料内容过长", 400);
       if (err.code === "NOT_FOUND") return fail(4040, "未找到该材料", 404);
+      if (err.code === "NO_PERMISSION") return fail(4030, err.message, 403);
       return fail(5000, err.message, 500);
     }
     if (err instanceof Error) return fail(5000, err.message, 500);

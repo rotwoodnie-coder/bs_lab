@@ -4,6 +4,7 @@ import {
   FileQuestion,
   Library,
   ListChecks,
+  Monitor,
   Package,
   Scale,
   UsersRound,
@@ -61,4 +62,5 @@ export const TEACHER_MANAGEMENT_NAV: readonly SystemNavItemDefinition[] = [
     Icon: Package,
   },
   { id: "ai-assistant", label: getNavLabel("ai-assistant", "AI 助教"), href: "/ai-assistant", Icon: Bot },
+  { id: "virtual-experiment", label: getNavLabel("virtual-experiment", "虚拟实验管理"), href: "/virtual-experiment/list", Icon: Monitor },
 ] as const;

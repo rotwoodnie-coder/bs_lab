@@ -62,6 +62,8 @@ export type EditorHydrationFromV2Payload = {
   creatorName: string;
   coursebookId: string;
   unitId: string;
+  /** 从 exp_msg.standard_exp_id 恢复关联实验 ID */
+  selectedStandardId: string | null;
 };
 
 function classHourToDurationMin(ch: number | null | undefined): string {
@@ -135,6 +137,7 @@ export function buildEditorHydrationFromV2Detail(
       libraryMaterialId: row.materialId?.trim() || undefined,
       nameLab: (row.materialName ?? "").trim() || `材料${idx + 1}`,
       quantity: numValue || "1",
+      materialTypeId: row.materialTypeId?.trim() || undefined,
       materialType: unitId || "实验材料",
       nameHomeSubstitute: (row.additionalComments ?? "").trim(),
       hazardFlags: [] as string[],
@@ -248,5 +251,6 @@ export function buildEditorHydrationFromV2Detail(
     creatorName: (detail.displayOwnerName ?? ctx.userName).trim() || ctx.userName,
     coursebookId: (detail.coursebookId ?? "").trim(),
     unitId: (detail.unitId ?? "").trim(),
+    selectedStandardId: (detail.standardExpId ?? "").trim() || null,
   };
 }

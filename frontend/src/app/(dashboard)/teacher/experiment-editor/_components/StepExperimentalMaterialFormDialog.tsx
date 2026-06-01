@@ -88,6 +88,7 @@ function mapFormToDraft(form: ExperimentalMaterialFormState): Omit<ExperimentMat
     thumbnailUrl: form.photoUrl,
     nameLab: form.name.trim(),
     quantity: (form.suggestedAmount.trim() || "1") as string,
+    materialTypeId: form.materialType,
     materialType: getExperimentalMaterialTypeLabel(form.materialType),
     nameHomeSubstitute: form.homeAlternative.trim(),
     hazardFlags,

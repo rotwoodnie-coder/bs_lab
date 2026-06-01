@@ -343,12 +343,6 @@ export function EditorCanvasSections(props: { vm: Vm; actions: Actions }) {
                 setDiscipline={vm.setDiscipline}
                 selectedGradeCodes={vm.selectedGradeCodes}
                 setSelectedGradeCodes={vm.setSelectedGradeCodes}
-                phaseLabel={vm.phaseLabel}
-                disciplineLabel={vm.disciplineLabel}
-                selectedGradeLabels={vm.selectedGradeLabels}
-                title={vm.expName}
-                summary={vm.summary}
-                curriculum={vm.curriculum}
                 teachingContextContent={vm.teachingContextContent}
                 teachingContextEmbeds={vm.teachingContextEmbeds}
                 onTeachingContextRichChange={vm.setTeachingContextRich}

@@ -1,4 +1,5 @@
 import { buildApiUrl, buildCoreApiJsonHeaders, buildCoreApiReadHeaders, getMediaSubjectKey, roleToHeader, type CoreApiActor } from "@/lib/core-api-shared";
+import { ensureRedirectToLogin } from "@/lib/v2/v2-auth-api";
 
 const FEEDBACK_THROTTLE_MS = 60_000;
 const feedbackThrottleMap = new Map<string, number>();
@@ -160,7 +161,7 @@ export class V2ApiService {
 
     if (response.status === 401 && typeof window !== "undefined") {
       void submitFailureFeedbackOnce({ url, status: 401, role: this.actor.role, context: "Silent refresh failed" });
-      window.location.href = "/login";
+      ensureRedirectToLogin();
       throw new V2ApiServiceError("会话已过期，请重新登录", undefined, null, 401);
     }
 

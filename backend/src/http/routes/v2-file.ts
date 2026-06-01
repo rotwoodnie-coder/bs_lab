@@ -182,6 +182,15 @@ function isMysqlDuplicateKey(err: unknown): boolean {
   return typeof err === "object" && err !== null && "errno" in err && (err as { errno: number }).errno === 1062;
 }
 
+/** 解析 is_hidden_from_gallery 表单字段：支持 "1"/"true"/"yes" 均为 true */
+function parseHiddenFlag(raw: string | null): boolean | undefined {
+  if (raw == null) return undefined;
+  const v = raw.trim().toLowerCase();
+  if (v === "" || v === "0" || v === "false" || v === "no") return false;
+  if (v === "1" || v === "true" || v === "yes") return true;
+  return undefined;
+}
+
 const fileQuerySchema = z.object({
   keyword: z.string().optional(),
   fileTypeId: z.string().optional(),
@@ -279,11 +288,15 @@ export async function routeV2File(req: Request): Promise<Response> {
         ? (await resolveDataFileTypeIdByTeacherMaterialKind(teacherKindRaw)) ?? undefined
         : undefined;
 
+      // 业务标记：用于将 file 与媒体素材库隔离，如 biz_type=virtual_exp_cover + is_hidden_from_gallery=1
+      const bizType = (formData.get("biz_type") as string | null)?.trim() || undefined;
+      const isHiddenFromGallery = parseHiddenFlag(formData.get("is_hidden_from_gallery") as string | null);
+
       // 全库去重：同一 contentSha256 已有启用行，直接返回已有记录，避免列表重复
       const dup = await findActiveFileByContentSha(contentSha256);
       if (dup) {
         scheduleThumbnailFinalizeFromStorageIfNoLogo(dup, file.type || "");
-        return ok({ ...(await materializeRecordFileUrls(dup)), contentDeduped: true });
+        return ok({ ...(await materializeRecordFileUrls(dup)), storageKey: dup.fileUrl, contentDeduped: true });
       }
 
       // 全新文件：上传到 S3 并创建行
@@ -300,6 +313,8 @@ export async function routeV2File(req: Request): Promise<Response> {
           ownerUserId: actorId,
           fileTypeId,
           contentSha256,
+          bizType,
+          isHiddenFromGallery,
         });
       } catch (e) {
         await deleteObject(storageKey).catch(() => {});
@@ -308,7 +323,7 @@ export async function routeV2File(req: Request): Promise<Response> {
           if (again) {
             // 并发写入冲突：另一请求已创建相同 SHA 的行
             scheduleThumbnailFinalizeFromStorageIfNoLogo(again, file.type || "");
-            return ok({ ...(await materializeRecordFileUrls(again)), contentDeduped: true });
+            return ok({ ...(await materializeRecordFileUrls(again)), storageKey: again.fileUrl, contentDeduped: true });
           }
         }
         throw e;
@@ -325,7 +340,8 @@ export async function routeV2File(req: Request): Promise<Response> {
       }).catch((err) => {
         console.error("[v2/file/upload] thumbnail finalize", record.fileId, err);
       });
-      return ok({ ...(await materializeRecordFileUrls(record)), contentDeduped: false });
+      const rawStorageKey = record.fileUrl;
+      return ok({ ...(await materializeRecordFileUrls(record)), storageKey: rawStorageKey, contentDeduped: false });
     }
 
     // ── 分片上传：init ───────────────────────────────────
@@ -643,6 +659,30 @@ export async function routeV2File(req: Request): Promise<Response> {
       }
       const presignedUrl = await createPresignedReadUrl(storageKey, { action });
       return ok({ fileId, presignedUrl, action });
+    }
+
+    // ── 文件代理服务（用于 iframe 同源内嵌 HTML 文件）──
+    const serveMatch = path.match(/^\/v2\/file\/serve\/(.+)$/);
+    if (serveMatch && req.method === "GET") {
+      const rawKey = decodeURIComponent(serveMatch[1]!);
+      // fileStorageKey 可能是原始 S3 key 或完整 MinIO URL（上传返回的预签名 URL），统一反解
+      const storageKey = tryStorageKeyFromFileUrl(rawKey) || rawKey;
+      try {
+        const buffer = await getObjectBuffer(storageKey);
+        // 推断 MIME：.html/.htm → text/html，其余按 S3 原始内容类型
+        const isHtml = /\.html?$/i.test(storageKey);
+        return new Response(buffer, {
+          status: 200,
+          headers: {
+            "Content-Type": isHtml ? "text/html; charset=utf-8" : "application/octet-stream",
+            "Cache-Control": "public, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      } catch (err) {
+        console.error("[v2/file/serve] failed", { storageKey, error: err instanceof Error ? err.message : String(err) });
+        return fail("文件读取失败", 404);
+      }
     }
 
     return new Response(null, { status: 404 });
